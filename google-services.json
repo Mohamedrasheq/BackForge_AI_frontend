@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "515173093503",
+    "project_id": "backforge-ai",
+    "storage_bucket": "backforge-ai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:515173093503:android:19b2c5872a16ce91306f4a",
+        "android_client_info": {
+          "package_name": "com.mohamed_rasheq.backforgeai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAnO4XRTOLjSR3HVkHlLyoeEj9i6kukUyY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
