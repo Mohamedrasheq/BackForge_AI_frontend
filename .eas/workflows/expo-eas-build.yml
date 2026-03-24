@@ -8,62 +8,14 @@ on:
       - "production-*"
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build_android:
+    type: build
+    params:
+      platform: android
+      profile: development
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Get branch name
-        id: branch
-        run: echo "BRANCH=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
-
-      - name: Set environment & profile
-        id: config
-        run: |
-          if [[ "$BRANCH" == dev-* ]]; then
-            echo "PROFILE=development" >> $GITHUB_ENV
-          elif [[ "$BRANCH" == preview-* ]]; then
-            echo "PROFILE=preview" >> $GITHUB_ENV
-          elif [[ "$BRANCH" == production-* ]]; then
-            echo "PROFILE=production" >> $GITHUB_ENV
-          fi
-
-      - name: Set platform (android / ios / both)
-        run: |
-          # Default = both
-          PLATFORM="all"
-
-          # Example: dev-android-login → android only
-          if [[ "$BRANCH" == *android* ]]; then
-            PLATFORM="android"
-          elif [[ "$BRANCH" == *ios* ]]; then
-            PLATFORM="ios"
-          fi
-
-          echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
-
-      - name: Login to Expo
-        run: eas whoami || eas login
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Run EAS Build
-        run: |
-          if [ "$PLATFORM" = "all" ]; then
-            eas build --profile $PROFILE --platform all --non-interactive
-          else
-            eas build --profile $PROFILE --platform $PLATFORM --non-interactive
-          fi
+  build_ios:
+    type: build
+    params:
+      platform: ios
+      profile: development
