@@ -25,9 +25,9 @@ export const Colors = {
     agentBubble: '#FFFFFF', // White bubble
     agentBubbleText: '#1E293B',
     // Urgency
-    urgencyLow: '#10B981',
-    urgencyMedium: '#F59E0B',
-    urgencyHigh: '#EF4444',
+    urgencyLow: '#059669', // Emerald-700
+    urgencyMedium: '#D97706', // Amber-600 (slightly deeper)
+    urgencyHigh: '#E11D48', // Rose-600 (more professional than standard red)
     // Gradient
     gradientStart: '#FFFFFF',
     gradientEnd: '#FFFFFF', // Flat white, no gradient
@@ -51,9 +51,9 @@ export const Colors = {
     agentBubble: '#FFFFFF', // White bubble
     agentBubbleText: '#1E293B',
     // Urgency
-    urgencyLow: '#10B981',
-    urgencyMedium: '#F59E0B',
-    urgencyHigh: '#EF4444',
+    urgencyLow: '#059669',
+    urgencyMedium: '#D97706',
+    urgencyHigh: '#E11D48',
     // Gradient
     gradientStart: '#FFFFFF',
     gradientEnd: '#FFFFFF', // Flat white, no gradient
@@ -108,6 +108,8 @@ export const Shadows = {
     shadowOpacity: 0.06,
     shadowRadius: 16,
     elevation: 4,
+    // Modern boxShadow (RN 0.77+)
+    boxShadow: '0 8 16 rgba(0, 0, 0, 0.06)',
   },
   subtle: {
     shadowColor: '#000',
@@ -115,6 +117,7 @@ export const Shadows = {
     shadowOpacity: 0.03,
     shadowRadius: 4,
     elevation: 2,
+    boxShadow: '0 2 4 rgba(0, 0, 0, 0.03)',
   },
   float: {
     shadowColor: '#000',
@@ -122,5 +125,6 @@ export const Shadows = {
     shadowOpacity: 0.12,
     shadowRadius: 24,
     elevation: 10,
+    boxShadow: '0 12 24 rgba(0, 0, 0, 0.12)',
   },
 };

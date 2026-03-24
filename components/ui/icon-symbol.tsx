@@ -83,6 +83,16 @@ const MAPPING: Record<string, string> = {
   'star.fill': 'star',
   'clock.fill': 'access-time',
   'lock.fill': 'lock',
+  'eye.fill': 'visibility',
+  'cpu': 'memory',
+  'flame.fill': 'whatshot',
+  'trash.fill': 'delete',
+  'trash': 'delete-outline',
+  'arrow.counterclockwise': 'refresh',
+  'wand.and.stars': 'auto-fix-high',
+  'magnifyingglass': 'search',
+  'person.2.fill': 'people',
+  'hammer.fill': 'build',
 } as any;
 
 

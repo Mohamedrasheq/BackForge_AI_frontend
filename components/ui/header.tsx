@@ -1,23 +1,33 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Shadows, Spacing } from '@/constants/theme';
+import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { haptics } from '@/lib/haptics';
+import haptics from '@/lib/haptics';
 import { useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface HeaderProps {
     title?: string;
     subtitle?: string;
+    showBranding?: boolean;
     icon?: React.ComponentProps<typeof IconSymbol>['name'];
     rightElement?: React.ReactNode;
-    hideLogo?: boolean;
+    hideDefaultRightElements?: boolean;
     style?: ViewStyle;
 }
 
-export function Header({ title, subtitle, icon, rightElement, hideLogo, style }: HeaderProps) {
+export function Header({
+    title,
+    subtitle,
+    showBranding = false,
+    icon,
+    rightElement,
+    hideDefaultRightElements = false,
+    style
+}: HeaderProps) {
     const { user } = useUser();
     const colorScheme = useColorScheme() ?? 'light';
     const colors = Colors[colorScheme];
@@ -45,26 +55,31 @@ export function Header({ title, subtitle, icon, rightElement, hideLogo, style }:
                     borderBottomColor: colors.border,
                 },
                 Shadows.subtle,
-                style
+                style,
             ]}
         >
             <View style={styles.content}>
-                {/* Left - Profile Image → opens Profile screen */}
-                <View style={styles.sideContainer}>
+                {/* Left — Avatar */}
+                <View style={styles.leftArea}>
                     <Pressable
                         onPress={handleProfilePress}
                         style={({ pressed }) => [
-                            { opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.92 : 1 }] },
+                            {
+                                opacity: pressed ? 0.8 : 1,
+                                transform: [{ scale: pressed ? 0.92 : 1 }],
+                            },
                         ]}
                     >
                         {user?.imageUrl ? (
                             <Image
                                 source={{ uri: user.imageUrl }}
-                                style={[styles.profileImage, { borderColor: colors.border }]}
+                                style={[styles.avatar, { borderColor: colors.border }]}
                             />
                         ) : (
-                            <View style={[styles.profilePlaceholder, { backgroundColor: colors.tint }]}>
-                                <Text style={styles.profileInitial}>
+                            <View
+                                style={[styles.avatarPlaceholder, { backgroundColor: colors.tint }]}
+                            >
+                                <Text style={styles.avatarInitial}>
                                     {user?.firstName?.charAt(0) ?? '?'}
                                 </Text>
                             </View>
@@ -72,43 +87,38 @@ export function Header({ title, subtitle, icon, rightElement, hideLogo, style }:
                     </Pressable>
                 </View>
 
-                {/* Center - Title or BackForge AI Icon */}
-                <View style={styles.centerContainer}>
-                    {title ? (
-                        <View style={styles.titleContainer}>
-                            <View style={styles.titleRow}>
-                                {icon && (
-                                    <IconSymbol name={icon} size={18} color={colors.tint} style={styles.titleIcon} />
-                                )}
-                                <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
-                                    {title}
-                                </Text>
-                            </View>
-                            {subtitle && (
-                                <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>
-                                    {subtitle}
-                                </Text>
-                            )}
-                        </View>
-                    ) : (
-                        !hideLogo && (
-                            <Image
-                                source={require('@/assets/images/icon.png')}
-                                style={styles.logoIcon}
-                            />
-                        )
-                    )}
+                {/* Center — Minimalist Symbol */}
+                <View style={styles.centerArea}>
+                    <Animated.View entering={FadeInDown.delay(200)}>
+                        <Image
+                            source={require('@/assets/images/brand_logo_cropped.png')}
+                            style={styles.centerLogo}
+                            resizeMode="contain"
+                        />
+                    </Animated.View>
                 </View>
 
-                {/* Right - Custom Element + Settings Icon → opens Settings screen */}
-                <View style={styles.rightContainer}>
+                {/* Right — Settings */}
+                <View style={styles.rightArea}>
                     {rightElement}
-                    <Pressable
-                        onPress={handleSettingsPress}
-                        style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
-                    >
-                        <IconSymbol name="gearshape.fill" size={24} color={colors.textSecondary} />
-                    </Pressable>
+                    {!hideDefaultRightElements && (
+                        <Pressable
+                            onPress={handleSettingsPress}
+                            style={({ pressed }) => [
+                                styles.gearButton,
+                                {
+                                    opacity: pressed ? 0.6 : 1,
+                                    backgroundColor: `${colors.textSecondary}10`,
+                                },
+                            ]}
+                        >
+                            <IconSymbol
+                                name="gearshape.fill"
+                                size={20}
+                                color={colors.textSecondary}
+                            />
+                        </Pressable>
+                    )}
                 </View>
             </View>
         </View>
@@ -118,75 +128,62 @@ export function Header({ title, subtitle, icon, rightElement, hideLogo, style }:
 const styles = StyleSheet.create({
     container: {
         paddingHorizontal: Spacing.md,
-        paddingBottom: Spacing.sm,
+        paddingBottom: Spacing.sm + 4,
         zIndex: 10,
     },
     content: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        height: 44,
+        minHeight: 44,
     },
-    sideContainer: {
-        width: 44,
-        alignItems: 'flex-start',
+    // Left — Avatar
+    leftArea: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    // Center — Search Bar
+    centerArea: {
+        flex: 2,
+        alignItems: 'center',
         justifyContent: 'center',
     },
-    profileImage: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+    centerLogo: {
+        width: 120, // Horizontal logo, cropped tight
+        height: 32,
+    },
+    // Right — Settings
+    rightArea: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: 10,
+    },
+    avatar: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         borderWidth: 2,
     },
-    profilePlaceholder: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+    avatarPlaceholder: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    profileInitial: {
-        fontSize: 16,
-        fontWeight: '600',
+    avatarInitial: {
+        fontSize: 14,
+        fontWeight: '700',
         color: '#FFFFFF',
     },
-    centerContainer: {
-        flex: 1,
+    gearButton: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    logoIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 8,
-    },
-    titleContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    titleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    titleIcon: {
-        marginRight: 2,
-    },
-    headerTitle: {
-        fontSize: 17,
-        fontWeight: '700',
-    },
-    headerSubtitle: {
-        fontSize: 11,
-        fontWeight: '500',
-        marginTop: -1,
-    },
-    iconButton: {
-        padding: 4,
-    },
-    rightContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
     },
 });

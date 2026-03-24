@@ -20,11 +20,14 @@ import type {
     ExecuteResponse,
     GitHubRepo,
     LinearContextResponse,
-    MemoriesResponse
+    MemoriesResponse,
+    Notification
 } from '@/types/api';
 
 // Default to localhost for development as per docs
-export const API_BASE = 'https://back-forge-ai.vercel.app/api';
+// Use environment variable for API URL with fallback
+const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
+export const API_BASE = ENV_API_URL || 'https://back-forge-ai.vercel.app/api';
 
 /**
  * Capture user input and get agent response
@@ -110,6 +113,20 @@ export async function closeMemory(
 
     if (!response.ok) {
         throw new Error('Failed to close memory');
+    }
+
+    return response.json();
+}
+
+/**
+ * Get all notifications for a user
+ * GET /api/notifications
+ */
+export async function getNotifications(userId: string): Promise<{ notifications: Notification[] }> {
+    const response = await fetch(`${API_BASE}/notifications?userId=${encodeURIComponent(userId)}`);
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch notifications');
     }
 
     return response.json();
@@ -325,17 +342,25 @@ export async function registerPushToken(
     userId: string,
     pushToken: string,
     platform: string,
-    deviceToken?: string
+    deviceToken?: string,
+    token?: string
 ): Promise<{ success: boolean }> {
     console.log(`[API] POST ${API_BASE}/notifications/register`);
-    const response = await fetch(`${API_BASE}/notifications/register`, {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE}/register-device`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ userId, pushToken, platform, deviceToken }),
     });
 
     if (!response.ok) {
-        throw new Error('Failed to register push token');
+        const errorText = await response.text();
+        console.error(`[API] Registration failed (${response.status}):`, errorText);
+        throw new Error(`Failed to register push token: ${errorText}`);
     }
 
     return response.json();

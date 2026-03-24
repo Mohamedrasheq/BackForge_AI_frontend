@@ -49,6 +49,7 @@ export interface MemoryItem {
     source_text: string;
     status: MemoryStatus;
     scheduled_message_id?: string | null;
+    due_at: string | null;
     created_at: string;
 }
 
@@ -109,6 +110,7 @@ export interface ChatRequest {
     userId: string;
     text: string;
     timezone: string;
+    history?: { role: 'user' | 'assistant'; content: string }[];
 }
 
 // Payload types for each action

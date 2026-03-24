@@ -1,10 +1,14 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { Header } from '@/components/ui/header';
+
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTabBar } from '@/lib/tab-bar-context';
+import { getNotifications } from '@/services/api';
 import { Notification } from '@/types/api';
 import { useUser } from '@clerk/clerk-expo';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useState } from 'react';
 import {
@@ -23,6 +27,8 @@ export default function NotificationsScreen() {
     const colorScheme = useColorScheme() ?? 'light';
     const colors = Colors[colorScheme];
     const insets = useSafeAreaInsets();
+    const router = useRouter();
+    const { handleScroll } = useTabBar();
 
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -31,11 +37,7 @@ export default function NotificationsScreen() {
     const fetchNotifications = useCallback(async () => {
         if (!user) return;
         try {
-            // Using a relative path helper or environment variable is best
-            // Assuming EXPO_PUBLIC_API_URL is set in .env
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
-            const response = await fetch(`${apiUrl}/notifications?userId=${user.id}`);
-            const data = await response.json();
+            const data = await getNotifications(user.id);
             setNotifications(data.notifications || []);
         } catch (error) {
             console.error('Failed to fetch notifications:', error);
@@ -98,26 +100,26 @@ export default function NotificationsScreen() {
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-            <Header />
+            <Header showBranding={false} />
 
             <FlatList
                 data={notifications}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={[styles.list, notifications.length === 0 && { flex: 1 }]}
+                contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }, notifications.length === 0 && { flex: 1 }]}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />
                 }
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
                 ListEmptyComponent={
-                    <Animated.View entering={FadeInDown.duration(400)} style={styles.empty}>
-                        <View style={[styles.emptyIcon, { backgroundColor: colors.tint + '15' }]}>
-                            <IconSymbol name="bell.fill" size={32} color={colors.tint} />
-                        </View>
-                        <Text style={[styles.emptyTitle, { color: colors.text }]}>No alerts yet</Text>
-                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                            We'll notify you when something needs your attention.
-                        </Text>
-                    </Animated.View>
+                    <EmptyState
+                        lottieSource={require('@/assets/animations/empty-notifications.json')}
+                        title="Quiet for Now"
+                        description="You're all caught up! We'll notify you here if anything needs your immediate attention."
+                        actionLabel="Check My Brief"
+                        onAction={() => router.push('/brief')}
+                    />
                 }
             />
         </View>

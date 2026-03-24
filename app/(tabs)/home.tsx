@@ -4,12 +4,14 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { subscribeToMemoryChanges } from '@/lib/supabase';
+import { useTabBar } from '@/lib/tab-bar-context';
 import { closeMemory, getAllMemories, getDailyBrief } from '@/services/api';
 import type { DailyBriefItem } from '@/types/api';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import LottieView from 'lottie-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Dimensions, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -17,6 +19,8 @@ import Animated, {
     FadeIn,
     FadeInDown,
     FadeInRight,
+    FadeOut,
+    LinearTransition,
     useAnimatedStyle,
     useSharedValue,
     withRepeat,
@@ -60,34 +64,35 @@ const QUICK_ACTIONS = [
 ] as const;
 
 // Tips data with gradient colors
+// Tips data with slightly darker premium gradients for a more professional look
 const TIPS_DATA = [
     {
         id: 'capture',
-        emoji: '💬',
+        icon: 'mic.fill',
         title: 'Capture',
         description: 'Voice or text, I understand',
-        gradientColors: ['#4F46E5', '#6366F1'] as const,
+        gradient: ['#4F46E5', '#4338CA'] as const,
     },
     {
         id: 'brief',
-        emoji: '📋',
+        icon: 'list.bullet.rectangle',
         title: 'Brief',
         description: 'Prioritized daily view',
-        gradientColors: ['#7C3AED', '#A78BFA'] as const,
+        gradient: ['#2563EB', '#1D4ED8'] as const,
     },
     {
         id: 'memory',
-        emoji: '🧠',
+        icon: 'brain.head.profile',
         title: 'Memory',
         description: 'Nothing gets forgotten',
-        gradientColors: ['#2563EB', '#60A5FA'] as const,
+        gradient: ['#E11D48', '#BE123C'] as const,
     },
     {
         id: 'smart',
-        emoji: '✨',
+        icon: 'wand.and.stars',
         title: 'Smart',
-        description: 'Context-aware reminders',
-        gradientColors: ['#0D9488', '#5EEAD4'] as const,
+        description: 'Context-aware help',
+        gradient: ['#059669', '#047857'] as const,
     },
 ];
 
@@ -135,6 +140,7 @@ export default function HomeScreen() {
     const router = useRouter();
 
     const { user } = useUser();
+    const { handleScroll } = useTabBar();
     const [status, setStatus] = useState<HomeStatus>(INITIAL_STATUS);
     const [refreshing, setRefreshing] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -264,17 +270,19 @@ export default function HomeScreen() {
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
 
-            <Header />
+            <Header showBranding={false} />
 
             <ScrollView
                 contentContainerStyle={[
                     styles.content,
-                    { paddingBottom: insets.bottom + Spacing.md },
+                    { paddingBottom: insets.bottom + 80 },
                 ]}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />
                 }
                 showsVerticalScrollIndicator={false}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
             >
                 {/* 1. Personalized Greeting Section */}
                 <Animated.View entering={FadeIn.duration(600)} style={styles.greetingSection}>
@@ -291,39 +299,74 @@ export default function HomeScreen() {
                     </View>
                 </Animated.View>
 
-                {/* 2. Status Card with Gradient */}
-                <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.statusCardWrapper}>
+                {/* 2. Intelligence Board (Merged Status/Progress) */}
+                <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.boardWrapper}>
                     <LinearGradient
-                        colors={['#4F46E5', '#7C3AED']}
+                        colors={colorScheme === 'dark' ? ['#312E81', '#1E1B4B'] : ['#4F46E5', '#3730A3']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
-                        style={styles.statusCard}
+                        style={styles.intelligenceBoard}
                     >
-                        <View style={styles.statusCardContent}>
-                            <View style={styles.statusIconContainer}>
-                                <IconSymbol name="sparkles" size={28} color="#FFFFFF" />
-                            </View>
-                            <View style={styles.statusTextContainer}>
-                                <Text style={styles.statusCardTitle}>BackForge AI is watching</Text>
-                                <Text style={styles.statusCardSubtitle}>I'm keeping track of everything for you</Text>
+                        <View style={styles.boardHeader}>
+                            <View style={styles.boardStatus}>
+                                <View style={styles.liveDot} />
+                                <Text style={styles.boardStatusText}>BackForge AI Live</Text>
                             </View>
                             <View style={styles.statusBadge}>
-                                <IconSymbol name="checkmark.circle.fill" size={20} color="#10B981" />
+                                <IconSymbol name="brain.head.profile" size={18} color="#FFFFFF" />
                             </View>
                         </View>
 
-                        {/* Pending count indicator */}
+                        <View style={styles.boardMainContent}>
+                            <View style={styles.boardTextContent}>
+                                <Text style={styles.boardTitle}>Watching over your day</Text>
+                                <Text style={styles.boardSubtitle}>
+                                    {progress.total === 0
+                                        ? 'Capturing and prioritizing your tasks...'
+                                        : `${progress.completed} of ${progress.total} items completed today`}
+                                </Text>
+                            </View>
+
+                            <View style={styles.boardProgressContainer}>
+                                <Svg width={80} height={80} viewBox="0 0 80 80">
+                                    <Circle
+                                        cx={40}
+                                        cy={40}
+                                        r={34}
+                                        stroke="rgba(255,255,255,0.15)"
+                                        strokeWidth={6}
+                                        fill="none"
+                                    />
+                                    <Circle
+                                        cx={40}
+                                        cy={40}
+                                        r={34}
+                                        stroke="#34D399"
+                                        strokeWidth={6}
+                                        fill="none"
+                                        strokeLinecap="round"
+                                        strokeDasharray={`${2 * Math.PI * 34}`}
+                                        strokeDashoffset={`${2 * Math.PI * 34 * (1 - (progress.total > 0 ? progress.percentage / 100 : 0))}`}
+                                        transform="rotate(-90 40 40)"
+                                    />
+                                </Svg>
+                                <Text style={styles.boardProgressText}>
+                                    {progress.total > 0 ? progress.percentage : 0}%
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* Footer / Pending Items */}
                         {status.pendingCount > 0 && (
                             <Pressable
                                 onPress={handleViewBrief}
                                 style={({ pressed }) => [
-                                    styles.pendingIndicator,
+                                    styles.boardFooter,
                                     { opacity: pressed ? 0.8 : 1 }
                                 ]}
                             >
-                                <View style={styles.pendingDot} />
-                                <Text style={styles.pendingText}>
-                                    {status.pendingCount} item{status.pendingCount > 1 ? 's' : ''} pending
+                                <Text style={styles.boardFooterText}>
+                                    {status.pendingCount} item{status.pendingCount > 1 ? 's' : ''} awaiting your review
                                 </Text>
                                 <IconSymbol name="chevron.right" size={14} color="rgba(255,255,255,0.8)" />
                             </Pressable>
@@ -331,103 +374,27 @@ export default function HomeScreen() {
                     </LinearGradient>
                 </Animated.View>
 
-                {/* 2.5. Daily Progress Card */}
-                <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.progressCardWrapper}>
-                    <LinearGradient
-                        colors={['#0F2027', '#134E4A']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.progressCard}
-                    >
-                        <View style={styles.progressCardContent}>
-                            {/* Left: Ring */}
-                            <View style={styles.progressRingContainer}>
-                                <Svg width={72} height={72} viewBox="0 0 72 72">
-                                    <Circle
-                                        cx={36}
-                                        cy={36}
-                                        r={30}
-                                        stroke="rgba(255,255,255,0.15)"
-                                        strokeWidth={6}
-                                        fill="none"
-                                    />
-                                    <Circle
-                                        cx={36}
-                                        cy={36}
-                                        r={30}
-                                        stroke={progress.percentage === 100 ? '#34D399' : '#2DD4BF'}
-                                        strokeWidth={6}
-                                        fill="none"
-                                        strokeLinecap="round"
-                                        strokeDasharray={`${2 * Math.PI * 30}`}
-                                        strokeDashoffset={`${2 * Math.PI * 30 * (1 - (progress.total > 0 ? progress.percentage / 100 : 0))}`}
-                                        transform="rotate(-90 36 36)"
-                                    />
-                                </Svg>
-                                <View style={styles.progressRingCenter}>
-                                    <Text style={styles.progressRingPercent}>
-                                        {progress.total > 0 ? progress.percentage : 0}
-                                    </Text>
-                                    <Text style={styles.progressRingUnit}>%</Text>
-                                </View>
-                            </View>
-
-                            {/* Right: Details */}
-                            <View style={styles.progressDetails}>
-                                <Text style={styles.progressCardTitle}>Today's Progress</Text>
-                                <Text style={styles.progressCardSub}>
-                                    {progress.total === 0
-                                        ? 'No tasks captured yet'
-                                        : progress.percentage === 100
-                                            ? '🎉 All done for today!'
-                                            : `${progress.completed} of ${progress.total} items completed`}
-                                </Text>
-                                {/* Mini bar */}
-                                <View style={styles.progressMiniBarBg}>
-                                    <View
-                                        style={[
-                                            styles.progressMiniBarFill,
-                                            {
-                                                width: `${progress.total > 0 ? progress.percentage : 0}%`,
-                                                backgroundColor: progress.percentage === 100 ? '#34D399' : '#2DD4BF',
-                                            },
-                                        ]}
-                                    />
-                                </View>
-                            </View>
-                        </View>
-                    </LinearGradient>
-                </Animated.View>
-
                 {/* 3. Quick Actions Row */}
                 <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.quickActionsSection}>
                     <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>QUICK ACTIONS</Text>
-                    <View style={styles.quickActionsRow}>
+                    <View style={styles.quickActionsContainer}>
                         {QUICK_ACTIONS.map((action, index) => (
-                            <Animated.View
+                            <Pressable
                                 key={action.id}
-                                entering={FadeInRight.delay(300 + index * 80).duration(400)}
-                                style={styles.quickActionWrapper}
+                                onPress={() => handleQuickAction(action.route)}
+                                style={({ pressed }) => [
+                                    styles.quickActionItem,
+                                    {
+                                        backgroundColor: pressed ? `${colors.tint}15` : 'transparent',
+                                        transform: [{ scale: pressed ? 0.98 : 1 }],
+                                    },
+                                ]}
                             >
-                                <Pressable
-                                    onPress={() => handleQuickAction(action.route)}
-                                    style={({ pressed }) => [
-                                        styles.quickActionButton,
-                                        {
-                                            backgroundColor: colors.backgroundSecondary,
-                                            borderColor: colors.border,
-                                            transform: [{ scale: pressed ? 0.95 : 1 }],
-                                        },
-                                    ]}
-                                >
-                                    <View style={[styles.quickActionIcon, { backgroundColor: colors.tint + '15' }]}>
-                                        <IconSymbol name={action.icon as any} size={22} color={colors.tint} />
-                                    </View>
-                                    <Text style={[styles.quickActionLabel, { color: colors.text }]} numberOfLines={1}>
-                                        {action.label}
-                                    </Text>
-                                </Pressable>
-                            </Animated.View>
+                                <IconSymbol name={action.icon as any} size={18} color={colors.tint} />
+                                <Text style={[styles.quickActionLabel, { color: colors.text }]}>
+                                    {action.label.split(' ')[action.label.split(' ').length - 1]}
+                                </Text>
+                            </Pressable>
                         ))}
                     </View>
                 </Animated.View>
@@ -450,72 +417,90 @@ export default function HomeScreen() {
                             <Animated.View
                                 key={item.id}
                                 entering={FadeInDown.delay(400 + (index * 80)).duration(400)}
+                                exiting={FadeOut.duration(300)}
+                                layout={LinearTransition}
                             >
                                 <Pressable
                                     onPress={() => handleMarkDone(item)}
                                     style={({ pressed }) => [
                                         styles.priorityCard,
+                                        Shadows.glass,
                                         {
-                                            backgroundColor: colors.backgroundSecondary,
+                                            backgroundColor: colors.background,
                                             borderColor: colors.border,
                                             transform: [{ scale: pressed ? 0.98 : 1 }],
                                         },
                                     ]}
                                 >
-                                    <View style={[styles.priorityAccent, { backgroundColor: colors.tint }]} />
+                                    {/* Left Urgency Bar */}
+                                    {/* Urgency Glow Background */}
+                                    <View style={[
+                                        styles.priorityUrgencyGlow,
+                                        { backgroundColor: item.urgency === 'high' ? `${colors.urgencyHigh}08` : (item.urgency === 'medium' ? `${colors.urgencyMedium}06` : `${colors.urgencyLow}04`) }
+                                    ]} />
+
                                     <View style={styles.priorityContent}>
-                                        <View style={styles.priorityHeader}>
-                                            <View style={[styles.priorityBadge, { backgroundColor: colors.tint + '15' }]}>
-                                                <IconSymbol name="bolt.fill" size={12} color={colors.tint} />
-                                                <Text style={[styles.priorityBadgeText, { color: colors.tint }]}>Priority</Text>
+                                        <View style={styles.priorityCardHeader}>
+                                            <View style={styles.priorityTypeBadge}>
+                                                <View style={[styles.typeIconBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                                                    <IconSymbol
+                                                        name={item.type === 'task' ? 'checkmark.circle' : (item.type === 'follow_up' ? 'bubble.left' : 'doc.text')}
+                                                        size={10}
+                                                        color={colors.textSecondary}
+                                                    />
+                                                </View>
+                                                <Text style={[styles.priorityTypeText, { color: colors.textSecondary }]}>
+                                                    {item.type === 'follow_up' ? 'Action' : (item.type || 'Task')}
+                                                </Text>
                                             </View>
-                                            <Text style={[styles.priorityType, { color: colors.textSecondary }]}>
-                                                {item.type === 'follow_up' ? 'Follow-up' : item.type || 'Task'}
-                                            </Text>
+                                            <View style={[
+                                                styles.priorityUrgencyBadge,
+                                                { backgroundColor: item.urgency === 'high' ? `${colors.urgencyHigh}12` : (item.urgency === 'medium' ? `${colors.urgencyMedium}12` : `${colors.urgencyLow}12`) }
+                                            ]}>
+                                                {item.urgency === 'high' && (
+                                                    <IconSymbol name="flame.fill" size={8} color={colors.urgencyHigh} style={{ marginRight: 2 }} />
+                                                )}
+                                                <Text style={[
+                                                    styles.priorityUrgencyText,
+                                                    { color: item.urgency === 'high' ? colors.urgencyHigh : (item.urgency === 'medium' ? colors.urgencyMedium : colors.urgencyLow) }
+                                                ]}>
+                                                    {item.urgency === 'high' ? 'Priority' : (item.urgency === 'medium' ? 'Upcoming' : 'Routine')}
+                                                </Text>
+                                            </View>
                                         </View>
-                                        <Text style={[styles.priorityTitle, { color: colors.text }]} numberOfLines={2}>
+
+                                        <Text style={[styles.priorityTitleText, { color: colors.text }]} numberOfLines={2}>
                                             {item.title}
                                         </Text>
-                                    </View>
-                                    <View style={[styles.priorityAction, { backgroundColor: colors.tint }]}>
-                                        <IconSymbol name="checkmark" size={16} color="#FFFFFF" />
+
+                                        <View style={styles.priorityCardFooter}>
+                                            <View style={styles.priorityMetaContainer}>
+                                                <Text style={[styles.priorityDueTag, { color: colors.textSecondary }]}>
+                                                    {item.dueAt ? `Due ${new Date(item.dueAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : 'Today'}
+                                                </Text>
+                                            </View>
+                                            <View style={[styles.priorityDoneButton, { backgroundColor: colors.tint }]}>
+                                                <IconSymbol name="checkmark" size={12} color="#FFFFFF" weight="bold" />
+                                            </View>
+                                        </View>
                                     </View>
                                 </Pressable>
                             </Animated.View>
                         ))
                     ) : (
                         <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.emptyStateContainer}>
-                            {/* Floating accent bubbles */}
-                            <View style={styles.emptyStateIllustration}>
-                                <Animated.Text
-                                    entering={FadeIn.delay(600).duration(600)}
-                                    style={[styles.floatingEmoji, styles.floatingEmoji1]}
-                                >
-                                    {isNewUser ? '💬' : '⭐'}
-                                </Animated.Text>
-                                <Animated.Text
-                                    entering={FadeIn.delay(750).duration(600)}
-                                    style={[styles.floatingEmoji, styles.floatingEmoji2]}
-                                >
-                                    {isNewUser ? '✨' : '💪'}
-                                </Animated.Text>
-                                <Animated.Text
-                                    entering={FadeIn.delay(900).duration(600)}
-                                    style={[styles.floatingEmoji, styles.floatingEmoji3]}
-                                >
-                                    {isNewUser ? '🎯' : '🏆'}
-                                </Animated.Text>
-
-                                {/* Central icon */}
-                                <Animated.View
-                                    entering={FadeIn.delay(500).duration(500)}
-                                    style={[styles.emptyStateCenterIcon, { backgroundColor: isNewUser ? colors.tint + '12' : '#10B98118' }]}
-                                >
-                                    <Text style={styles.emptyStateCenterEmoji}>
-                                        {isNewUser ? '🚀' : '🎉'}
-                                    </Text>
-                                </Animated.View>
-                            </View>
+                            {/* Lottie Animation */}
+                            <Animated.View
+                                entering={FadeIn.delay(500).duration(600)}
+                                style={styles.emptyStateIllustration}
+                            >
+                                <LottieView
+                                    source={require('@/assets/animations/Business decisions Lottie JSON animation.json')}
+                                    autoPlay
+                                    loop
+                                    style={{ width: '100%', height: '100%' }}
+                                />
+                            </Animated.View>
 
                             {/* Text */}
                             <Animated.Text
@@ -556,28 +541,32 @@ export default function HomeScreen() {
                     )}
                 </Animated.View>
 
-                {/* 5. Chat Input */}
+                {/* 5. Chat Command Bar */}
                 <Animated.View entering={FadeInDown.delay(450).duration(500)} style={styles.chatSection}>
                     <Pressable
                         onPress={handleChat}
                         style={({ pressed }) => [
                             styles.chatInputLike,
-                            Shadows.glass,
                             {
-                                backgroundColor: colors.glass,
-                                borderColor: colors.glassBorder,
-                                transform: [{ scale: pressed ? 0.98 : 1 }]
+                                backgroundColor: colors.backgroundSecondary,
+                                borderColor: colors.border,
+                                transform: [{ scale: pressed ? 0.99 : 1 }],
+                                shadowColor: colors.tint,
+                                shadowOffset: { width: 0, height: 4 },
+                                shadowOpacity: pressed ? 0.1 : 0.05,
+                                shadowRadius: 12,
+                                elevation: 2,
                             }
                         ]}
                     >
                         <View style={styles.chatInputContent}>
-                            <IconSymbol name="mic.fill" size={20} color={colors.textSecondary} />
+                            <IconSymbol name="wand.and.stars" size={18} color={colors.tint} />
                             <Text style={[styles.chatPlaceholder, { color: colors.textSecondary }]}>
-                                What's on your mind?
+                                Ask BackForge AI anything...
                             </Text>
                         </View>
                         <View style={[styles.chatSendButton, { backgroundColor: colors.tint }]}>
-                            <IconSymbol name="arrow.up" size={18} color="#FFFFFF" />
+                            <IconSymbol name="mic.fill" size={16} color="#FFFFFF" />
                         </View>
                     </Pressable>
                 </Animated.View>
@@ -589,7 +578,7 @@ export default function HomeScreen() {
                         horizontal
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={styles.tipsScrollContent}
-                        snapToInterval={140}
+                        snapToInterval={150 + 10}
                         decelerationRate="fast"
                     >
                         {TIPS_DATA.map((tip, index) => (
@@ -597,17 +586,37 @@ export default function HomeScreen() {
                                 key={tip.id}
                                 entering={FadeInRight.delay(550 + index * 60).duration(400)}
                             >
-                                <Pressable onPress={() => handleTipPress(tip.id)}>
+                                <Pressable
+                                    onPress={() => handleTipPress(tip.id)}
+                                    style={({ pressed }) => [
+                                        styles.tipCard,
+                                        Shadows.subtle,
+                                        {
+                                            backgroundColor: colors.background,
+                                            borderColor: `${tip.gradient[0]}20`,
+                                            transform: [{ scale: pressed ? 0.98 : 1 }],
+                                        }
+                                    ]}
+                                >
                                     <LinearGradient
-                                        colors={tip.gradientColors}
+                                        colors={[`${tip.gradient[0]}15`, `${tip.gradient[1]}05`]}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
-                                        style={styles.tipCard}
-                                    >
-                                        <Text style={styles.tipEmoji}>{tip.emoji}</Text>
-                                        <Text style={styles.tipTitle}>{tip.title}</Text>
-                                        <Text style={styles.tipDescription}>{tip.description}</Text>
-                                    </LinearGradient>
+                                        style={StyleSheet.absoluteFill}
+                                    />
+                                    <View style={styles.tipIconContainer}>
+                                        <LinearGradient
+                                            colors={tip.gradient}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 1 }}
+                                            style={styles.tipIconGradient}
+                                        />
+                                        <IconSymbol name={tip.icon as any} size={15} color="#FFFFFF" />
+                                    </View>
+                                    <View style={styles.tipTextContent}>
+                                        <Text style={[styles.tipTitle, { color: colors.text }]}>{tip.title.toUpperCase()}</Text>
+                                        <Text style={[styles.tipDescription, { color: colors.textSecondary }]} numberOfLines={2}>{tip.description}</Text>
+                                    </View>
                                 </Pressable>
                             </Animated.View>
                         ))}
@@ -658,40 +667,86 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginTop: 2,
     },
-    // Status Card
-    statusCardWrapper: {
+    // Intelligence Board (Merged Status/Progress)
+    boardWrapper: {
         marginBottom: Spacing.md,
     },
-    statusCard: {
-        borderRadius: 20,
+    intelligenceBoard: {
+        borderRadius: 24,
         padding: Spacing.md,
         overflow: 'hidden',
     },
-    statusCardContent: {
+    boardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: Spacing.md,
+    },
+    boardStatus: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        gap: 6,
+    },
+    liveDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#10B981',
+    },
+    boardStatusText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#FFFFFF',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    boardMainContent: {
         flexDirection: 'row',
         alignItems: 'center',
     },
-    statusIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.2)',
+    boardTextContent: {
+        flex: 1,
+    },
+    boardTitle: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: '#FFFFFF',
+        letterSpacing: -0.5,
+    },
+    boardSubtitle: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.8)',
+        marginTop: 4,
+    },
+    boardProgressContainer: {
+        width: 80,
+        height: 80,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    statusTextContainer: {
-        flex: 1,
-        marginLeft: Spacing.sm,
-    },
-    statusCardTitle: {
-        fontSize: 17,
-        fontWeight: '700',
+    boardProgressText: {
+        position: 'absolute',
+        fontSize: 18,
+        fontWeight: '800',
         color: '#FFFFFF',
     },
-    statusCardSubtitle: {
+    boardFooter: {
+        marginTop: Spacing.md,
+        paddingTop: Spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.1)',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    boardFooterText: {
         fontSize: 13,
-        color: 'rgba(255,255,255,0.8)',
-        marginTop: 2,
+        fontWeight: '600',
+        color: 'rgba(255,255,255,0.9)',
     },
     statusBadge: {
         width: 32,
@@ -701,90 +756,29 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    // Progress Card
-    progressCardWrapper: {
-        marginBottom: Spacing.md,
+    // Quick Actions - Cleaner Row
+    quickActionsSection: {
+        marginBottom: Spacing.lg,
     },
-    progressCard: {
-        borderRadius: 20,
-        padding: Spacing.md,
-        overflow: 'hidden',
-    },
-    progressCardContent: {
+    quickActionsContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.03)',
+        padding: 6,
+        borderRadius: 20,
+        gap: 6,
     },
-    progressRingContainer: {
-        width: 72,
-        height: 72,
+    quickActionItem: {
+        flex: 1,
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+        paddingVertical: 10,
+        borderRadius: 14,
+        gap: 8,
     },
-    progressRingCenter: {
-        position: 'absolute',
-        flexDirection: 'row',
-        alignItems: 'baseline',
-    },
-    progressRingPercent: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#FFFFFF',
-    },
-    progressRingUnit: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: 'rgba(255,255,255,0.7)',
-        marginLeft: 1,
-    },
-    progressDetails: {
-        flex: 1,
-        marginLeft: Spacing.md,
-    },
-    progressCardTitle: {
-        fontSize: 16,
+    quickActionLabel: {
+        fontSize: 13,
         fontWeight: '700',
-        color: '#FFFFFF',
-        marginBottom: 4,
-    },
-    progressCardSub: {
-        fontSize: 13,
-        color: 'rgba(255,255,255,0.7)',
-        marginBottom: 10,
-    },
-    progressMiniBarBg: {
-        height: 5,
-        borderRadius: 3,
-        backgroundColor: 'rgba(255,255,255,0.15)',
-        overflow: 'hidden',
-    },
-    progressMiniBarFill: {
-        height: '100%',
-        borderRadius: 3,
-    },
-    pendingIndicator: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: Spacing.sm,
-        paddingTop: Spacing.sm,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.2)',
-    },
-    pendingDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#FCD34D',
-        marginRight: 8,
-    },
-    pendingText: {
-        flex: 1,
-        fontSize: 13,
-        fontWeight: '600',
-        color: 'rgba(255,255,255,0.9)',
-    },
-    // Quick Actions
-    quickActionsSection: {
-        marginBottom: Spacing.md,
     },
     sectionLabel: {
         fontSize: 11,
@@ -792,31 +786,8 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
         marginBottom: Spacing.sm,
     },
-    quickActionsRow: {
-        flexDirection: 'row',
-        gap: Spacing.sm,
-    },
     quickActionWrapper: {
         flex: 1,
-    },
-    quickActionButton: {
-        alignItems: 'center',
-        paddingVertical: Spacing.md,
-        paddingHorizontal: Spacing.sm,
-        borderRadius: 16,
-        borderWidth: 1,
-    },
-    quickActionIcon: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: Spacing.xs,
-    },
-    quickActionLabel: {
-        fontSize: 12,
-        fontWeight: '600',
     },
     // Priority Section
     prioritySection: {
@@ -834,48 +805,102 @@ const styles = StyleSheet.create({
     },
     priorityCard: {
         flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: 14,
-        borderWidth: 1,
-        marginBottom: Spacing.xs,
+        borderRadius: 24,
+        marginBottom: Spacing.sm,
         overflow: 'hidden',
+        borderWidth: 1,
     },
-    priorityAccent: {
-        width: 4,
-        alignSelf: 'stretch',
+    priorityUrgencyGlow: {
+        ...StyleSheet.absoluteFillObject,
     },
     priorityContent: {
         flex: 1,
-        paddingVertical: Spacing.sm,
-        paddingHorizontal: Spacing.md,
+        padding: 18,
     },
-    priorityHeader: {
+    priorityCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    priorityTypeBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 4,
+        gap: 6,
+    },
+    typeIconBox: {
+        padding: 4,
+        borderRadius: 6,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    priorityTypeText: {
+        fontSize: 10,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 0.6,
+    },
+    priorityUrgencyBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 2,
+        paddingHorizontal: 8,
+        borderRadius: 10,
+    },
+    priorityUrgencyText: {
+        fontSize: 9,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 0.4,
+    },
+    priorityTitleText: {
+        fontSize: 17,
+        fontWeight: '700',
+        lineHeight: 23,
+        marginBottom: 16,
+        letterSpacing: -0.2,
+    },
+    priorityCardFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    priorityMetaContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    priorityDueTag: {
+        fontSize: 11,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    priorityDoneButton: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    prioritySeparator: {
+        width: 1,
+        height: 12,
+        backgroundColor: 'rgba(0,0,0,0.1)',
+        marginHorizontal: 8,
     },
     priorityBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 2,
-        paddingHorizontal: 6,
-        borderRadius: 6,
-        marginRight: Spacing.sm,
     },
     priorityBadgeText: {
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: '700',
         marginLeft: 4,
     },
-    priorityType: {
-        fontSize: 10,
-        fontWeight: '500',
-        textTransform: 'capitalize',
-    },
-    priorityTitle: {
-        fontSize: 14,
-        fontWeight: '600',
-        lineHeight: 20,
+    priorityChevron: {
+        marginLeft: 8,
+        opacity: 0.5,
     },
     priorityAction: {
         width: 36,
@@ -891,8 +916,8 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.lg,
     },
     emptyStateIllustration: {
-        width: 140,
-        height: 140,
+        width: 220,
+        height: 220,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: Spacing.md,
@@ -989,23 +1014,42 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     tipCard: {
-        width: 130,
-        height: 130,
-        borderRadius: 16,
-        padding: Spacing.md,
+        width: 150,
+        height: 140,
+        borderRadius: 24,
+        marginRight: 10,
+        padding: 16,
+        borderWidth: 1,
         justifyContent: 'space-between',
+        overflow: 'hidden',
     },
-    tipEmoji: {
-        fontSize: 28,
+    tipIconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+    },
+    tipIconGradient: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
+    tipTextContent: {
+        marginTop: 10,
     },
     tipTitle: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#FFFFFF',
+        fontSize: 11,
+        fontWeight: '800',
+        letterSpacing: 0.5,
+        marginBottom: 4,
     },
     tipDescription: {
-        fontSize: 11,
-        color: 'rgba(255,255,255,0.85)',
-        lineHeight: 14,
+        fontSize: 12,
+        fontWeight: '500',
+        lineHeight: 16,
     },
 });

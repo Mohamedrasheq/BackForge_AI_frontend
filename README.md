@@ -50,7 +50,7 @@ npx expo start
 ## 🏗️ Architecture
 This project uses the **Expo Managed Workflow** with Continuous Native Generation (CNG).
 - Native folders (`/android`, `/ios`) are generated dynamically based on `app.json`.
-- Internal identifiers have been fully migrated to `com.mohamed_rasheq.backforgeai`.
+- Internal identifiers have been fully migrated to `com.devmr.backforge.ai`.
 
 ## 🤝 Community & Support
 - **Project Owner:** Mohamed Rasheq

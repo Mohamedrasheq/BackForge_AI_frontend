@@ -1,5 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { DailyBriefItem, Urgency } from '@/types/api';
 import * as Haptics from 'expo-haptics';
@@ -12,7 +12,12 @@ import {
     View,
     ViewStyle,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { 
+    FadeInDown, 
+    useAnimatedStyle, 
+    useSharedValue, 
+    withSpring 
+} from 'react-native-reanimated';
 
 interface BriefItemProps {
     item: DailyBriefItem;
@@ -60,7 +65,21 @@ export function BriefItem({
     const colors = Colors[colorScheme];
     const urgencyInfo = getUrgencyInfo(item.urgency, colors);
 
-    const handlePress = async (action: () => void) => {
+    const scale = useSharedValue(1);
+
+    const animatedContainerStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+    }));
+
+    const handlePressIn = () => {
+        scale.value = withSpring(0.98, { damping: 15, stiffness: 300 });
+    };
+
+    const handlePressOut = () => {
+        scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+    };
+
+    const handlePressAction = async (action: () => void) => {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         action();
     };
@@ -68,23 +87,37 @@ export function BriefItem({
     return (
         <Animated.View
             entering={FadeInDown.delay(delay).duration(400).springify()}
-            style={style}
+            style={[style, animatedContainerStyle]}
         >
-            <View style={[styles.container, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
-                {/* Left accent bar */}
-                <View style={[styles.accentBar, { backgroundColor: urgencyInfo.color }]} />
-
+            <Pressable
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                style={({ pressed }) => [
+                    styles.container,
+                    { 
+                        backgroundColor: colors.background,
+                        borderColor: colors.border,
+                    },
+                    Shadows.glass
+                ]}
+            >
+                {/* Glow Background for Urgency */}
+                <View style={[styles.urgencyGlow, { backgroundColor: urgencyInfo.color, opacity: 0.03 }]} />
+                
                 <View style={styles.content}>
-                    {/* Header: Type icon + Label + Urgency */}
+                    {/* Header: Type icon + Label */}
                     <View style={styles.header}>
                         <View style={styles.typeRow}>
-                            <IconSymbol name={getTypeIcon(item.type)} size={14} color={colors.textSecondary} style={styles.typeIcon} />
+                            <View style={[styles.typeIconContainer, { backgroundColor: colors.border }]}>
+                                <IconSymbol name={getTypeIcon(item.type)} size={11} color={colors.tint} />
+                            </View>
                             <Text style={[styles.typeLabel, { color: colors.textSecondary }]}>
-                                {item.type === 'follow_up' ? 'Follow-up' : item.type}
+                                {item.type === 'follow_up' ? 'Action Required' : item.type}
                             </Text>
                         </View>
-                        <View style={[styles.urgencyBadge, { backgroundColor: urgencyInfo.color + '20' }]}>
-                            <Text style={[styles.urgencyText, { color: urgencyInfo.color }]}>
+                        <View style={[styles.urgencyTag, { backgroundColor: urgencyInfo.color + '15' }]}>
+                            <View style={[styles.urgencyDot, { backgroundColor: urgencyInfo.color }]} />
+                            <Text style={[styles.urgencyLabel, { color: urgencyInfo.color }]}>
                                 {urgencyInfo.label}
                             </Text>
                         </View>
@@ -97,30 +130,35 @@ export function BriefItem({
 
                     {/* Footer: Date + Actions */}
                     <View style={styles.footer}>
-                        {item.dueAt ? (
-                            <View style={styles.dateRow}>
-                                <IconSymbol name="calendar" size={12} color={colors.textSecondary} style={{ marginRight: 4 }} />
-                                <Text style={[styles.dateText, { color: colors.textSecondary }]}>
-                                    {new Date(item.dueAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                </Text>
-                            </View>
-                        ) : <View style={{ flex: 1 }} />}
+                        <View style={styles.metaRow}>
+                            {item.dueAt ? (
+                                <View style={styles.dateRow}>
+                                    <Text style={[styles.dateText, { color: colors.textSecondary }]}>
+                                        Due {new Date(item.dueAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                    </Text>
+                                </View>
+                            ) : (
+                                <View style={styles.timeTag}>
+                                    <Text style={[styles.timeTagText, { color: colors.textSecondary }]}>Today</Text>
+                                </View>
+                            )}
+                        </View>
 
                         <View style={styles.actions}>
                             <Pressable
-                                onPress={() => handlePress(onSnooze)}
+                                onPress={() => handlePressAction(onSnooze)}
                                 style={({ pressed }) => [
-                                    styles.iconButton,
+                                    styles.actionIcon,
                                     { backgroundColor: pressed ? colors.border : 'transparent' }
                                 ]}
                             >
-                                <IconSymbol name="clock" size={18} color={colors.textSecondary} />
+                                <IconSymbol name="clock" size={16} color={colors.textSecondary} />
                             </Pressable>
 
                             <Pressable
-                                onPress={() => handlePress(onDraft)}
+                                onPress={() => handlePressAction(onDraft)}
                                 style={({ pressed }) => [
-                                    styles.iconButton,
+                                    styles.actionIcon,
                                     { backgroundColor: pressed ? colors.border : 'transparent' }
                                 ]}
                             >
@@ -128,106 +166,137 @@ export function BriefItem({
                             </Pressable>
 
                             <Pressable
-                                onPress={() => handlePress(onDone)}
+                                onPress={() => handlePressAction(onDone)}
                                 style={({ pressed }) => [
                                     styles.doneButton,
-                                    { backgroundColor: colors.background, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }
+                                    { 
+                                        backgroundColor: colors.tint, 
+                                        opacity: pressed ? 0.9 : 1,
+                                    }
                                 ]}
                             >
-                                <Text style={[styles.doneText, { color: colors.text }]}>Done</Text>
+                                <IconSymbol name="checkmark" size={14} color="#FFFFFF" />
                             </Pressable>
                         </View>
                     </View>
                 </View>
-            </View>
+            </Pressable>
         </Animated.View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        borderWidth: 1,
-        borderRadius: Radius.lg,
+        borderRadius: 24,
         flexDirection: 'row',
         overflow: 'hidden',
+        borderWidth: 1,
     },
-    accentBar: {
-        width: 4,
+    urgencyGlow: {
+        ...StyleSheet.absoluteFillObject,
     },
     content: {
         flex: 1,
-        padding: Spacing.md,
+        padding: 20,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: Spacing.xs,
+        marginBottom: 12,
     },
     typeRow: {
         flexDirection: 'row',
         alignItems: 'center',
     },
-    typeIcon: {
-        marginRight: 6,
+    typeIconContainer: {
+        width: 24,
+        height: 24,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 8,
     },
     typeLabel: {
-        fontSize: 12,
-        fontWeight: '600',
-        textTransform: 'capitalize',
-    },
-    urgencyBadge: {
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
-    },
-    urgencyText: {
         fontSize: 10,
-        fontWeight: '700',
+        fontWeight: '800',
         textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    urgencyTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    urgencyDot: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        marginRight: 6,
+    },
+    urgencyLabel: {
+        fontSize: 10,
+        fontWeight: '900',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     title: {
-        fontSize: 15,
-        fontWeight: '500',
-        lineHeight: 22,
-        marginBottom: Spacing.sm,
+        fontSize: 18,
+        fontWeight: '700',
+        lineHeight: 26,
+        marginBottom: 20,
+        letterSpacing: -0.3,
     },
     footer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: Spacing.xs,
+    },
+    metaRow: {
+        flex: 1,
     },
     dateRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        flex: 1,
     },
     dateText: {
-        fontSize: 12,
-        fontWeight: '500',
+        fontSize: 11,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    timeTag: {
+        backgroundColor: 'rgba(0,0,0,0.03)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        alignSelf: 'flex-start',
+    },
+    timeTagText: {
+        fontSize: 10,
+        fontWeight: '800',
+        textTransform: 'uppercase',
     },
     actions: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Spacing.xs,
+        gap: 4,
     },
-    iconButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+    actionIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
     },
     doneButton: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        borderWidth: 1,
-        marginLeft: Spacing.xs,
-    },
-    doneText: {
-        fontSize: 12,
-        fontWeight: '600',
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 4,
     },
 });

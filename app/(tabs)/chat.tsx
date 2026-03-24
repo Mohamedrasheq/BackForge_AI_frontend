@@ -22,6 +22,7 @@ import { useUser } from '@clerk/clerk-expo';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   FlatList,
   Keyboard,
@@ -32,6 +33,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   getDailyMessageStats,
@@ -78,21 +80,8 @@ export default function ChatScreen() {
   }, [user]);
 
   // ── Chat state ──
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning. What's on your mind?";
-    if (hour < 18) return "Good afternoon. What's on your mind?";
-    return "Good evening. What's on your mind?";
-  };
-
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      text: getGreeting(),
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
+  const [currentQuote, setCurrentQuote] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [executingActionId, setExecutingActionId] = useState<string | null>(null);
@@ -103,6 +92,17 @@ export default function ChatScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
+      // Pick a random quote when focusing
+      const quotes = [
+        "What's on your mind?",
+        "How can I help you today?",
+        "Need help with a task?",
+        "Let's get things done.",
+        "How can I assist you right now?",
+        "Ready to supercharge your workflow?",
+      ];
+      setCurrentQuote(quotes[Math.floor(Math.random() * quotes.length)]);
+
       const checkLimits = async () => {
         const isPro = await isProActive();
         setProActive(active => active || isPro);
@@ -171,6 +171,10 @@ export default function ChatScreen() {
         {
           userId: user.id,
           text,
+          history: messages.map(msg => ({
+            role: msg.isUser ? 'user' : 'assistant',
+            content: msg.text,
+          })),
           timezone: getTimezone(),
         },
         (delta) => {
@@ -257,43 +261,80 @@ export default function ChatScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <Header />
+      <Header 
+        showBranding={false} 
+        hideDefaultRightElements={true}
+        rightElement={
+          <Pressable
+            onPress={() => {
+              haptics.medium();
+              setMessages([]);
+            }}
+            style={({ pressed }) => [
+              styles.clearButton,
+              {
+                opacity: pressed ? 0.6 : 1,
+                backgroundColor: `${colors.textSecondary}12`,
+              },
+            ]}
+          >
+            <IconSymbol name="arrow.counterclockwise" size={16} color={colors.textSecondary} />
+          </Pressable>
+        }
+      />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
         keyboardVerticalOffset={0}
       >
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.messageList}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
-          renderItem={({ item }) => (
-            <View style={styles.bubbleWrapper}>
-              <ChatBubble
-                text={item.text}
-                isUser={item.isUser}
-                style={item.isUser ? styles.userBubble : styles.agentBubble}
-              />
-              {!item.isUser && item.proposedActions && (
-                <View style={styles.actionsList}>
-                  {item.proposedActions.map((action: ProposedAction) => (
-                    <ActionCard
-                      key={action.id}
-                      action={action}
-                      linearContext={linearContext}
-                      githubRepos={githubRepos}
-                      isExecuting={executingActionId === action.id}
-                      onApprove={() => handleExecuteAction(action)}
-                    />
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
-        />
+        {messages.length === 0 ? (
+          <View style={styles.initialState}>
+            <LottieView
+              source={require('@/assets/animations/Man Working on Laptop.json')}
+              autoPlay
+              loop
+              style={styles.initialLottie}
+            />
+            <Animated.Text 
+              entering={FadeInDown.delay(400).duration(600)}
+              style={[styles.initialQuote, { color: colors.text }]}
+            >
+              {currentQuote}
+            </Animated.Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.messageList}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+            renderItem={({ item }) => (
+              <View style={styles.bubbleWrapper}>
+                <ChatBubble
+                  text={item.text}
+                  isUser={item.isUser}
+                  style={item.isUser ? styles.userBubble : styles.agentBubble}
+                />
+                {!item.isUser && item.proposedActions && (
+                  <View style={styles.actionsList}>
+                    {item.proposedActions.map((action: ProposedAction) => (
+                      <ActionCard
+                        key={action.id}
+                        action={action}
+                        linearContext={linearContext}
+                        githubRepos={githubRepos}
+                        isExecuting={executingActionId === action.id}
+                        onApprove={() => handleExecuteAction(action)}
+                      />
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+          />
+        )}
 
         <View style={[
           styles.inputContainer,
@@ -384,6 +425,31 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  initialState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 40,
+  },
+  initialLottie: {
+    width: 280,
+    height: 280,
+  },
+  initialQuote: {
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: -20,
+    paddingHorizontal: Spacing.xl,
+    opacity: 0.9,
+  },
+  clearButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },

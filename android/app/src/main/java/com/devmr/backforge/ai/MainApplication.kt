@@ -1,4 +1,4 @@
-package com.mohamed_rasheq.backforgeai
+package com.devmr.backforge.ai
 
 import android.app.Application
 import android.content.res.Configuration

@@ -43,7 +43,7 @@ const tokenCache = {
 };
 
 function InitialLayout() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const { user } = useUser();
   const segments = useSegments();
   const router = useRouter();
@@ -86,8 +86,11 @@ function InitialLayout() {
           // Also get native device token (FCM/APNS)
           const deviceToken = await getDevicePushToken();
 
+          // Get Clerk session token for authentication
+          const token = await getToken();
+
           // Send tokens to backend
-          await registerPushToken(user.id, pushToken, Platform.OS, deviceToken || undefined).catch((err) =>
+          await registerPushToken(user.id, pushToken, Platform.OS, deviceToken || undefined, token || undefined).catch((err) =>
             console.warn('[Notifications] Failed to register token with backend:', err)
           );
           hasRegisteredPush.current = true;

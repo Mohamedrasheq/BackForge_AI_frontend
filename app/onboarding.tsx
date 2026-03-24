@@ -1,4 +1,5 @@
 import { Slide } from '@/components/onboarding/slide';
+import { SwipeButton } from '@/components/onboarding/swipe-button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -7,57 +8,66 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import React, { useRef, useState } from 'react';
-import { Dimensions, FlatList, ImageSourcePropType, Pressable, StyleSheet, Text, TouchableOpacity, View, ViewToken } from 'react-native';
+import { Dimensions, FlatList, Pressable, StyleSheet, View, ViewToken } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
 // Indigo-tinted gradients per slide
 const SLIDE_BACKGROUNDS: readonly (readonly [string, string, string])[] = [
-    ['#EEF2FF', '#F5F3FF', '#FFFFFF'], // Soft indigo
+    ['#FFF5F0', '#FFE4D6', '#FFFFFF'], // Warm skin tone (first slide)
     ['#EDE9FE', '#F5F3FF', '#FFFFFF'], // Purple-ish
     ['#EEF2FF', '#E0E7FF', '#FFFFFF'], // Deeper indigo
     ['#F5F3FF', '#EDE9FE', '#FFFFFF'], // Violet tint
     ['#EEF2FF', '#F0FDFA', '#FFFFFF'], // Indigo to teal
 ];
 
+// Matching vibrant colors for buttons and prominent UI elements
+const SLIDE_BUTTON_COLORS = [
+    '#F97316', // Warm Orange/Indigo-adjacent (first slide)
+    '#8B5CF6', // Purple
+    '#4F46E5', // Indigo
+    '#7C3AED', // Violet
+    '#0D9488', // Teal
+];
+
 interface SlideData {
     id: string;
     title: string;
     subtitle: string;
-    image: ImageSourcePropType;
+    lottieSource: any;
 }
 
 const SLIDES: SlideData[] = [
     {
         id: '1',
-        title: 'Think less.\nForget nothing.',
+        title: 'Your personal\nagents are here',
         subtitle: 'BackForge AI keeps track of your tasks, follow-ups, and loose ends — so you don\'t have to.',
-        image: require('@/assets/images/onboarding-1.png'),
+        lottieSource: require('@/assets/animations/Office Team Worker saying Hello.json'),
     },
     {
         id: '2',
         title: 'Your personal\nchief-of-staff',
         subtitle: 'I surface the right thing at the right time.\nNo pressure. No streaks. Just calm clarity.',
-        image: require('@/assets/images/onboarding-2.png'),
+        lottieSource: require('@/assets/animations/onboarding-2.json'),
     },
     {
         id: '3',
         title: 'Connect\nyour tools',
         subtitle: 'Link Gmail, Linear, Google Calendar, and more — BackForge AI pulls everything together.',
-        image: require('@/assets/images/onboarding-3.png'),
+        lottieSource: require('@/assets/animations/onboarding-3.json'),
     },
     {
         id: '4',
         title: 'Smart alerts,\nzero noise',
         subtitle: 'Get daily briefings and priority notifications — only what matters, when it matters.',
-        image: require('@/assets/images/onboarding-4.png'),
+        lottieSource: require('@/assets/animations/onboarding-4.json'),
     },
     {
         id: '5',
         title: "You're always\nin control",
         subtitle: 'Nothing is sent without approval.\nYour data stays private and secure.',
-        image: require('@/assets/images/onboarding-5.png'),
+        lottieSource: require('@/assets/animations/onboarding-5.json'),
     },
 ];
 
@@ -108,7 +118,7 @@ export default function OnboardingScreen() {
             <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
                 {/* Skip Button */}
                 <View style={styles.skipRow}>
-                    {currentIndex < SLIDES.length - 1 ? (
+                    {currentIndex > 0 && currentIndex < SLIDES.length - 1 ? (
                         <Pressable
                             onPress={handleSkip}
                             style={({ pressed }) => [
@@ -119,7 +129,7 @@ export default function OnboardingScreen() {
                                 },
                             ]}
                         >
-                            <IconSymbol name="arrow.right" size={18} color={colors.tint} />
+                            <IconSymbol name="arrow.right" size={18} color={SLIDE_BUTTON_COLORS[currentIndex]} />
                         </Pressable>
                     ) : (
                         <View />
@@ -140,7 +150,7 @@ export default function OnboardingScreen() {
                         <Slide
                             title={item.title}
                             subtitle={item.subtitle}
-                            image={item.image}
+                            lottieSource={item.lottieSource}
                         />
                     )}
                 />
@@ -156,7 +166,7 @@ export default function OnboardingScreen() {
                                 style={[
                                     styles.dot,
                                     {
-                                        backgroundColor: index === currentIndex ? colors.tint : colors.border,
+                                        backgroundColor: index === currentIndex ? SLIDE_BUTTON_COLORS[currentIndex] : colors.border,
                                         width: index === currentIndex ? 24 : 8,
                                     },
                                 ]}
@@ -165,15 +175,11 @@ export default function OnboardingScreen() {
                     </View>
 
                     {/* Primary Action */}
-                    <TouchableOpacity
-                        onPress={handleNext}
-                        activeOpacity={0.8}
-                        style={[styles.button, { backgroundColor: colors.tint }]}
-                    >
-                        <Text style={styles.buttonText}>
-                            {currentIndex === SLIDES.length - 1 ? 'Get Started' : 'Continue'}
-                        </Text>
-                    </TouchableOpacity>
+                    <SwipeButton
+                        onComplete={handleNext}
+                        text={currentIndex === SLIDES.length - 1 ? 'Swipe to start' : 'Swipe to continue'}
+                        color={SLIDE_BUTTON_COLORS[currentIndex]}
+                    />
                 </View>
             </SafeAreaView>
         </View>
@@ -203,7 +209,9 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     footer: {
-        padding: Spacing.xl,
+        paddingTop: Spacing.xl,
+        paddingHorizontal: Spacing.xl,
+        paddingBottom: 48,
         gap: Spacing.xl,
     },
     paginator: {

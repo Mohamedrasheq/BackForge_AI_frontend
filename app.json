@@ -11,7 +11,7 @@
     "backgroundColor": "#ffffff",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mohamed-rasheq.backforgeai",
+      "bundleIdentifier": "com.devmr.backforge.ai",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -34,7 +34,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.mohamed_rasheq.backforgeai"
+      "package": "com.devmr.backforge.ai"
     },
     "web": {
       "output": "static",
@@ -63,7 +63,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "bf29855c-91cf-40d7-8d26-e9dc931a8bc4"
+        "projectId": "6c76d637-2330-40bb-8e0c-aa6c78f6b633"
       }
     },
     "owner": "mohamed_rasheq"

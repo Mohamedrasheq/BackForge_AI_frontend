@@ -1,7 +1,8 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import React from 'react';
+import LottieView from 'lottie-react-native';
+import React, { useRef } from 'react';
 import { Dimensions, Image, ImageSourcePropType, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
@@ -12,14 +13,16 @@ interface SlideProps {
     subtitle: string;
     icon?: React.ComponentProps<typeof IconSymbol>['name'];
     image?: ImageSourcePropType;
+    lottieSource?: any;
     iconColor?: string;
     children?: React.ReactNode;
 }
 
-export function Slide({ title, subtitle, icon, image, iconColor, children }: SlideProps) {
+export function Slide({ title, subtitle, icon, image, lottieSource, iconColor, children }: SlideProps) {
     const colorScheme = useColorScheme() ?? 'light';
     const colors = Colors[colorScheme];
     const activeColor = iconColor || colors.tint;
+    const lottieRef = useRef<LottieView>(null);
 
     return (
         <View style={[styles.container, { width }]}>
@@ -27,7 +30,17 @@ export function Slide({ title, subtitle, icon, image, iconColor, children }: Sli
                 entering={FadeInUp.delay(200).duration(1000).springify()}
                 style={styles.imageContainer}
             >
-                {image ? (
+                {lottieSource ? (
+                    <View style={styles.lottieWrapper}>
+                        <LottieView
+                            ref={lottieRef}
+                            source={lottieSource}
+                            autoPlay
+                            loop
+                            style={styles.lottie}
+                        />
+                    </View>
+                ) : image ? (
                     <Image source={image} style={styles.image} resizeMode="contain" />
                 ) : icon ? (
                     <View style={[styles.iconContainer, { backgroundColor: activeColor + '10' }]}>
@@ -68,9 +81,19 @@ const styles = StyleSheet.create({
         paddingTop: 60,
     },
     imageContainer: {
-        marginBottom: Spacing.xl,
+        marginBottom: -12,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    lottieWrapper: {
+        width: 280,
+        height: 280,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    lottie: {
+        width: 280,
+        height: 280,
     },
     image: {
         width: 220,

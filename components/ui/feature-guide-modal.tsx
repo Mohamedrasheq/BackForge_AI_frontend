@@ -55,7 +55,7 @@ const FEATURE_GUIDES: Record<string, FeatureGuideData> = {
             },
         ],
         proTip: 'Try saying "Remind me to call John tomorrow about the project update" — BackForge AI will create a follow-up with the right due date.',
-        gradientColors: ['#4F46E5', '#6366F1'],
+        gradientColors: ['#4F46E5', '#4338CA'],
     },
     brief: {
         emoji: '📋',
@@ -65,7 +65,7 @@ const FEATURE_GUIDES: Record<string, FeatureGuideData> = {
             'Every day, BackForge AI curates a prioritized view of what needs your attention. No more digging through lists — your most important items surface automatically.',
         steps: [
             {
-                icon: 'sparkles',
+                icon: 'wand.and.stars',
                 title: 'Smart Prioritization',
                 description: 'BackForge AI analyzes urgency, due dates, and context to rank your items from most to least important.',
             },
@@ -81,7 +81,7 @@ const FEATURE_GUIDES: Record<string, FeatureGuideData> = {
             },
         ],
         proTip: 'Check your Daily Brief first thing in the morning to start your day focused on what matters most.',
-        gradientColors: ['#7C3AED', '#A78BFA'],
+        gradientColors: ['#2563EB', '#1D4ED8'],
     },
     memory: {
         emoji: '🧠',
@@ -107,10 +107,10 @@ const FEATURE_GUIDES: Record<string, FeatureGuideData> = {
             },
         ],
         proTip: 'Use the "Completed" filter at the end of the week to review everything you accomplished — it\'s a great productivity boost!',
-        gradientColors: ['#2563EB', '#60A5FA'],
+        gradientColors: ['#E11D48', '#BE123C'],
     },
     smart: {
-        emoji: '✨',
+        emoji: '🪄',
         title: 'Smart Actions',
         subtitle: 'Context-aware intelligence',
         description:
@@ -133,7 +133,7 @@ const FEATURE_GUIDES: Record<string, FeatureGuideData> = {
             },
         ],
         proTip: 'Try saying "Create a Linear issue for the login bug on the mobile app" — BackForge AI will draft the issue and let you review before submitting.',
-        gradientColors: ['#0D9488', '#5EEAD4'],
+        gradientColors: ['#059669', '#047857'],
     },
 };
 

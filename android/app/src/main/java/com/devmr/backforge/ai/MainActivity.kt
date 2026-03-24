@@ -1,4 +1,4 @@
-package com.mohamed_rasheq.backforgeai
+package com.devmr.backforge.ai
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

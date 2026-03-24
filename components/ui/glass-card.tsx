@@ -25,17 +25,20 @@ export function GlassCard({
     const content = (
         <View
             style={[
-                styles.container,
-                Shadows.subtle,
                 {
+                    borderRadius: Radius.lg,
                     backgroundColor: colors.backgroundSecondary,
+                    borderWidth: 1,
                     borderColor: colors.border,
                     overflow: overflowVisible ? 'visible' : 'hidden',
                 },
+                Shadows.subtle,
                 style,
             ]}
         >
-            {children}
+            <View style={{ padding: Spacing.md, flexGrow: 1 }}>
+                {children}
+            </View>
         </View>
     );
 
@@ -52,11 +55,4 @@ export function GlassCard({
     return content;
 }
 
-const styles = StyleSheet.create({
-    container: {
-        padding: Spacing.md,
-        borderWidth: 1,
-        borderRadius: Radius.lg,
-        overflow: 'hidden',
-    },
-});
+const styles = StyleSheet.create({});

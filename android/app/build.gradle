@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.mohamed_rasheq.backforgeai'
+    namespace 'com.devmr.backforge.ai'
     defaultConfig {
-        applicationId 'com.mohamed_rasheq.backforgeai'
+        applicationId 'com.devmr.backforge.ai'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

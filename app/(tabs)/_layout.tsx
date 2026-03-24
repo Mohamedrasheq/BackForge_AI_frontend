@@ -7,8 +7,46 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { syncUserToBackend } from '@/lib/auth';
+import { TabBarProvider, useAnimatedTabBarStyle, useTabBar } from '@/lib/tab-bar-context';
+import { BottomTabBar, BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import Animated from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function TabLayout() {
+// ─── Animated wrapper around the DEFAULT tab bar ────────────────────────────────
+function AnimatedTabBar(props: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
+  const animatedStyle = useAnimatedTabBarStyle();
+  const { tabBarTranslateY } = useTabBar();
+  const currentRoute = props.state.routes[props.state.index].name;
+  const isChat = currentRoute === 'chat';
+
+  // On chat screen, always show the tab bar (reset position & skip animation)
+  React.useEffect(() => {
+    if (isChat) {
+      tabBarTranslateY.value = 0;
+    }
+  }, [isChat]);
+
+  if (isChat) {
+    return <BottomTabBar {...props} />;
+  }
+
+  return (
+    <Animated.View style={[{ 
+      position: 'absolute', 
+      bottom: 0, 
+      left: 0, 
+      right: 0,
+      height: 64 + insets.bottom,
+    }, animatedStyle]}>
+      <BottomTabBar {...props} />
+    </Animated.View>
+  );
+}
+
+// ─── Tab Layout (inner, uses context) ───────────────────────────────────────────
+function TabsContent() {
+  const insets = useSafeAreaInsets();
   const { isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
   const colorScheme = useColorScheme();
@@ -26,7 +64,7 @@ export default function TabLayout() {
   }, [isSignedIn, user]);
 
   if (!isLoaded) {
-    return null; // Or a loading spinner
+    return null;
   }
 
   if (isSignedIn === false) {
@@ -40,7 +78,19 @@ export default function TabLayout() {
         tabBarInactiveTintColor: colors.tabIconDefault,
         headerShown: false,
         tabBarButton: HapticTab,
+        tabBarStyle: {
+          height: 64 + insets.bottom,
+          paddingTop: 12,
+          backgroundColor: colors.background,
+          borderTopColor: colors.border,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+          marginBottom: 4,
+        },
       }}
+      tabBar={(props) => <AnimatedTabBar {...props} />}
     >
       <Tabs.Screen
         name="home"
@@ -97,5 +147,14 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+  );
+}
+
+// ─── Root Export (wraps with provider) ───────────────────────────────────────────
+export default function TabLayout() {
+  return (
+    <TabBarProvider>
+      <TabsContent />
+    </TabBarProvider>
   );
 }

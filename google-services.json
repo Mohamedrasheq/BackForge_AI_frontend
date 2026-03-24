@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:515173093503:android:19b2c5872a16ce91306f4a",
+        "mobilesdk_app_id": "1:515173093503:android:6d64f431e5c2dc2c306f4a",
         "android_client_info": {
-          "package_name": "com.mohamed_rasheq.backforgeai"
+          "package_name": "com.devmr.backforge.ai"
         }
       },
       "oauth_client": [],

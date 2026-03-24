@@ -9,8 +9,8 @@ This document outlines the setup required to enable the **BackForge AI Pro** sub
 2. Create a new Project named **"BackForge AI"**.
 3. **From the "Get Started" screen (as seen in your screenshot):**
    - Click the **"New app configuration"** card (the one with the Apple, Android, and Amazon icons).
-   - **For iOS**: Select **App Store**, enter your app name and Bundle ID (`com.mohamed-rasheq.backforgeai`), and save.
-   - **For Android**: Select **Google Play**, enter your app name and Package Name (`com.mohamed_rasheq.backforgeai`), and save.
+   - **For iOS**: Select **App Store**, enter your app name and Bundle ID (`com.devmr.backforge.ai`), and save.
+   - **For Android**: Select **Google Play**, enter your app name and Package Name (`com.devmr.backforge.ai`), and save.
 4. After saving, RevenueCat will display your **Public SDK Key** for that app.
    - **iOS Key** starts with `appl_`
    - **Android Key** starts with `goog_`

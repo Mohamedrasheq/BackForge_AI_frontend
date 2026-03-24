@@ -1,11 +1,14 @@
+import { EmptyState } from '@/components/ui/empty-state';
 import { Header } from '@/components/ui/header';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { subscribeToMemoryChanges } from '@/lib/supabase';
+import { useTabBar } from '@/lib/tab-bar-context';
 import { getAllMemories } from '@/services/api';
 import { MemoryItem, Urgency } from '@/types/api';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -29,6 +32,8 @@ export default function MemoryScreen() {
     const colorScheme = useColorScheme() ?? 'light';
     const colors = Colors[colorScheme];
     const insets = useSafeAreaInsets();
+    const router = useRouter();
+    const { handleScroll } = useTabBar();
 
     const [memories, setMemories] = useState<MemoryItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -139,6 +144,32 @@ export default function MemoryScreen() {
         return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     };
 
+    const formatDueDate = (dateStr: string | null) => {
+        if (!dateStr) return null;
+        try {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const isToday = date.toDateString() === now.toDateString();
+            const tomorrow = new Date(now);
+            tomorrow.setDate(now.getDate() + 1);
+            const isTomorrow = date.toDateString() === tomorrow.toDateString();
+
+            const timeStr = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+
+            if (isToday) return `Today at ${timeStr}`;
+            if (isTomorrow) return `Tomorrow at ${timeStr}`;
+
+            return date.toLocaleDateString(undefined, { 
+                month: 'short', 
+                day: 'numeric', 
+                hour: 'numeric', 
+                minute: '2-digit' 
+            });
+        } catch (e) {
+            return dateStr;
+        }
+    };
+
     const renderItem = ({ item }: { item: MemoryItem }) => {
         const isCompleted = item.status === 'closed';
         const urgencyColor = getUrgencyColor(item.urgency);
@@ -193,10 +224,12 @@ export default function MemoryScreen() {
                         </Text>
                     </View>
 
-                    {item.scheduled_message_id && item.status === 'open' && (
+                    {(item.due_at || item.scheduled_message_id) && item.status === 'open' && (
                         <View style={[styles.scheduledBadge, { backgroundColor: colors.tint + '15' }]}>
                             <IconSymbol name="bell.fill" size={10} color={colors.tint} />
-                            <Text style={[styles.scheduledBadgeText, { color: colors.tint }]}>Scheduled Reminder</Text>
+                            <Text style={[styles.scheduledBadgeText, { color: colors.tint }]}>
+                                {item.due_at ? `Scheduled: ${formatDueDate(item.due_at)}` : 'Scheduled Reminder'}
+                            </Text>
                         </View>
                     )}
                 </View>
@@ -208,7 +241,7 @@ export default function MemoryScreen() {
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
 
-            <Header />
+            <Header showBranding={false} />
 
             {/* Search Bar */}
             <View style={styles.searchContainer}>
@@ -260,22 +293,22 @@ export default function MemoryScreen() {
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={[
                         styles.listContent,
-                        { paddingBottom: insets.bottom + Spacing.lg },
+                        { paddingBottom: insets.bottom + 100 },
                         filteredMemories.length === 0 && styles.emptyListContent,
                     ]}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />
                     }
+                    onScroll={handleScroll}
+                    scrollEventThrottle={16}
                     ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <View style={[styles.emptyIcon, { backgroundColor: colors.tint + '15' }]}>
-                                <IconSymbol name="folder" size={32} color={colors.tint} />
-                            </View>
-                            <Text style={[styles.emptyTitle, { color: colors.text }]}>No memories yet</Text>
-                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                                Start a conversation to capture your first memory.
-                            </Text>
-                        </View>
+                        <EmptyState
+                            lottieSource={require('@/assets/animations/empty-memory.json')}
+                            title="No Memories Yet"
+                            description="Your personal agent captures key info from your chats. Start a conversation to build your memory bank."
+                            actionLabel="Start Chatting"
+                            onAction={() => router.push('/chat')}
+                        />
                     }
                 />
             )}

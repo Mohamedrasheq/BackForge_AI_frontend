@@ -3,6 +3,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { haptics } from '@/lib/haptics';
+import { useTabBar } from '@/lib/tab-bar-context';
 import {
     connectService,
     disconnectService,
@@ -32,19 +33,25 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ─── Service branding config ────────────────────────────────────────
-const SERVICE_CONFIG: Record<string, {
+type ServiceConfig = {
     emoji: string;
     icon: string;
     gradientColors: readonly [string, string];
     brandColor: string;
     instruction: string;
-}> = {
+    capabilities: string[];
+    limitations: string[];
+};
+
+const SERVICE_CONFIG: Record<string, ServiceConfig> = {
     github: {
         emoji: '🐙',
         icon: 'terminal',
         gradientColors: ['#24292F', '#444D56'],
         brandColor: '#24292F',
         instruction: 'Go to GitHub → Settings → Developer settings → Personal access tokens → Generate new token. Select the scopes you need.',
+        capabilities: ['Create issues', 'List repositories', 'Draft PR descriptions'],
+        limitations: ['No actual PR creation', 'No labels or assignees', 'No code browsing', 'No merge or branches'],
     },
     linear: {
         emoji: '📐',
@@ -52,6 +59,8 @@ const SERVICE_CONFIG: Record<string, {
         gradientColors: ['#5E6AD2', '#8B5CF6'],
         brandColor: '#5E6AD2',
         instruction: 'Go to Linear → Settings → API → Personal API keys → Create key. Copy the key and paste it here.',
+        capabilities: ['Create issues (full fields)', 'Fetch workspace context'],
+        limitations: ['No update or delete issues', 'No comments', 'No search issues'],
     },
     gmail: {
         emoji: '📧',
@@ -59,6 +68,8 @@ const SERVICE_CONFIG: Record<string, {
         gradientColors: ['#EA4335', '#FBBC04'],
         brandColor: '#EA4335',
         instruction: 'Go to Google Account → Security → App Passwords → Generate a new app password for BackForge AI.',
+        capabilities: ['Create draft emails', 'List recent emails'],
+        limitations: ['No sending emails', 'No reading full body', 'No attachments', 'No CC/BCC'],
     },
     notion: {
         emoji: '📝',
@@ -66,6 +77,8 @@ const SERVICE_CONFIG: Record<string, {
         gradientColors: ['#000000', '#434343'],
         brandColor: '#000000',
         instruction: 'Go to Notion → Settings → Connections → Develop or manage integrations → Create new integration → Copy the secret.',
+        capabilities: ['Create pages', 'Search workspace', 'List databases', 'Add database entries'],
+        limitations: ['No rich blocks (toggles, tables)', 'No update or delete', 'No reading page content'],
     },
     slack: {
         emoji: '💬',
@@ -73,6 +86,8 @@ const SERVICE_CONFIG: Record<string, {
         gradientColors: ['#4A154B', '#7C3085'],
         brandColor: '#4A154B',
         instruction: 'Go to api.slack.com → Create New App → OAuth & Permissions → Install to Workspace → Copy Bot Token.',
+        capabilities: ['Send messages', 'List channels'],
+        limitations: ['No message history', 'No file uploads', 'No reactions', 'No channel creation'],
     },
     jira: {
         emoji: '🎫',
@@ -80,6 +95,8 @@ const SERVICE_CONFIG: Record<string, {
         gradientColors: ['#0052CC', '#2684FF'],
         brandColor: '#0052CC',
         instruction: 'Go to Atlassian → Account Settings → Security → API tokens → Create API token.',
+        capabilities: ['Create issues', 'Search via JQL', 'List projects', 'Add comments'],
+        limitations: ['No transitions or updates', 'No sprint management', 'No attachments'],
     },
     trello: {
         emoji: '📋',
@@ -87,6 +104,8 @@ const SERVICE_CONFIG: Record<string, {
         gradientColors: ['#0079BF', '#00C2E0'],
         brandColor: '#0079BF',
         instruction: 'Go to trello.com/power-ups/admin → API Key → Generate Token for BackForge AI.',
+        capabilities: ['Create cards', 'Move cards', 'List boards & cards', 'Get board lists'],
+        limitations: ['No deleting cards', 'No comments', 'No checklists', 'No attachments'],
     },
     asana: {
         emoji: '🎯',
@@ -94,6 +113,8 @@ const SERVICE_CONFIG: Record<string, {
         gradientColors: ['#F06595', '#FC8C5A'],
         brandColor: '#F06595',
         instruction: 'Go to Asana → My Settings → Apps → Developer Apps → Create Personal Access Token.',
+        capabilities: ['Create tasks', 'Search tasks', 'Complete tasks', 'Add comments', 'List projects'],
+        limitations: ['No deleting tasks', 'No creating projects', 'No subtasks', 'No custom fields'],
     },
     todoist: {
         emoji: '✅',
@@ -101,6 +122,8 @@ const SERVICE_CONFIG: Record<string, {
         gradientColors: ['#DB4437', '#E57368'],
         brandColor: '#DB4437',
         instruction: 'Go to Todoist → Settings → Integrations → Developer → Copy your API token.',
+        capabilities: ['Create tasks', 'Complete tasks', 'List tasks with filters', 'Create projects', 'List projects'],
+        limitations: ['No deleting tasks', 'No sections', 'No subtasks', 'No reminders'],
     },
     confluence: {
         emoji: '📖',
@@ -108,6 +131,8 @@ const SERVICE_CONFIG: Record<string, {
         gradientColors: ['#172B4D', '#344563'],
         brandColor: '#172B4D',
         instruction: 'Go to Atlassian → Account Settings → Security → API tokens → Create API token.',
+        capabilities: ['Create wiki pages', 'Search via CQL', 'List spaces', 'Read page content'],
+        limitations: ['No update or delete pages', 'No attachments', 'No comments', 'Content truncated to 3000 chars'],
     },
     discord: {
         emoji: '🎮',
@@ -115,6 +140,8 @@ const SERVICE_CONFIG: Record<string, {
         gradientColors: ['#5865F2', '#7289DA'],
         brandColor: '#5865F2',
         instruction: 'Go to Discord Developer Portal → Applications → New Application → Bot → Copy Token.',
+        capabilities: ['Send messages', 'List servers', 'List channels', 'Create threads'],
+        limitations: ['No message history', 'No embeds', 'No file uploads', 'No voice channels'],
     },
     calendar: {
         emoji: '📅',
@@ -122,15 +149,19 @@ const SERVICE_CONFIG: Record<string, {
         gradientColors: ['#0D9488', '#5EEAD4'],
         brandColor: '#0D9488',
         instruction: 'Go to Google Calendar → Settings → Integrate Calendar → Copy API key.',
+        capabilities: ['Create events', 'List upcoming events', 'Find free time slots'],
+        limitations: ['No update or delete events', 'No recurring events', 'No multiple calendars', 'No RSVP management'],
     },
 };
 
-const DEFAULT_CONFIG = {
+const DEFAULT_CONFIG: ServiceConfig = {
     emoji: '🔗',
     icon: 'link',
     gradientColors: ['#4F46E5', '#6366F1'] as const,
     brandColor: '#4F46E5',
     instruction: 'Check the service\'s developer settings for API keys or tokens.',
+    capabilities: [],
+    limitations: [],
 };
 
 function getServiceConfig(name: string) {
@@ -165,6 +196,7 @@ export default function IntegrationsScreen() {
     const colorScheme = useColorScheme();
     const colors = Colors[colorScheme];
     const insets = useSafeAreaInsets();
+    const { handleScroll } = useTabBar();
 
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -333,6 +365,20 @@ export default function IntegrationsScreen() {
                             {item.description}
                         </Text>
 
+                        {/* Tool count badge */}
+                        {config.capabilities.length > 0 && (
+                            <View style={[styles.toolCountBadge, {
+                                backgroundColor: isConnected ? 'rgba(255,255,255,0.15)' : config.brandColor + '10',
+                            }]}>
+                                <IconSymbol name="bolt.fill" size={10} color={isConnected ? 'rgba(255,255,255,0.7)' : config.brandColor} />
+                                <Text style={[styles.toolCountText, {
+                                    color: isConnected ? 'rgba(255,255,255,0.7)' : config.brandColor,
+                                }]}>
+                                    {config.capabilities.length} {config.capabilities.length === 1 ? 'tool' : 'tools'}
+                                </Text>
+                            </View>
+                        )}
+
                         {/* Connected timestamp */}
                         {isConnected && connectionInfo && (
                             <Text style={styles.cardConnectedAt}>
@@ -355,7 +401,7 @@ export default function IntegrationsScreen() {
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-            <Header />
+            <Header showBranding={false} />
 
             <FlatList
                 data={filteredServices}
@@ -363,13 +409,11 @@ export default function IntegrationsScreen() {
                 renderItem={renderService}
                 numColumns={2}
                 columnWrapperStyle={styles.columnWrapper}
-                contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + Spacing.xl }]}
+                contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
                 ListHeaderComponent={
                     <View style={styles.headerSection}>
-                        <Text style={[styles.title, { color: colors.text }]}>Integrations</Text>
-                        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                            Connect your apps to unlock smart actions.
-                        </Text>
+
+
 
                         {/* Connected Apps */}
                         {connectedServices.length > 0 && (
@@ -429,6 +473,8 @@ export default function IntegrationsScreen() {
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />
                 }
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
                 ListEmptyComponent={
                     isLoading ? (
                         <ActivityIndicator size="large" color={colors.tint} style={{ marginTop: 40 }} />
@@ -547,6 +593,42 @@ export default function IntegrationsScreen() {
                                 </Text>
                             </View>
 
+                            {/* ─── Capabilities Section ──────────────────── */}
+                            {selectedConfig.capabilities.length > 0 && (
+                                <View style={styles.capSection}>
+                                    <View style={styles.capSectionHeader}>
+                                        <IconSymbol name="checkmark.seal.fill" size={15} color="#10B981" />
+                                        <Text style={[styles.capSectionTitle, { color: colors.text }]}>What you can do</Text>
+                                    </View>
+                                    <View style={styles.capChipRow}>
+                                        {selectedConfig.capabilities.map((cap, i) => (
+                                            <View key={`cap-${i}`} style={[styles.capChip, { backgroundColor: '#10B98112' }]}> 
+                                                <Text style={styles.capChipIcon}>✓</Text>
+                                                <Text style={[styles.capChipText, { color: '#059669' }]}>{cap}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
+
+                            {/* ─── Limitations Section ──────────────────── */}
+                            {selectedConfig.limitations.length > 0 && (
+                                <View style={styles.capSection}>
+                                    <View style={styles.capSectionHeader}>
+                                        <IconSymbol name="exclamationmark.triangle.fill" size={15} color={colors.textSecondary} />
+                                        <Text style={[styles.capSectionTitle, { color: colors.text }]}>Not supported yet</Text>
+                                    </View>
+                                    <View style={styles.capChipRow}>
+                                        {selectedConfig.limitations.map((lim, i) => (
+                                            <View key={`lim-${i}`} style={[styles.limChip, { backgroundColor: colors.textSecondary + '0A' }]}> 
+                                                <Text style={[styles.limChipIcon, { color: colors.textSecondary }]}>✕</Text>
+                                                <Text style={[styles.limChipText, { color: colors.textSecondary }]}>{lim}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
+
                             {/* Instruction Card */}
                             <View style={[styles.instructionCard, { backgroundColor: selectedConfig.brandColor + '08', borderColor: selectedConfig.brandColor + '20' }]}>
                                 <View style={styles.instructionHeader}>
@@ -664,6 +746,7 @@ const styles = StyleSheet.create({
         marginTop: 4,
         lineHeight: 20,
         marginBottom: Spacing.md,
+        textAlign: 'center',
     },
     connectedSection: {
         borderRadius: Radius.lg,
@@ -1019,5 +1102,72 @@ const styles = StyleSheet.create({
     confirmBtnText: {
         fontSize: 15,
         fontWeight: '700',
+    },
+    // ─── Tool Count Badge (on grid cards) ──────────
+    toolCountBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 8,
+        gap: 4,
+        marginTop: 8,
+    },
+    toolCountText: {
+        fontSize: 11,
+        fontWeight: '600',
+    },
+    // ─── Capabilities / Limitations Sections ───────
+    capSection: {
+        marginBottom: Spacing.md,
+    },
+    capSectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 10,
+    },
+    capSectionTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    capChipRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+    },
+    capChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 10,
+        gap: 5,
+    },
+    capChipIcon: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#10B981',
+    },
+    capChipText: {
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    limChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 10,
+        gap: 5,
+    },
+    limChipIcon: {
+        fontSize: 11,
+        fontWeight: '700',
+    },
+    limChipText: {
+        fontSize: 12,
+        fontWeight: '500',
     },
 });

@@ -5,13 +5,12 @@ import PurchasesUI from 'react-native-purchases-ui';
 
 const REVENUECAT_KEYS = {
     apple: 'appl_REPLACE_WITH_YOUR_IOS_KEY',
-    google: 'goog_jMpcJyubBKYasotqNEYpfdiqFcj',
+    google: 'goog_UxjncKDTGMHQXIeiuTQZBRkFzkW',
 };
 
 const ENTITLEMENT_ID = 'BackForge AI Pro';
 const DAILY_LIMIT_KEY = 'loop_daily_chat_limit';
 const LAST_RESET_KEY = 'loop_last_chat_reset_date';
-const DEMO_PRO_KEY = 'loop_demo_pro_active';
 const MAX_FREE_MESSAGES = 5;
 
 /**
@@ -77,9 +76,7 @@ export async function identifyUser(userId: string) {
  */
 export async function isProActive(): Promise<boolean> {
     if (!(await isSDKAvailable())) {
-        // Fallback to local demo state if SDK is unavailable (Expo Go)
-        const demoActive = await SecureStore.getItemAsync(DEMO_PRO_KEY);
-        return demoActive === 'true';
+        return false;
     }
 
     try {
@@ -91,13 +88,6 @@ export async function isProActive(): Promise<boolean> {
     }
 }
 
-/**
- * Set demo Pro status (for testing in Expo Go)
- */
-export async function setDemoPro(active: boolean) {
-    await SecureStore.setItemAsync(DEMO_PRO_KEY, active ? 'true' : 'false');
-    console.log(`[RevenueCat] Demo Pro status set to: ${active}`);
-}
 
 /**
  * Present Customer Center
