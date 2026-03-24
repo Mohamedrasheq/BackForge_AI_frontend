@@ -68,7 +68,7 @@ function InitialLayout() {
     checkFirstLaunch();
   }, []);
 
-  // ── Push notification registration ──-
+  // ── Push notification registration ──
   useEffect(() => {
     if (!isSignedIn || !user?.id || hasRegisteredPush.current) return;
 
