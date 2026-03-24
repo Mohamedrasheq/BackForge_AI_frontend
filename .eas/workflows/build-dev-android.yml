@@ -1,0 +1,13 @@
+name: Dev Build (Android Only)
+
+on:
+  push:
+    branches:
+      - "dev-android-*"
+
+jobs:
+  build_android:
+    type: build
+    params:
+      platform: android
+      profile: development

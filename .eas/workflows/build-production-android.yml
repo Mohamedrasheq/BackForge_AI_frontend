@@ -1,0 +1,13 @@
+name: Production Build (Android Only)
+
+on:
+  push:
+    branches:
+      - "production-android-*"
+
+jobs:
+  build_android:
+    type: build
+    params:
+      platform: android
+      profile: production

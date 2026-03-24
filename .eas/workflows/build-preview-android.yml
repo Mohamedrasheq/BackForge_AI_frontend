@@ -1,0 +1,13 @@
+name: Preview Build (Android Only)
+
+on:
+  push:
+    branches:
+      - "preview-android-*"
+
+jobs:
+  build_android:
+    type: build
+    params:
+      platform: android
+      profile: preview

@@ -1,19 +1,19 @@
-name: Dev Build (Both Platforms)
+name: Preview Build (Both Platforms)
 
 on:
   push:
     branches:
-      - "dev-*"
+      - "preview-*"
 
 jobs:
   build_android:
     type: build
     params:
       platform: android
-      profile: development
+      profile: preview
 
   build_ios:
     type: build
     params:
       platform: ios
-      profile: development
+      profile: preview

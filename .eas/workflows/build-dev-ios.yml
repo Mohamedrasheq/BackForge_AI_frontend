@@ -1,0 +1,13 @@
+name: Dev Build (iOS Only)
+
+on:
+  push:
+    branches:
+      - "dev-ios-*"
+
+jobs:
+  build_ios:
+    type: build
+    params:
+      platform: ios
+      profile: development
