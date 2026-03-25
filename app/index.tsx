@@ -7,7 +7,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 /**
  * Index route - just shows loading screen.
  * All auth-based routing is handled by _layout.tsx useEffect
- * to prevent race conditions and screen flashing.
+ * to prevent race conditions and screen flashing
  */
 export default function Index() {
     const colorScheme = useColorScheme() ?? 'light';
