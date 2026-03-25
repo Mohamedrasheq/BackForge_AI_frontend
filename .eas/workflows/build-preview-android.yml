@@ -6,7 +6,19 @@ on:
       - "preview-android-*"
 
 jobs:
+  test:
+    name: Lint & TypeCheck
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Lint
+        run: npx expo lint
+      - name: TypeScript Check
+        run: npx tsc --noEmit
+
   build_android:
+    name: Build Android
+    needs: [test]
     type: build
     params:
       platform: android
