@@ -6,40 +6,8 @@ on:
       - "production-ios-*"
 
 jobs:
-  test:
-    name: Lint & Checks
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint
-        run: npx expo lint
-
-      - name: TypeScript Check
-        run: npx tsc --noEmit
-
-      - name: Expo Doctor
-        run: npx expo-doctor || true
-
-      - name: Security Audit
-        run: npm audit --audit-level=high || true
-
-      - name: Metro Bundle Check
-        run: npx expo export --platform ios --output-dir /tmp/bundle-check
-
-  build:
-    name: EAS Build (iOS)
-    needs: test
+  test-and-build:
+    name: Test & Build (iOS)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -59,6 +27,21 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Lint
+        run: npx expo lint
+
+      - name: TypeScript Check
+        run: npx tsc --noEmit
+
+      - name: Expo Doctor
+        run: npx expo-doctor || true
+
+      - name: Security Audit
+        run: npm audit --audit-level=high || true
+
+      - name: Metro Bundle Check
+        run: npx expo export --platform ios --output-dir /tmp/bundle-check
 
       - name: Build iOS
         run: eas build --profile production --platform ios --non-interactive
