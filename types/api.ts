@@ -155,6 +155,23 @@ export interface ChatResponse {
     reply: string;
     proposed_actions: ProposedAction[];
     connected_services?: string[];
+    requires_calendar?: boolean;
+    pending_item?: any;
+    default_datetime?: string;
+}
+
+// ============ Schedule API ============
+export interface ScheduleConfirmPayload {
+    userId: string;
+    scheduledAt: string; // ISO string
+    pendingItem: any;
+}
+
+export interface ScheduleConfirmResponse {
+    success: boolean;
+    memoryItemId: string;
+    scheduledAt: string;
+    notificationScheduled: boolean;
 }
 
 // ============ Execute API ============

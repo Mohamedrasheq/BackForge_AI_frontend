@@ -5,8 +5,8 @@ import { haptics } from '@/lib/haptics';
 import { useRouter } from 'expo-router';
 import LottieView from 'lottie-react-native';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
 
 interface EmptyStateProps {
     lottieSource?: any; // For local require or URL
@@ -41,7 +41,7 @@ export function EmptyState({
     return (
         <View style={styles.container}>
             {/* Animation Section */}
-            <Animated.View 
+            <Animated.View
                 entering={ZoomIn.duration(800)}
                 style={styles.animationContainer}
             >
@@ -61,7 +61,7 @@ export function EmptyState({
             </Animated.View>
 
             {/* Text Content */}
-            <Animated.View 
+            <Animated.View
                 entering={FadeInDown.duration(600).delay(400)}
                 style={styles.content}
             >
@@ -72,15 +72,20 @@ export function EmptyState({
             </Animated.View>
 
             {/* Action Button */}
-            <Animated.View entering={FadeInDown.duration(600).delay(600)}>
+            <Animated.View entering={
+                Platform.OS === 'android'
+                    ? undefined
+                    : FadeInDown.duration(600).delay(600)
+            }>
                 <Pressable
                     onPress={handleAction}
                     style={({ pressed }) => [
                         styles.button,
-                        { 
+                        {
                             backgroundColor: colors.tint,
                             opacity: pressed ? 0.9 : 1,
-                            transform: [{ scale: pressed ? 0.98 : 1 }]
+                            transform: [{ scale: pressed ? 0.98 : 1 }],
+                            ...(Platform.OS === 'android' ? { elevation: 2 } : Shadows.float),
                         }
                     ]}
                 >
@@ -144,7 +149,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 28,
         borderRadius: Radius.full,
         gap: 8,
-        ...Shadows.float,
     },
     buttonText: {
         color: '#FFFFFF',

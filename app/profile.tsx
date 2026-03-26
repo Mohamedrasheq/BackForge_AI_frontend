@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, Image as RNImage, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, Image as RNImage, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -189,7 +189,7 @@ export default function ProfileScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 {/* Profile Hero */}
-                <Animated.View entering={FadeInDown.delay(100).duration(600)}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(100).duration(600)}>
                     <View style={styles.heroContainer}>
                         <LinearGradient
                             colors={[colors.tint + '10', colors.tint + '05']}
@@ -228,7 +228,7 @@ export default function ProfileScreen() {
                 </Animated.View>
 
                 {/* Modern Stats Grid */}
-                <Animated.View entering={FadeInDown.delay(200).duration(600)}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(200).duration(600)}>
                     <View style={styles.modernGridRow}>
                         {/* Primary Card - Tasks */}
                         <View style={[styles.primaryStatCard, Shadows.float, { backgroundColor: '#4F46E5', overflow: 'hidden' }]}>
@@ -295,7 +295,7 @@ export default function ProfileScreen() {
                 </Animated.View>
 
                 {/* Unified Grouped List */}
-                <Animated.View entering={FadeInDown.delay(300).duration(600)}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(300).duration(600)}>
                     <GlassCard style={styles.groupedCard} animate={false}>
                         <Text style={[styles.groupTitle, { color: colors.textSecondary }]}>Account Settings</Text>
 
@@ -364,7 +364,7 @@ export default function ProfileScreen() {
                 </Animated.View>
 
                 {/* Sign Out Button */}
-                <Animated.View entering={FadeInDown.delay(400).duration(600)}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(400).duration(600)}>
                     <Pressable
                         onPress={handleSignOut}
                         style={({ pressed }) => [

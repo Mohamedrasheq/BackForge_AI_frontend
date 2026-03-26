@@ -21,7 +21,9 @@ import type {
     GitHubRepo,
     LinearContextResponse,
     MemoriesResponse,
-    Notification
+    Notification,
+    ScheduleConfirmPayload,
+    ScheduleConfirmResponse
 } from '@/types/api';
 
 // Default to localhost for development as per docs
@@ -235,7 +237,10 @@ export async function sendChatMessageStreaming(
                                 finalResult = {
                                     reply: event.reply,
                                     proposed_actions: event.proposed_actions,
-                                    connected_services: event.connected_services
+                                    connected_services: event.connected_services,
+                                    requires_calendar: event.requires_calendar,
+                                    pending_item: event.pending_item,
+                                    default_datetime: event.default_datetime
                                 };
                             }
                         } catch (e) {
@@ -256,7 +261,10 @@ export async function sendChatMessageStreaming(
                                 finalResult = {
                                     reply: event.reply,
                                     proposed_actions: event.proposed_actions,
-                                    connected_services: event.connected_services
+                                    connected_services: event.connected_services,
+                                    requires_calendar: event.requires_calendar,
+                                    pending_item: event.pending_item,
+                                    default_datetime: event.default_datetime
                                 };
                             }
                         } catch (e) { /* ignore partial at end */ }
@@ -327,6 +335,27 @@ export async function fetchGitHubRepos(userId: string): Promise<GitHubRepo[]> {
 
     if (!response.ok) {
         throw new Error('Failed to fetch GitHub repos');
+    }
+
+    return response.json();
+}
+
+/**
+ * Confirm scheduling of a task/reminder
+ * POST /api/schedule-confirm
+ */
+export async function scheduleConfirm(
+    payload: ScheduleConfirmPayload
+): Promise<ScheduleConfirmResponse> {
+    console.log(`[API] POST ${API_BASE}/schedule-confirm`);
+    const response = await fetch(`${API_BASE}/schedule-confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to confirm schedule');
     }
 
     return response.json();

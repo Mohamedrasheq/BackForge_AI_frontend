@@ -3,5 +3,13 @@
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit",
     "source.sortMembers": "explicit"
-  }
+  },
+  "java.import.exclusions": [
+    "**/node_modules/**"
+  ],
+  "java.project.resourceFilters": [
+    "node_modules"
+  ],
+  "java.configuration.checkProjectSettingsExclusions": false,
+  "java.autobuild.enabled": false
 }

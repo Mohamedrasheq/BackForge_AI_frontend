@@ -1,12 +1,11 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import haptics from '@/lib/haptics';
 import { useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface HeaderProps {
@@ -16,7 +15,12 @@ interface HeaderProps {
     icon?: React.ComponentProps<typeof IconSymbol>['name'];
     rightElement?: React.ReactNode;
     hideDefaultRightElements?: boolean;
+    hideAvatar?: boolean;
+    centerElement?: React.ReactNode;
     style?: ViewStyle;
+    leftContainerStyle?: ViewStyle;
+    centerContainerStyle?: ViewStyle;
+    rightContainerStyle?: ViewStyle;
 }
 
 export function Header({
@@ -26,7 +30,12 @@ export function Header({
     icon,
     rightElement,
     hideDefaultRightElements = false,
-    style
+    hideAvatar = false,
+    centerElement,
+    style,
+    leftContainerStyle,
+    centerContainerStyle,
+    rightContainerStyle,
 }: HeaderProps) {
     const { user } = useUser();
     const colorScheme = useColorScheme() ?? 'light';
@@ -44,62 +53,64 @@ export function Header({
         router.push('/settings');
     };
 
+
     return (
         <View
             style={[
                 styles.container,
                 {
                     paddingTop: insets.top + Spacing.sm,
-                    backgroundColor: colors.background,
-                    borderBottomWidth: 1,
-                    borderBottomColor: colors.border,
                 },
-                Shadows.subtle,
                 style,
             ]}
         >
             <View style={styles.content}>
-                {/* Left — Avatar */}
-                <View style={styles.leftArea}>
-                    <Pressable
-                        onPress={handleProfilePress}
-                        style={({ pressed }) => [
-                            {
-                                opacity: pressed ? 0.8 : 1,
-                                transform: [{ scale: pressed ? 0.92 : 1 }],
-                            },
-                        ]}
-                    >
-                        {user?.imageUrl ? (
-                            <Image
-                                source={{ uri: user.imageUrl }}
-                                style={[styles.avatar, { borderColor: colors.border }]}
-                            />
-                        ) : (
-                            <View
-                                style={[styles.avatarPlaceholder, { backgroundColor: colors.tint }]}
-                            >
-                                <Text style={styles.avatarInitial}>
-                                    {user?.firstName?.charAt(0) ?? '?'}
-                                </Text>
-                            </View>
-                        )}
-                    </Pressable>
+                {/* Left Area */}
+                <View style={[styles.leftArea, leftContainerStyle]}>
+                    {!hideAvatar && (
+                        <Pressable
+                            onPress={handleProfilePress}
+                            style={({ pressed }) => [
+                                styles.avatarButton,
+                                {
+                                    opacity: pressed ? 0.8 : 1,
+                                    transform: [{ scale: pressed ? 0.92 : 1 }],
+                                },
+                            ]}
+                        >
+                            {user?.imageUrl ? (
+                                <Image
+                                    source={{ uri: user.imageUrl }}
+                                    style={[styles.avatar, { borderColor: colors.border }]}
+                                />
+                            ) : (
+                                <View
+                                    style={[styles.avatarPlaceholder, { backgroundColor: colors.tint }]}
+                                >
+                                    <Text style={styles.avatarInitial}>
+                                        {user?.firstName?.charAt(0) ?? '?'}
+                                    </Text>
+                                </View>
+                            )}
+                        </Pressable>
+                    )}
                 </View>
 
-                {/* Center — Minimalist Symbol */}
-                <View style={styles.centerArea}>
-                    <Animated.View entering={FadeInDown.delay(200)}>
-                        <Image
-                            source={require('@/assets/images/brand_logo_cropped.png')}
-                            style={styles.centerLogo}
-                            resizeMode="contain"
-                        />
-                    </Animated.View>
+                {/* Center Area — Absolutely Positioned for perfect centering */}
+                <View 
+                    style={[
+                        styles.centerArea, 
+                        centerContainerStyle,
+                        { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, pointerEvents: 'none' }
+                    ]}
+                >
+                    <View style={{ pointerEvents: 'auto' }}>
+                        {centerElement || (showBranding && <View style={styles.centerSpacer} />)}
+                    </View>
                 </View>
 
-                {/* Right — Settings */}
-                <View style={styles.rightArea}>
+                {/* Right Area */}
+                <View style={[styles.rightArea, rightContainerStyle]}>
                     {rightElement}
                     {!hideDefaultRightElements && (
                         <Pressable
@@ -108,13 +119,15 @@ export function Header({
                                 styles.gearButton,
                                 {
                                     opacity: pressed ? 0.6 : 1,
-                                    backgroundColor: `${colors.textSecondary}10`,
+                                    backgroundColor: colorScheme === 'dark'
+                                        ? 'rgba(255,255,255,0.08)'
+                                        : 'rgba(0,0,0,0.05)',
                                 },
                             ]}
                         >
                             <IconSymbol
                                 name="gearshape.fill"
-                                size={20}
+                                size={18}
                                 color={colors.textSecondary}
                             />
                         </Pressable>
@@ -128,38 +141,17 @@ export function Header({
 const styles = StyleSheet.create({
     container: {
         paddingHorizontal: Spacing.md,
-        paddingBottom: Spacing.sm + 4,
+        paddingBottom: Spacing.sm,
         zIndex: 10,
     },
     content: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
+        justifyContent: 'space-between',
         minHeight: 44,
     },
-    // Left — Avatar
-    leftArea: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    // Center — Search Bar
-    centerArea: {
-        flex: 2,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    centerLogo: {
-        width: 120, // Horizontal logo, cropped tight
-        height: 32,
-    },
-    // Right — Settings
-    rightArea: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        gap: 10,
+    avatarButton: {
+        flexShrink: 0,
     },
     avatar: {
         width: 34,
@@ -178,6 +170,24 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '700',
         color: '#FFFFFF',
+    },
+    leftArea: {
+        width: 44, // Fixed width for balancing
+        justifyContent: 'center',
+    },
+    centerArea: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    centerSpacer: {
+        flex: 1,
+    },
+    rightArea: {
+        flexShrink: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     gearButton: {
         width: 34,

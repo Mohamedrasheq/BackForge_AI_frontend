@@ -1,5 +1,4 @@
 import { FeatureGuideModal } from '@/components/ui/feature-guide-modal';
-import { Header } from '@/components/ui/header';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -13,22 +12,16 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import LottieView from 'lottie-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Dimensions, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-    Easing,
     FadeIn,
     FadeInDown,
     FadeInRight,
     FadeOut,
-    LinearTransition,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSequence,
-    withTiming,
+    LinearTransition
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle } from 'react-native-svg';
+
 
 import { useUser } from '@clerk/clerk-expo';
 
@@ -58,7 +51,6 @@ type DailyProgress = {
 
 // Quick action data
 const QUICK_ACTIONS = [
-    { id: 'brief', label: 'Daily Brief', icon: 'list.bullet.clipboard.fill', route: '/brief' },
     { id: 'memory', label: 'Memory', icon: 'brain.head.profile', route: '/memory' },
     { id: 'chat', label: 'Chat', icon: 'bubble.left.and.bubble.right.fill', route: '/chat' },
 ] as const;
@@ -105,33 +97,7 @@ const getGreeting = () => {
     return 'Good evening';
 };
 
-// Animated wave component
-const AnimatedWave = () => {
-    const rotation = useSharedValue(0);
 
-    useEffect(() => {
-        rotation.value = withRepeat(
-            withSequence(
-                withTiming(20, { duration: 150, easing: Easing.ease }),
-                withTiming(-20, { duration: 150, easing: Easing.ease }),
-                withTiming(20, { duration: 150, easing: Easing.ease }),
-                withTiming(0, { duration: 150, easing: Easing.ease })
-            ),
-            -1,
-            false
-        );
-    }, []);
-
-    const animatedStyle = useAnimatedStyle(() => ({
-        transform: [{ rotate: `${rotation.value}deg` }],
-    }));
-
-    return (
-        <Animated.Text style={[styles.waveEmoji, animatedStyle]}>
-            👋
-        </Animated.Text>
-    );
-};
 
 export default function HomeScreen() {
     const colorScheme = useColorScheme() ?? 'light';
@@ -142,6 +108,7 @@ export default function HomeScreen() {
     const { user } = useUser();
     const { handleScroll } = useTabBar();
     const [status, setStatus] = useState<HomeStatus>(INITIAL_STATUS);
+
     const [refreshing, setRefreshing] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [progress, setProgress] = useState<DailyProgress>({ total: 0, completed: 0, percentage: 0 });
@@ -230,7 +197,10 @@ export default function HomeScreen() {
         fetchHomeData();
     }, [fetchHomeData]);
 
-    const handleMarkDone = async (item: DailyBriefItem) => {
+    // ── Task completion confirmation flow ──
+    const [pendingDoneItem, setPendingDoneItem] = useState<DailyBriefItem | null>(null);
+
+    const handleCheckmarkTap = async (item: DailyBriefItem) => {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         if (item.id === 'welcome-tutorial') {
@@ -238,12 +208,24 @@ export default function HomeScreen() {
             return;
         }
 
+        setPendingDoneItem(item);
+    };
+
+    const handleConfirmDone = async () => {
+        if (!pendingDoneItem) return;
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         try {
-            await closeMemory({ memoryItemId: item.id });
+            await closeMemory({ memoryItemId: pendingDoneItem.id });
             fetchHomeData();
         } catch (e) {
             console.error(e);
         }
+        setPendingDoneItem(null);
+    };
+
+    const handleCancelDone = async () => {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setPendingDoneItem(null);
     };
 
     const handleQuickAction = async (route: string) => {
@@ -256,10 +238,6 @@ export default function HomeScreen() {
         router.push('/chat');
     };
 
-    const handleViewBrief = async () => {
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.push('/brief');
-    };
 
     const handleTipPress = async (tipId: string) => {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -270,39 +248,43 @@ export default function HomeScreen() {
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
 
-            <Header showBranding={false} />
-
             <ScrollView
+                style={{ paddingTop: insets.top }}
                 contentContainerStyle={[
                     styles.content,
-                    { paddingBottom: insets.bottom + 80 },
+                    { paddingTop: Spacing.sm, paddingBottom: insets.bottom + 80 },
                 ]}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={colors.tint}
+                        progressViewOffset={insets.top}
+                    />
                 }
                 showsVerticalScrollIndicator={false}
                 onScroll={handleScroll}
                 scrollEventThrottle={16}
             >
                 {/* 1. Personalized Greeting Section */}
-                <Animated.View entering={FadeIn.duration(600)} style={styles.greetingSection}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeIn.duration(600)} style={styles.greetingSection}>
                     <View style={styles.greetingRow}>
-                        <AnimatedWave />
-                        <View style={styles.greetingTextContainer}>
-                            <Text style={[styles.greetingText, { color: colors.text }]}>
-                                {getGreeting()}{user?.firstName ? `, ${user.firstName}` : ''}
-                            </Text>
-                            <Text style={[styles.greetingSubtext, { color: colors.textSecondary }]}>
-                                {status.statusMessage}
-                            </Text>
-                        </View>
+                        <Text style={styles.waveEmoji}>👋</Text>
+                        <Text style={[styles.greetingText, { color: colors.text }]}>
+                            {getGreeting()},
+                        </Text>
                     </View>
+                    {user?.firstName && (
+                        <Text style={[styles.greetingName, { color: colors.tint }]}>
+                            {user.firstName}
+                        </Text>
+                    )}
                 </Animated.View>
 
                 {/* 2. Intelligence Board (Merged Status/Progress) */}
-                <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.boardWrapper}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(100).duration(500)} style={styles.boardWrapper}>
                     <LinearGradient
-                        colors={colorScheme === 'dark' ? ['#312E81', '#1E1B4B'] : ['#4F46E5', '#3730A3']}
+                        colors={colorScheme === 'dark' ? ['#312E81', '#0e0e0eff'] : ['#4F46E5', '#3730A3']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.intelligenceBoard}
@@ -328,38 +310,20 @@ export default function HomeScreen() {
                             </View>
 
                             <View style={styles.boardProgressContainer}>
-                                <Svg width={80} height={80} viewBox="0 0 80 80">
-                                    <Circle
-                                        cx={40}
-                                        cy={40}
-                                        r={34}
-                                        stroke="rgba(255,255,255,0.15)"
-                                        strokeWidth={6}
-                                        fill="none"
-                                    />
-                                    <Circle
-                                        cx={40}
-                                        cy={40}
-                                        r={34}
-                                        stroke="#34D399"
-                                        strokeWidth={6}
-                                        fill="none"
-                                        strokeLinecap="round"
-                                        strokeDasharray={`${2 * Math.PI * 34}`}
-                                        strokeDashoffset={`${2 * Math.PI * 34 * (1 - (progress.total > 0 ? progress.percentage / 100 : 0))}`}
-                                        transform="rotate(-90 40 40)"
-                                    />
-                                </Svg>
-                                <Text style={styles.boardProgressText}>
-                                    {progress.total > 0 ? progress.percentage : 0}%
-                                </Text>
+                                <View style={styles.progressRingOuter}>
+                                    <View style={styles.progressRingInner}>
+                                        <Text style={styles.boardProgressText}>
+                                            {progress.total > 0 ? progress.percentage : 0}%
+                                        </Text>
+                                    </View>
+                                </View>
                             </View>
                         </View>
 
                         {/* Footer / Pending Items */}
                         {status.pendingCount > 0 && (
                             <Pressable
-                                onPress={handleViewBrief}
+                                onPress={() => handleQuickAction('/memory')}
                                 style={({ pressed }) => [
                                     styles.boardFooter,
                                     { opacity: pressed ? 0.8 : 1 }
@@ -374,37 +338,13 @@ export default function HomeScreen() {
                     </LinearGradient>
                 </Animated.View>
 
-                {/* 3. Quick Actions Row */}
-                <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.quickActionsSection}>
-                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>QUICK ACTIONS</Text>
-                    <View style={styles.quickActionsContainer}>
-                        {QUICK_ACTIONS.map((action, index) => (
-                            <Pressable
-                                key={action.id}
-                                onPress={() => handleQuickAction(action.route)}
-                                style={({ pressed }) => [
-                                    styles.quickActionItem,
-                                    {
-                                        backgroundColor: pressed ? `${colors.tint}15` : 'transparent',
-                                        transform: [{ scale: pressed ? 0.98 : 1 }],
-                                    },
-                                ]}
-                            >
-                                <IconSymbol name={action.icon as any} size={18} color={colors.tint} />
-                                <Text style={[styles.quickActionLabel, { color: colors.text }]}>
-                                    {action.label.split(' ')[action.label.split(' ').length - 1]}
-                                </Text>
-                            </Pressable>
-                        ))}
-                    </View>
-                </Animated.View>
 
                 {/* 4. Priority Items Cards */}
-                <Animated.View entering={FadeInDown.delay(350).duration(500)} style={styles.prioritySection}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(350).duration(500)} style={styles.prioritySection}>
                     <View style={styles.sectionHeaderRow}>
                         <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>PRIORITY TODAY</Text>
                         {status.pendingCount > status.topItems.length && (
-                            <Pressable onPress={handleViewBrief}>
+                            <Pressable onPress={() => handleQuickAction('/memory')}>
                                 <Text style={[styles.seeAllText, { color: colors.tint }]}>
                                     See all ({status.pendingCount})
                                 </Text>
@@ -413,104 +353,198 @@ export default function HomeScreen() {
                     </View>
 
                     {status.topItems.length > 0 ? (
-                        status.topItems.map((item, index) => (
-                            <Animated.View
-                                key={item.id}
-                                entering={FadeInDown.delay(400 + (index * 80)).duration(400)}
-                                exiting={FadeOut.duration(300)}
-                                layout={LinearTransition}
-                            >
-                                <Pressable
-                                    onPress={() => handleMarkDone(item)}
-                                    style={({ pressed }) => [
-                                        styles.priorityCard,
-                                        Shadows.glass,
-                                        {
-                                            backgroundColor: colors.background,
-                                            borderColor: colors.border,
-                                            transform: [{ scale: pressed ? 0.98 : 1 }],
-                                        },
-                                    ]}
-                                >
-                                    {/* Left Urgency Bar */}
-                                    {/* Urgency Glow Background */}
-                                    <View style={[
-                                        styles.priorityUrgencyGlow,
-                                        { backgroundColor: item.urgency === 'high' ? `${colors.urgencyHigh}08` : (item.urgency === 'medium' ? `${colors.urgencyMedium}06` : `${colors.urgencyLow}04`) }
-                                    ]} />
-
-                                    <View style={styles.priorityContent}>
-                                        <View style={styles.priorityCardHeader}>
-                                            <View style={styles.priorityTypeBadge}>
-                                                <View style={[styles.typeIconBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                        status.topItems.length === 1 ? (
+                            /* Single item — no timeline, just a clean card */
+                            (() => {
+                                const item = status.topItems[0];
+                                const urgencyColor = item.urgency === 'high' ? colors.urgencyHigh : (item.urgency === 'medium' ? colors.urgencyMedium : colors.urgencyLow);
+                                const dueDate = item.dueAt ? new Date(item.dueAt) : null;
+                                const hasTime = dueDate ? (dueDate.getHours() !== 0 || dueDate.getMinutes() !== 0) : false;
+                                return (
+                                    <Animated.View
+                                        key={item.id}
+                                        entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(400).duration(400)}
+                                        exiting={FadeOut.duration(300)}
+                                        layout={LinearTransition}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.timelineContent,
+                                                {
+                                                    backgroundColor: colors.backgroundSecondary,
+                                                    borderColor: colors.border,
+                                                },
+                                            ]}
+                                        >
+                                            <View style={styles.timelineTopRow}>
+                                                <View style={styles.timelineTypeBadge}>
                                                     <IconSymbol
                                                         name={item.type === 'task' ? 'checkmark.circle' : (item.type === 'follow_up' ? 'bubble.left' : 'doc.text')}
                                                         size={10}
                                                         color={colors.textSecondary}
                                                     />
+                                                    <Text style={[styles.timelineTypeText, { color: colors.textSecondary }]}>
+                                                        {item.type === 'follow_up' ? 'Action' : (item.type || 'Task')}
+                                                    </Text>
                                                 </View>
-                                                <Text style={[styles.priorityTypeText, { color: colors.textSecondary }]}>
-                                                    {item.type === 'follow_up' ? 'Action' : (item.type || 'Task')}
-                                                </Text>
+                                                <View style={styles.timelineUrgencyRow}>
+                                                    {item.urgency === 'high' && (
+                                                        <IconSymbol name="flame.fill" size={9} color={urgencyColor} />
+                                                    )}
+                                                    <Text style={[styles.timelineUrgencyLabel, { color: urgencyColor }]}>
+                                                        {item.urgency === 'high' ? 'Priority' : (item.urgency === 'medium' ? 'Upcoming' : 'Routine')}
+                                                    </Text>
+                                                </View>
                                             </View>
-                                            <View style={[
-                                                styles.priorityUrgencyBadge,
-                                                { backgroundColor: item.urgency === 'high' ? `${colors.urgencyHigh}12` : (item.urgency === 'medium' ? `${colors.urgencyMedium}12` : `${colors.urgencyLow}12`) }
-                                            ]}>
-                                                {item.urgency === 'high' && (
-                                                    <IconSymbol name="flame.fill" size={8} color={colors.urgencyHigh} style={{ marginRight: 2 }} />
-                                                )}
-                                                <Text style={[
-                                                    styles.priorityUrgencyText,
-                                                    { color: item.urgency === 'high' ? colors.urgencyHigh : (item.urgency === 'medium' ? colors.urgencyMedium : colors.urgencyLow) }
+                                            <Text style={[styles.timelineTitleText, { color: colors.text }]} numberOfLines={2}>
+                                                {item.title}
+                                            </Text>
+                                            <View style={styles.timelineBottomRow}>
+                                                <Text style={[styles.timelineDueText, { color: colors.textSecondary }]}>
+                                                    {dueDate
+                                                        ? `Due ${dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}${hasTime ? ` · ${dueDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}` : ''}`
+                                                        : 'Today'}
+                                                </Text>
+                                                <Pressable
+                                                    onPress={() => handleCheckmarkTap(item)}
+                                                    hitSlop={8}
+                                                    style={({ pressed }) => [
+                                                        styles.timelineDoneBtn,
+                                                        pendingDoneItem?.id === item.id
+                                                            ? { backgroundColor: '#22C55E', borderColor: '#22C55E' }
+                                                            : { backgroundColor: pressed ? `${colors.tint}25` : `${colors.tint}15`, borderColor: `${colors.tint}30` },
+                                                        { transform: [{ scale: pressed ? 0.9 : 1 }] },
+                                                    ]}
+                                                >
+                                                    <IconSymbol name="checkmark" size={11} color={pendingDoneItem?.id === item.id ? '#FFFFFF' : colors.tint} weight="bold" />
+                                                </Pressable>
+                                            </View>
+                                        </View>
+                                    </Animated.View>
+                                );
+                            })()
+                        ) : (
+                            /* Multiple items — full timeline with connector */
+                            <View style={styles.timelineContainer}>
+                                {/* Vertical connector line */}
+                                <View style={[styles.timelineLine, { backgroundColor: colors.border }]} />
+                                {status.topItems.map((item, index) => {
+                                    const urgencyColor = item.urgency === 'high' ? colors.urgencyHigh : (item.urgency === 'medium' ? colors.urgencyMedium : colors.urgencyLow);
+                                    const isLast = index === status.topItems.length - 1;
+                                    const dueDate = item.dueAt ? new Date(item.dueAt) : null;
+                                    const hasTime = dueDate ? (dueDate.getHours() !== 0 || dueDate.getMinutes() !== 0) : false;
+                                    return (
+                                        <Animated.View
+                                            key={item.id}
+                                            entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(400 + (index * 100)).duration(400)}
+                                            exiting={FadeOut.duration(300)}
+                                            layout={LinearTransition}
+                                        >
+                                            <View
+                                                style={[
+                                                    styles.timelineRow,
+                                                    !isLast && { marginBottom: 4 },
+                                                ]}
+                                            >
+                                                {/* Timeline dot + optional time label */}
+                                                <View style={styles.timelineDotColumn}>
+                                                    {hasTime && dueDate && (
+                                                        <Text style={[styles.timelineTimeLabel, { color: urgencyColor }]}>
+                                                            {dueDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                                                        </Text>
+                                                    )}
+                                                    <View style={[styles.timelineDotOuter, { borderColor: urgencyColor }]}>
+                                                        <View style={[styles.timelineDotInner, { backgroundColor: urgencyColor }]} />
+                                                    </View>
+                                                </View>
+
+                                                {/* Content */}
+                                                <View style={[
+                                                    styles.timelineContent,
+                                                    {
+                                                        backgroundColor: colors.backgroundSecondary,
+                                                        borderColor: colors.border,
+                                                    },
                                                 ]}>
-                                                    {item.urgency === 'high' ? 'Priority' : (item.urgency === 'medium' ? 'Upcoming' : 'Routine')}
-                                                </Text>
-                                            </View>
-                                        </View>
+                                                    {/* Top row: type + urgency */}
+                                                    <View style={styles.timelineTopRow}>
+                                                        <View style={styles.timelineTypeBadge}>
+                                                            <IconSymbol
+                                                                name={item.type === 'task' ? 'checkmark.circle' : (item.type === 'follow_up' ? 'bubble.left' : 'doc.text')}
+                                                                size={10}
+                                                                color={colors.textSecondary}
+                                                            />
+                                                            <Text style={[styles.timelineTypeText, { color: colors.textSecondary }]}>
+                                                                {item.type === 'follow_up' ? 'Action' : (item.type || 'Task')}
+                                                            </Text>
+                                                        </View>
+                                                        <View style={styles.timelineUrgencyRow}>
+                                                            {item.urgency === 'high' && (
+                                                                <IconSymbol name="flame.fill" size={9} color={urgencyColor} />
+                                                            )}
+                                                            <Text style={[styles.timelineUrgencyLabel, { color: urgencyColor }]}>
+                                                                {item.urgency === 'high' ? 'Priority' : (item.urgency === 'medium' ? 'Upcoming' : 'Routine')}
+                                                            </Text>
+                                                        </View>
+                                                    </View>
 
-                                        <Text style={[styles.priorityTitleText, { color: colors.text }]} numberOfLines={2}>
-                                            {item.title}
-                                        </Text>
+                                                    {/* Title */}
+                                                    <Text style={[styles.timelineTitleText, { color: colors.text }]} numberOfLines={2}>
+                                                        {item.title}
+                                                    </Text>
 
-                                        <View style={styles.priorityCardFooter}>
-                                            <View style={styles.priorityMetaContainer}>
-                                                <Text style={[styles.priorityDueTag, { color: colors.textSecondary }]}>
-                                                    {item.dueAt ? `Due ${new Date(item.dueAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : 'Today'}
-                                                </Text>
+                                                    {/* Bottom row: due + action */}
+                                                    <View style={styles.timelineBottomRow}>
+                                                        <Text style={[styles.timelineDueText, { color: colors.textSecondary }]}>
+                                                            {dueDate
+                                                                ? `Due ${dueDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}${hasTime ? ` · ${dueDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}` : ''}`
+                                                                : 'Today'}
+                                                        </Text>
+                                                        <Pressable
+                                                            onPress={() => handleCheckmarkTap(item)}
+                                                            hitSlop={8}
+                                                            style={({ pressed }) => [
+                                                                styles.timelineDoneBtn,
+                                                                pendingDoneItem?.id === item.id
+                                                                    ? { backgroundColor: '#22C55E', borderColor: '#22C55E' }
+                                                                    : { backgroundColor: pressed ? `${colors.tint}25` : `${colors.tint}15`, borderColor: `${colors.tint}30` },
+                                                                { transform: [{ scale: pressed ? 0.9 : 1 }] },
+                                                            ]}
+                                                        >
+                                                            <IconSymbol name="checkmark" size={11} color={pendingDoneItem?.id === item.id ? '#FFFFFF' : colors.tint} weight="bold" />
+                                                        </Pressable>
+                                                    </View>
+                                                </View>
                                             </View>
-                                            <View style={[styles.priorityDoneButton, { backgroundColor: colors.tint }]}>
-                                                <IconSymbol name="checkmark" size={12} color="#FFFFFF" weight="bold" />
-                                            </View>
-                                        </View>
-                                    </View>
-                                </Pressable>
-                            </Animated.View>
-                        ))
+                                        </Animated.View>
+                                    );
+                                })}
+                            </View>
+                        )
                     ) : (
-                        <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.emptyStateContainer}>
+                        <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(400).duration(500)} style={styles.emptyStateContainer}>
                             {/* Lottie Animation */}
                             <Animated.View
                                 entering={FadeIn.delay(500).duration(600)}
                                 style={styles.emptyStateIllustration}
                             >
                                 <LottieView
-                                    source={require('@/assets/animations/Business decisions Lottie JSON animation.json')}
+                                    source={require('@/assets/animations/Man Working on Laptop.json')}
                                     autoPlay
                                     loop
-                                    style={{ width: '100%', height: '100%' }}
+                                    style={{ width: '98%', height: '99%', transform: [{ scale: 1.3 }] }}
                                 />
                             </Animated.View>
 
                             {/* Text */}
                             <Animated.Text
-                                entering={FadeInDown.delay(650).duration(400)}
+                                entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(650).duration(400)}
                                 style={[styles.emptyStateHeadline, { color: colors.text }]}
                             >
                                 {isNewUser ? 'Welcome to BackForge AI!' : 'You crushed it!'}
                             </Animated.Text>
                             <Animated.Text
-                                entering={FadeInDown.delay(750).duration(400)}
+                                entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(750).duration(400)}
                                 style={[styles.emptyStateBody, { color: colors.textSecondary }]}
                             >
                                 {isNewUser
@@ -520,7 +554,7 @@ export default function HomeScreen() {
 
                             {/* CTA for new users */}
                             {isNewUser && (
-                                <Animated.View entering={FadeInDown.delay(850).duration(400)}>
+                                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(850).duration(400)}>
                                     <Pressable
                                         onPress={handleChat}
                                         style={({ pressed }) => [
@@ -542,7 +576,7 @@ export default function HomeScreen() {
                 </Animated.View>
 
                 {/* 5. Chat Command Bar */}
-                <Animated.View entering={FadeInDown.delay(450).duration(500)} style={styles.chatSection}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(450).duration(500)} style={styles.chatSection}>
                     <Pressable
                         onPress={handleChat}
                         style={({ pressed }) => [
@@ -572,7 +606,7 @@ export default function HomeScreen() {
                 </Animated.View>
 
                 {/* 6. Horizontal Tips Carousel */}
-                <Animated.View entering={FadeInDown.delay(500).duration(500)} style={styles.tipsSection}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(500).duration(500)} style={styles.tipsSection}>
                     <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>HOW BACKFORGE AI HELPS</Text>
                     <ScrollView
                         horizontal
@@ -584,7 +618,7 @@ export default function HomeScreen() {
                         {TIPS_DATA.map((tip, index) => (
                             <Animated.View
                                 key={tip.id}
-                                entering={FadeInRight.delay(550 + index * 60).duration(400)}
+                                entering={Platform.OS === 'android' ? undefined : FadeInRight.delay(550 + index * 60).duration(400)}
                             >
                                 <Pressable
                                     onPress={() => handleTipPress(tip.id)}
@@ -630,6 +664,51 @@ export default function HomeScreen() {
                 featureId={selectedFeature}
                 onClose={() => setSelectedFeature(null)}
             />
+            {/* Confirmation Modal */}
+            <Modal
+                visible={!!pendingDoneItem}
+                transparent
+                animationType="fade"
+                onRequestClose={handleCancelDone}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                        <View style={styles.modalIconRow}>
+                            <View style={styles.modalCheckCircle}>
+                                <IconSymbol name="checkmark" size={20} color="#FFFFFF" weight="bold" />
+                            </View>
+                        </View>
+                        <Text style={[styles.modalTitle, { color: colors.text }]}>Mark as complete?</Text>
+                        {pendingDoneItem && (
+                            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]} numberOfLines={2}>
+                                {pendingDoneItem.title}
+                            </Text>
+                        )}
+                        <View style={styles.modalButtons}>
+                            <Pressable
+                                onPress={handleCancelDone}
+                                style={({ pressed }) => [
+                                    styles.modalBtn,
+                                    { backgroundColor: `${colors.textSecondary}15`, opacity: pressed ? 0.7 : 1 },
+                                ]}
+                            >
+                                <Text style={[styles.modalBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+                            </Pressable>
+                            <Pressable
+                                onPress={handleConfirmDone}
+                                style={({ pressed }) => [
+                                    styles.modalBtn,
+                                    styles.modalBtnPrimary,
+                                    { opacity: pressed ? 0.8 : 1 },
+                                ]}
+                            >
+                                <IconSymbol name="checkmark" size={14} color="#FFFFFF" weight="bold" />
+                                <Text style={[styles.modalBtnText, { color: '#FFFFFF' }]}>Done</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -644,28 +723,29 @@ const styles = StyleSheet.create({
     },
     // Greeting Section
     greetingSection: {
-        marginTop: Spacing.xs,
-        marginBottom: Spacing.md,
+        marginTop: Spacing.sm,
+        marginBottom: Spacing.lg,
+        alignItems: 'center',
     },
     greetingRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 8,
     },
     waveEmoji: {
-        fontSize: 32,
-        marginRight: Spacing.sm,
-    },
-    greetingTextContainer: {
-        flex: 1,
+        fontSize: 28,
     },
     greetingText: {
-        fontSize: 24,
-        fontWeight: '700',
-        letterSpacing: -0.5,
+        fontSize: 30,
+        fontWeight: '800',
+        letterSpacing: -0.8,
+        lineHeight: 36,
     },
-    greetingSubtext: {
-        fontSize: 14,
-        marginTop: 2,
+    greetingName: {
+        fontSize: 30,
+        fontWeight: '800',
+        letterSpacing: -0.8,
+        lineHeight: 36,
     },
     // Intelligence Board (Merged Status/Progress)
     boardWrapper: {
@@ -725,6 +805,19 @@ const styles = StyleSheet.create({
     boardProgressContainer: {
         width: 80,
         height: 80,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    progressRingOuter: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        borderWidth: 5,
+        borderColor: 'rgba(255,255,255,0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    progressRingInner: {
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -803,124 +896,181 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '600',
     },
-    priorityCard: {
+    // Timeline View
+    timelineContainer: {
+        position: 'relative',
+        paddingLeft: 4,
+    },
+    timelineLine: {
+        position: 'absolute',
+        left: 27,
+        top: 28,
+        bottom: 28,
+        width: 2,
+        borderRadius: 1,
+        opacity: 0.4,
+    },
+    timelineRow: {
         flexDirection: 'row',
-        borderRadius: 24,
-        marginBottom: Spacing.sm,
-        overflow: 'hidden',
+        alignItems: 'stretch',
+    },
+    timelineDotColumn: {
+        width: 48,
+        alignItems: 'center',
+        paddingTop: 14,
+    },
+    timelineTimeLabel: {
+        fontSize: 9,
+        fontWeight: '800',
+        letterSpacing: 0.3,
+        marginBottom: 4,
+    },
+    timelineDotOuter: {
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        borderWidth: 2.5,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'transparent',
+    },
+    timelineDotInner: {
+        width: 5,
+        height: 5,
+        borderRadius: 2.5,
+    },
+    timelineContent: {
+        flex: 1,
+        marginLeft: 8,
+        borderRadius: 18,
+        padding: 16,
         borderWidth: 1,
     },
-    priorityUrgencyGlow: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    priorityContent: {
-        flex: 1,
-        padding: 18,
-    },
-    priorityCardHeader: {
+    timelineTopRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 8,
     },
-    priorityTypeBadge: {
+    timelineTypeBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        gap: 5,
     },
-    typeIconBox: {
-        padding: 4,
-        borderRadius: 6,
-        borderWidth: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    priorityTypeText: {
+    timelineTypeText: {
         fontSize: 10,
         fontWeight: '800',
         textTransform: 'uppercase',
         letterSpacing: 0.6,
     },
-    priorityUrgencyBadge: {
+    timelineUrgencyRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 2,
-        paddingHorizontal: 8,
-        borderRadius: 10,
+        gap: 3,
     },
-    priorityUrgencyText: {
+    timelineUrgencyLabel: {
         fontSize: 9,
         fontWeight: '800',
         textTransform: 'uppercase',
         letterSpacing: 0.4,
     },
-    priorityTitleText: {
-        fontSize: 17,
+    timelineTitleText: {
+        fontSize: 16,
         fontWeight: '700',
-        lineHeight: 23,
-        marginBottom: 16,
+        lineHeight: 22,
         letterSpacing: -0.2,
+        marginBottom: 10,
     },
-    priorityCardFooter: {
+    timelineBottomRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    priorityMetaContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    priorityDueTag: {
+    timelineDueText: {
         fontSize: 11,
         fontWeight: '700',
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
-    priorityDoneButton: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
+    timelineDoneBtn: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        borderWidth: 1,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    prioritySeparator: {
-        width: 1,
-        height: 12,
-        backgroundColor: 'rgba(0,0,0,0.1)',
-        marginHorizontal: 8,
+    // Confirmation Modal
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 40,
     },
-    priorityBadge: {
+    modalContent: {
+        width: '100%',
+        borderRadius: 24,
+        padding: 28,
+        alignItems: 'center',
+        borderWidth: 1,
+    },
+    modalIconRow: {
+        marginBottom: 16,
+    },
+    modalCheckCircle: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#22C55E',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        letterSpacing: -0.3,
+        marginBottom: 6,
+    },
+    modalSubtitle: {
+        fontSize: 14,
+        fontWeight: '500',
+        textAlign: 'center',
+        lineHeight: 20,
+        marginBottom: 24,
+    },
+    modalButtons: {
         flexDirection: 'row',
-        alignItems: 'center',
+        gap: 12,
+        width: '100%',
     },
-    priorityBadgeText: {
-        fontSize: 11,
-        fontWeight: '700',
-        marginLeft: 4,
-    },
-    priorityChevron: {
-        marginLeft: 8,
-        opacity: 0.5,
-    },
-    priorityAction: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
+    modalBtn: {
+        flex: 1,
+        height: 48,
+        borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: Spacing.sm,
+        flexDirection: 'row',
+        gap: 6,
+    },
+    modalBtnPrimary: {
+        backgroundColor: '#22C55E',
+    },
+    modalBtnText: {
+        fontSize: 15,
+        fontWeight: '700',
     },
     // Empty State — Open Illustration Style
     emptyStateContainer: {
         alignItems: 'center',
-        paddingVertical: Spacing.lg,
+        paddingVertical: Spacing.xs, // Reduced from lg
     },
     emptyStateIllustration: {
-        width: 220,
-        height: 220,
+        width: 320,
+        height: 320,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: Spacing.md,
+        marginBottom: Spacing.sm,
     },
     floatingEmoji: {
         position: 'absolute',

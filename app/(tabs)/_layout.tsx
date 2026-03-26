@@ -111,15 +111,6 @@ function TabsContent() {
         }}
       />
       <Tabs.Screen
-        name="brief"
-        options={{
-          title: 'Brief',
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="list.bullet.rectangle" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="notifications"
         options={{
           title: 'alert',

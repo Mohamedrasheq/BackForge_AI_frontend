@@ -11,6 +11,7 @@ import {
   fetchGitHubRepos,
   fetchLinearContext,
   sendChatMessageStreaming,
+  scheduleConfirm,
 } from '@/services/api';
 import type {
   ChatMessage,
@@ -22,9 +23,10 @@ import { useUser } from '@clerk/clerk-expo';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, withDelay, FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import {
   FlatList,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -32,14 +34,11 @@ import {
   StyleSheet,
   Text,
   View,
+  Modal,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import LottieView from 'lottie-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  getDailyMessageStats,
-  incrementDailyMessageCount,
-  isProActive
-} from '../../services/revenuecat';
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -47,6 +46,39 @@ function generateId(): string {
 
 function getTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+// Typing indicator with three pulsing dots
+function TypingIndicator({ color }: { color: string }) {
+  const dot1 = useSharedValue(0.3);
+  const dot2 = useSharedValue(0.3);
+  const dot3 = useSharedValue(0.3);
+
+  useEffect(() => {
+    const pulse = (sv: typeof dot1, delay: number) =>
+      withDelay(delay, withRepeat(
+        withSequence(
+          withTiming(1, { duration: 400 }),
+          withTiming(0.3, { duration: 400 }),
+        ),
+        -1,
+      ));
+    dot1.value = pulse(dot1, 0);
+    dot2.value = pulse(dot2, 200);
+    dot3.value = pulse(dot3, 400);
+  }, []);
+
+  const s1 = useAnimatedStyle(() => ({ opacity: dot1.value }));
+  const s2 = useAnimatedStyle(() => ({ opacity: dot2.value }));
+  const s3 = useAnimatedStyle(() => ({ opacity: dot3.value }));
+
+  return (
+    <View style={styles.typingContainer}>
+      <Animated.View style={[styles.typingDot, { backgroundColor: color }, s1]} />
+      <Animated.View style={[styles.typingDot, { backgroundColor: color }, s2]} />
+      <Animated.View style={[styles.typingDot, { backgroundColor: color }, s3]} />
+    </View>
+  );
 }
 
 export default function ChatScreen() {
@@ -86,9 +118,12 @@ export default function ChatScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [executingActionId, setExecutingActionId] = useState<string | null>(null);
 
-  // ── Subscription & Limit state ──
-  const [proActive, setProActive] = useState(false);
-  const [remainingMessages, setRemainingMessages] = useState<number | null>(null);
+  // ── Scheduling flow state ──
+  const [isCalendarVisible, setIsCalendarVisible] = useState(false);
+  const [pendingScheduleItem, setPendingScheduleItem] = useState<any>(null);
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
 
   useFocusEffect(
     React.useCallback(() => {
@@ -102,16 +137,6 @@ export default function ChatScreen() {
         "Ready to supercharge your workflow?",
       ];
       setCurrentQuote(quotes[Math.floor(Math.random() * quotes.length)]);
-
-      const checkLimits = async () => {
-        const isPro = await isProActive();
-        setProActive(active => active || isPro);
-        if (!isPro) {
-          const stats = await getDailyMessageStats();
-          setRemainingMessages(stats.remaining);
-        }
-      };
-      checkLimits();
     }, [])
   );
 
@@ -134,16 +159,6 @@ export default function ChatScreen() {
   const handleSend = useCallback(async () => {
     const text = inputText.trim();
     if (!text || isLoading || !user) return;
-
-    // Check Gating
-    if (!proActive) {
-      const stats = await getDailyMessageStats();
-      if (stats.remaining <= 0) {
-        haptics.warning();
-        router.push('/paywall');
-        return;
-      }
-    }
 
     haptics.light();
 
@@ -204,15 +219,18 @@ export default function ChatScreen() {
               return msg;
             })
           );
+
+          // Handle special done-event flags after streaming is finished
+          if (delta.type === 'done' && delta.requires_calendar) {
+            setPendingScheduleItem(delta.pending_item);
+            if (delta.default_datetime) {
+              setSelectedDate(new Date(delta.default_datetime));
+            }
+            setIsCalendarVisible(true);
+            haptics.success();
+          }
         }
       );
-
-      // Increment limit if not pro
-      if (!proActive) {
-        await incrementDailyMessageCount();
-        const stats = await getDailyMessageStats();
-        setRemainingMessages(stats.remaining);
-      }
     } catch (err) {
       const errorMessage: ChatMessage = {
         id: generateId(),
@@ -224,7 +242,47 @@ export default function ChatScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [inputText, isLoading, user, proActive]);
+  }, [inputText, isLoading, user]);
+
+  const handleConfirmSchedule = useCallback(async () => {
+    if (!user || !pendingScheduleItem) return;
+    
+    setIsScheduling(true);
+    haptics.medium();
+
+    try {
+      const response = await scheduleConfirm({
+        userId: user.id,
+        scheduledAt: selectedDate.toISOString(),
+        pendingItem: pendingScheduleItem,
+      });
+
+      if (response.success) {
+        haptics.success();
+        setIsCalendarVisible(false);
+        
+        // Add a success message to the chat
+        const successMsg: ChatMessage = {
+          id: generateId(),
+          text: `✅ Scheduled: **${pendingScheduleItem.title}** for ${selectedDate.toLocaleString(undefined, { 
+            month: 'short', 
+            day: 'numeric', 
+            hour: 'numeric', 
+            minute: '2-digit' 
+          })}`,
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, successMsg]);
+      }
+    } catch (err) {
+      console.error('[Chat] Failed to confirm schedule:', err);
+      haptics.error();
+    } finally {
+      setIsScheduling(false);
+      setPendingScheduleItem(null);
+    }
+  }, [user, pendingScheduleItem, selectedDate]);
 
   // ── Action Execution ──
   const handleExecuteAction = useCallback(async (action: ProposedAction) => {
@@ -264,6 +322,14 @@ export default function ChatScreen() {
       <Header 
         showBranding={false} 
         hideDefaultRightElements={true}
+        hideAvatar={true}
+        style={{ paddingRight: Spacing.sm }}
+        centerElement={
+          <Image 
+            source={require('@/assets/images/brand_logo_cropped.png')} 
+            style={{ width: 120, height: 32, resizeMode: 'contain' }} 
+          />
+        }
         rightElement={
           <Pressable
             onPress={() => {
@@ -278,7 +344,7 @@ export default function ChatScreen() {
               },
             ]}
           >
-            <IconSymbol name="arrow.counterclockwise" size={16} color={colors.textSecondary} />
+            <IconSymbol name="trash" size={18} color={colors.textSecondary} />
           </Pressable>
         }
       />
@@ -291,13 +357,13 @@ export default function ChatScreen() {
         {messages.length === 0 ? (
           <View style={styles.initialState}>
             <LottieView
-              source={require('@/assets/animations/Man Working on Laptop.json')}
+              source={require('@/assets/animations/Businessman looking for career opportunities.json')}
               autoPlay
               loop
               style={styles.initialLottie}
             />
             <Animated.Text 
-              entering={FadeInDown.delay(400).duration(600)}
+              entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(400).duration(600)}
               style={[styles.initialQuote, { color: colors.text }]}
             >
               {currentQuote}
@@ -312,11 +378,17 @@ export default function ChatScreen() {
             onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
             renderItem={({ item }) => (
               <View style={styles.bubbleWrapper}>
-                <ChatBubble
-                  text={item.text}
-                  isUser={item.isUser}
-                  style={item.isUser ? styles.userBubble : styles.agentBubble}
-                />
+                {!item.isUser && !item.text ? (
+                  <View style={styles.agentBubble}>
+                    <TypingIndicator color={colors.textSecondary} />
+                  </View>
+                ) : (
+                  <ChatBubble
+                    text={item.text}
+                    isUser={item.isUser}
+                    style={item.isUser ? styles.userBubble : styles.agentBubble}
+                  />
+                )}
                 {!item.isUser && item.proposedActions && (
                   <View style={styles.actionsList}>
                     {item.proposedActions.map((action: ProposedAction) => (
@@ -336,6 +408,147 @@ export default function ChatScreen() {
           />
         )}
 
+        <Modal
+          visible={isCalendarVisible}
+          transparent
+          animationType="none"
+          onRequestClose={() => setIsCalendarVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <Animated.View 
+              entering={FadeIn} 
+              exiting={FadeOut}
+              style={StyleSheet.absoluteFill}
+            >
+              <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsCalendarVisible(false)}>
+                <BlurView intensity={20} style={StyleSheet.absoluteFill} />
+              </Pressable>
+            </Animated.View>
+
+            <Animated.View 
+              entering={SlideInDown.springify().damping(20)}
+              exiting={SlideOutDown}
+              style={[styles.scheduleModalContainer, { backgroundColor: colors.background }]}
+            >
+              <View style={styles.modalIndicator} />
+              
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Schedule Reminder</Text>
+              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                {pendingScheduleItem?.title || 'New Task'}
+              </Text>
+
+              <View style={styles.dateSelector}>
+                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>SELECT DATE</Text>
+                <FlatList
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  data={[0, 1, 2, 3, 4, 5, 6]}
+                  keyExtractor={i => i.toString()}
+                  contentContainerStyle={styles.dateList}
+                  renderItem={({ item: offset }) => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + offset);
+                    const isSelected = d.toDateString() === selectedDate.toDateString();
+                    return (
+                      <Pressable 
+                        onPress={() => {
+                          const newDate = new Date(selectedDate);
+                          newDate.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
+                          setSelectedDate(newDate);
+                          haptics.selection();
+                        }}
+                        style={[
+                          styles.dateItem,
+                          isSelected && { backgroundColor: colors.tint }
+                        ]}
+                      >
+                        <Text style={[
+                          styles.dateItemDay, 
+                          { color: isSelected ? '#FFF' : colors.textSecondary }
+                        ]}>
+                          {offset === 0 ? 'Today' : offset === 1 ? 'Tomorrow' : d.toLocaleDateString(undefined, { weekday: 'short' })}
+                        </Text>
+                        <Text style={[
+                          styles.dateItemDate, 
+                          { color: isSelected ? '#FFF' : colors.text }
+                        ]}>
+                          {d.getDate()}
+                        </Text>
+                      </Pressable>
+                    );
+                  }}
+                />
+              </View>
+
+              <View style={styles.timeSelector}>
+                <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>SELECT TIME</Text>
+                <View style={styles.timeGrid}>
+                  {[
+                    { label: 'Morning', time: 9 },
+                    { label: 'Noon', time: 12 },
+                    { label: 'Evening', time: 18 },
+                    { label: 'Night', time: 21 }
+                  ].map((t) => {
+                    const isSelected = selectedDate.getHours() === t.time;
+                    return (
+                      <Pressable
+                        key={t.label}
+                        onPress={() => {
+                          const newDate = new Date(selectedDate);
+                          newDate.setHours(t.time, 0, 0, 0);
+                          setSelectedDate(newDate);
+                          haptics.selection();
+                        }}
+                        style={[
+                          styles.timeItem,
+                          { borderColor: colors.border },
+                          isSelected && { borderColor: colors.tint, backgroundColor: colors.tint + '10' }
+                        ]}
+                      >
+                        <Text style={[
+                          styles.timeItemLabel,
+                          { color: isSelected ? colors.tint : colors.text }
+                        ]}>
+                          {t.label}
+                        </Text>
+                        <Text style={[
+                          styles.timeItemValue,
+                          { color: isSelected ? colors.tint : colors.textSecondary }
+                        ]}>
+                          {t.time > 12 ? `${t.time - 12} PM` : `${t.time} AM`}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.modalActions}>
+                <Pressable 
+                  onPress={() => setIsCalendarVisible(false)}
+                  style={[styles.modalActionBtn, { backgroundColor: colors.border }]}
+                >
+                  <Text style={[styles.modalActionText, { color: colors.text }]}>Cancel</Text>
+                </Pressable>
+                <Pressable 
+                  disabled={isScheduling}
+                  onPress={handleConfirmSchedule}
+                  style={[styles.modalActionBtn, { backgroundColor: colors.tint }]}
+                >
+                  {isScheduling ? (
+                    <Text style={[styles.modalActionText, { color: '#FFF' }]}>Scheduling...</Text>
+                  ) : (
+                    <>
+                      <IconSymbol name="calendar" size={18} color="#FFF" />
+                      <Text style={[styles.modalActionText, { color: '#FFF' }]}>Confirm</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
+
         <View style={[
           styles.inputContainer,
           {
@@ -344,11 +557,6 @@ export default function ChatScreen() {
               : Math.max(Spacing.md, insets.bottom)
           }
         ]}>
-          {!proActive && remainingMessages !== null && (
-            <Text style={[styles.limitText, { color: colors.textSecondary }]}>
-              {remainingMessages} {remainingMessages === 1 ? 'message' : 'messages'} remaining today
-            </Text>
-          )}
           <View style={styles.inputRow}>
             <GlassInput
               value={inputText}
@@ -407,12 +615,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     gap: Spacing.xs,
   },
-  limitText: {
-    fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -452,5 +654,129 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  typingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  typingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  scheduleModalContainer: {
+    paddingTop: 12,
+    paddingBottom: 40,
+    paddingHorizontal: 24,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  modalIndicator: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(150,150,150,0.3)',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  dateSelector: {
+    marginBottom: 24,
+  },
+  dateList: {
+    gap: 10,
+  },
+  dateItem: {
+    width: 60,
+    height: 74,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(150,150,150,0.05)',
+  },
+  dateItemDay: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  dateItemDate: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  timeSelector: {
+    marginBottom: 32,
+  },
+  timeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  timeItem: {
+    flex: 1,
+    minWidth: '45%',
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  timeItemLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  timeItemValue: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalActionBtn: {
+    flex: 1,
+    height: 54,
+    borderRadius: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  modalActionText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

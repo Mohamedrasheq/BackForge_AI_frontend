@@ -1,11 +1,11 @@
 import { EmptyState } from '@/components/ui/empty-state';
-import { Header } from '@/components/ui/header';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { subscribeToMemoryChanges } from '@/lib/supabase';
 import { useTabBar } from '@/lib/tab-bar-context';
 import { getAllMemories } from '@/services/api';
+import { haptics } from '@/lib/haptics';
 import { MemoryItem, Urgency } from '@/types/api';
 import { useFocusEffect, useRouter } from 'expo-router';
 
@@ -16,6 +16,7 @@ import {
     FlatList,
     Pressable,
     RefreshControl,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -238,48 +239,59 @@ export default function MemoryScreen() {
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
 
-            <Header showBranding={false} />
+
 
             {/* Search Bar */}
             <View style={styles.searchContainer}>
-                <TextInput
-                    style={[styles.searchInput, {
-                        backgroundColor: colors.backgroundSecondary,
-                        borderColor: colors.border,
-                        color: colors.text,
-                    }]}
-                    placeholder="Search memories..."
-                    placeholderTextColor={colors.textSecondary}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                />
+                <View style={[styles.searchWrapper, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                    <IconSymbol name="magnifyingglass" size={18} color={colors.textSecondary} style={styles.searchIcon} />
+                    <TextInput
+                        style={[styles.searchInput, { color: colors.text }]}
+                        placeholder="Search memories..."
+                        placeholderTextColor={colors.textSecondary}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        clearButtonMode="while-editing"
+                    />
+                </View>
             </View>
 
             {/* Filter Chips */}
-            <View style={styles.filterContainer}>
-                {FILTER_OPTIONS.map((option) => (
-                    <Pressable
-                        key={option.key}
-                        onPress={() => setActiveFilter(option.key)}
-                        style={[
-                            styles.filterChip,
-                            {
-                                backgroundColor: activeFilter === option.key ? colors.tint : 'transparent',
-                                borderColor: activeFilter === option.key ? colors.tint : colors.border,
-                            }
-                        ]}
-                    >
-                        <Text style={[
-                            styles.filterChipText,
-                            { color: activeFilter === option.key ? '#FFFFFF' : colors.text }
-                        ]}>
-                            {option.label}
-                        </Text>
-                    </Pressable>
-                ))}
+            <View>
+                <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false} 
+                    contentContainerStyle={styles.filterContainer}
+                >
+                    {FILTER_OPTIONS.map((option) => (
+                        <Pressable
+                            key={option.key}
+                            onPress={() => {
+                                setActiveFilter(option.key);
+                            }}
+                            style={[
+                                styles.filterChip,
+                                {
+                                    backgroundColor: activeFilter === option.key ? colors.tint : `${colors.textSecondary}10`,
+                                    borderColor: activeFilter === option.key ? colors.tint : 'transparent',
+                                }
+                            ]}
+                        >
+                            <Text style={[
+                                styles.filterChipText,
+                                { 
+                                    color: activeFilter === option.key ? '#FFFFFF' : colors.textSecondary,
+                                    fontWeight: activeFilter === option.key ? '700' : '500'
+                                }
+                            ]}>
+                                {option.label}
+                            </Text>
+                        </Pressable>
+                    ))}
+                </ScrollView>
             </View>
 
             {isLoading ? (
@@ -327,7 +339,7 @@ const styles = StyleSheet.create({
     },
     listContent: {
         paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.sm,
+        paddingTop: Spacing.md,
     },
     emptyListContent: {
         flexGrow: 1,
@@ -434,30 +446,38 @@ const styles = StyleSheet.create({
     },
     searchContainer: {
         paddingHorizontal: Spacing.md,
-        paddingTop: Spacing.sm,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.xs,
     },
-    searchInput: {
-        height: 44,
-        borderRadius: 12,
+    searchWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 48,
+        borderRadius: 14,
         borderWidth: 1,
         paddingHorizontal: Spacing.md,
+    },
+    searchIcon: {
+        marginRight: Spacing.sm,
+    },
+    searchInput: {
+        flex: 1,
         fontSize: 16,
+        fontWeight: '500',
     },
     filterContainer: {
-        flexDirection: 'row',
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
         gap: Spacing.sm,
     },
     filterChip: {
-        paddingVertical: Spacing.xs,
-        paddingHorizontal: Spacing.md,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
         borderRadius: 20,
         borderWidth: 1,
     },
     filterChipText: {
         fontSize: 14,
-        fontWeight: '500',
     },
 });
 

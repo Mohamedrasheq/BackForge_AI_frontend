@@ -252,13 +252,17 @@ export default function SettingsScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 {/* ── Profile Row ── */}
-                <Animated.View entering={FadeInDown.delay(delay(0)).duration(400).springify()}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(delay(0)).duration(400).springify()}>
                     <Pressable
                         onPress={() => {
                             haptics.light();
                             router.push('/profile');
                         }}
-                        style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+                        android_ripple={{ color: `${colors.tint}20`, borderless: false }}
+                        style={({ pressed }) => [{
+                            opacity: pressed ? 0.92 : 1,
+                            transform: [{ scale: pressed ? 0.98 : 1 }],
+                        }]}
                     >
                         <GlassCard style={styles.profileCard} animate={false}>
                             <View style={styles.profileRow}>
@@ -289,7 +293,7 @@ export default function SettingsScreen() {
                 </Animated.View>
 
                 {/* ── General ── */}
-                <Animated.View entering={FadeInDown.delay(delay(1)).duration(400).springify()}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(delay(1)).duration(400).springify()}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>General</Text>
                     <GlassCard style={styles.card} animate={false}>
                         <SettingsRow
@@ -330,7 +334,7 @@ export default function SettingsScreen() {
                 </Animated.View>
 
                 {/* ── Support ── */}
-                <Animated.View entering={FadeInDown.delay(delay(2)).duration(400).springify()}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(delay(2)).duration(400).springify()}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Support</Text>
                     <GlassCard style={styles.card} animate={false}>
                         <SettingsRow
@@ -363,7 +367,7 @@ export default function SettingsScreen() {
 
 
                 {/* ── About ── */}
-                <Animated.View entering={FadeInDown.delay(delay(3)).duration(400).springify()}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(delay(3)).duration(400).springify()}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>About</Text>
                     <GlassCard style={styles.card} animate={false}>
                         <SettingsRow
@@ -376,7 +380,7 @@ export default function SettingsScreen() {
                 </Animated.View>
 
                 {/* ── Danger Zone ── */}
-                <Animated.View entering={FadeInDown.delay(delay(4)).duration(400).springify()}>
+                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(delay(4)).duration(400).springify()}>
                     <Text style={[styles.sectionTitle, { color: colors.urgencyHigh }]}>
                         Danger Zone
                     </Text>

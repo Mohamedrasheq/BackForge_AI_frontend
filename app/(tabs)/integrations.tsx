@@ -399,9 +399,68 @@ export default function IntegrationsScreen() {
     const selectedConfig = selectedService ? getServiceConfig(selectedService.name) : DEFAULT_CONFIG;
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-            <Header showBranding={false} />
+
+
+            {/* Search Bar */}
+            <View style={styles.searchBarContainer}>
+                <View style={[styles.searchBarWrapper, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                    <IconSymbol name="magnifyingglass" size={18} color={colors.textSecondary} style={styles.searchIcon} />
+                    <TextInput
+                        style={[styles.searchInput, { color: colors.text }]}
+                        placeholder="Search apps..."
+                        placeholderTextColor={colors.textSecondary}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        autoCapitalize="none"
+                        clearButtonMode="while-editing"
+                    />
+                </View>
+            </View>
+
+            {/* Filter Chips */}
+            <View>
+                <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false} 
+                    contentContainerStyle={styles.filterContainer}
+                >
+                    {['all', 'connected', 'available'].map((filterKey) => {
+                        const label = filterKey === 'all' ? 'All' : filterKey === 'connected' ? 'Connected' : 'Available';
+                        const isActive = searchQuery === '' ? filterKey === 'all' : false;
+                        return (
+                            <Pressable
+                                key={filterKey}
+                                onPress={() => {
+                                    haptics.selection();
+                                    if (filterKey === 'all') setSearchQuery('');
+                                    else if (filterKey === 'connected') {
+                                        setSearchQuery('');
+                                    }
+                                }}
+                                style={[
+                                    styles.filterChip,
+                                    {
+                                        backgroundColor: isActive ? colors.tint : `${colors.textSecondary}10`,
+                                        borderColor: isActive ? colors.tint : 'transparent',
+                                    }
+                                ]}
+                            >
+                                <Text style={[
+                                    styles.filterChipText,
+                                    { 
+                                        color: isActive ? '#FFFFFF' : colors.textSecondary,
+                                        fontWeight: isActive ? '700' : '500'
+                                    }
+                                ]}>
+                                    {label}
+                                </Text>
+                            </Pressable>
+                        );
+                    })}
+                </ScrollView>
+            </View>
 
             <FlatList
                 data={filteredServices}
@@ -412,9 +471,6 @@ export default function IntegrationsScreen() {
                 contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
                 ListHeaderComponent={
                     <View style={styles.headerSection}>
-
-
-
                         {/* Connected Apps */}
                         {connectedServices.length > 0 && (
                             <View style={[styles.connectedSection, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
@@ -455,19 +511,6 @@ export default function IntegrationsScreen() {
                                 })}
                             </View>
                         )}
-
-                        {/* Search Bar */}
-                        <View style={[styles.searchContainer, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
-                            <IconSymbol name="magnifyingglass" size={18} color={colors.textSecondary} style={styles.searchIcon} />
-                            <TextInput
-                                style={[styles.searchInput, { color: colors.text }]}
-                                placeholder="Search apps..."
-                                placeholderTextColor={colors.textSecondary + '80'}
-                                value={searchQuery}
-                                onChangeText={setSearchQuery}
-                                autoCapitalize="none"
-                            />
-                        </View>
                     </View>
                 }
                 refreshControl={
@@ -733,7 +776,6 @@ const styles = StyleSheet.create({
     },
     headerSection: {
         paddingHorizontal: Spacing.md,
-        marginTop: Spacing.sm,
         marginBottom: Spacing.md,
     },
     title: {
@@ -803,14 +845,18 @@ const styles = StyleSheet.create({
         backgroundColor: '#10B981',
         marginRight: 8,
     },
-    searchContainer: {
+    searchBarContainer: {
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.xs,
+    },
+    searchBarWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: Radius.md,
+        height: 48,
+        borderRadius: 14,
         borderWidth: 1,
         paddingHorizontal: Spacing.md,
-        height: 44,
-        marginBottom: Spacing.sm,
     },
     searchIcon: {
         marginRight: Spacing.sm,
@@ -818,9 +864,25 @@ const styles = StyleSheet.create({
     searchInput: {
         flex: 1,
         fontSize: 16,
+        fontWeight: '500',
+    },
+    filterContainer: {
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        gap: Spacing.sm,
+    },
+    filterChip: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+    },
+    filterChipText: {
+        fontSize: 14,
     },
     listContent: {
         paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.md,
     },
     columnWrapper: {
         gap: CARD_GAP,
