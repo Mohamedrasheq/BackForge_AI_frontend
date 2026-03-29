@@ -2,6 +2,7 @@ import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 
 interface ChatBubbleProps {
@@ -14,6 +15,41 @@ interface ChatBubbleProps {
 export function ChatBubble({ text, isUser, style, delay = 0 }: ChatBubbleProps) {
     const colorScheme = useColorScheme() ?? 'light';
     const colors = Colors[colorScheme];
+
+    const markdownStyles = StyleSheet.create({
+        body: {
+            color: isUser ? colors.userBubbleText : colors.agentBubbleText,
+            fontSize: 16,
+            lineHeight: 24,
+            letterSpacing: -0.2,
+        },
+        paragraph: {
+            marginTop: 0,
+            marginBottom: 0,
+        },
+        strong: {
+            fontWeight: '700',
+        },
+        em: {
+            fontStyle: 'italic',
+        },
+        link: {
+            color: colors.tint,
+            textDecorationLine: 'underline',
+        },
+        bullet_list: {
+            marginVertical: 4,
+        },
+        ordered_list: {
+            marginVertical: 4,
+        },
+        code_inline: {
+            backgroundColor: isUser ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+            borderRadius: 4,
+            paddingHorizontal: 4,
+            fontFamily: 'Courier',
+        },
+    });
 
     if (isUser) {
         return (
@@ -29,9 +65,9 @@ export function ChatBubble({ text, isUser, style, delay = 0 }: ChatBubbleProps) 
                         { backgroundColor: colors.userBubble },
                     ]}
                 >
-                    <Text style={[styles.text, { color: colors.userBubbleText }]}>
+                    <Markdown style={markdownStyles}>
                         {text}
-                    </Text>
+                    </Markdown>
                 </View>
             </Animated.View>
         );
@@ -53,9 +89,9 @@ export function ChatBubble({ text, isUser, style, delay = 0 }: ChatBubbleProps) 
                     },
                 ]}
             >
-                <Text style={[styles.text, { color: colors.agentBubbleText }]}>
+                <Markdown style={markdownStyles}>
                     {text}
-                </Text>
+                </Markdown>
             </View>
         </Animated.View>
     );
@@ -86,10 +122,5 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderRadius: Radius.xl,
         borderBottomLeftRadius: Radius.sm,
-    },
-    text: {
-        fontSize: 16,
-        lineHeight: 24,
-        letterSpacing: -0.2, // Tighter tracking for modern feel
     },
 });

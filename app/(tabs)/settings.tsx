@@ -98,10 +98,8 @@ function SettingsSkeleton({ colors, insets }: { colors: any, insets: any }) {
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             {/* Header Mirror */}
             <View style={[styles.header, { paddingTop: insets.top + Spacing.sm, backgroundColor: colors.background, borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-                <View style={styles.headerContent}>
-                    <Skeleton width={26} height={26} borderRadius={13} />
+                <View style={[styles.headerContent, { justifyContent: 'center' }]}>
                     <Skeleton width={100} height={20} />
-                    <View style={styles.headerSpacer} />
                 </View>
             </View>
 
@@ -225,20 +223,7 @@ export default function SettingsScreen() {
                 ]}
             >
                 <View style={styles.headerContent}>
-                    <Pressable
-                        onPress={() => {
-                            haptics.light();
-                            router.back();
-                        }}
-                        style={({ pressed }) => [
-                            styles.backButton,
-                            { opacity: pressed ? 0.5 : 1 },
-                        ]}
-                    >
-                        <IconSymbol name="chevron.left" size={26} color={colors.tint} />
-                    </Pressable>
-                    <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
-                    <View style={styles.headerSpacer} />
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Config</Text>
                 </View>
             </View>
 
@@ -424,7 +409,7 @@ const styles = StyleSheet.create({
     },
     headerContent: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         alignItems: 'center',
         height: 44,
     },

@@ -1,28 +1,27 @@
-import { FeatureGuideModal } from '@/components/ui/feature-guide-modal';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { subscribeToMemoryChanges } from '@/lib/supabase';
 import { useTabBar } from '@/lib/tab-bar-context';
-import { closeMemory, getAllMemories, getDailyBrief } from '@/services/api';
-import type { DailyBriefItem } from '@/types/api';
+import { closeMemory, getDailyBrief, getMemoriesByDate } from '@/services/api';
+import type { DailyBriefItem, MemoryItem } from '@/types/api';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SecureStore from 'expo-secure-store';
+import { Image } from 'expo-image';
 import LottieView from 'lottie-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Dimensions, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Image as RNImage, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
     FadeIn,
     FadeInDown,
-    FadeInRight,
+    FadeInLeft,
     FadeOut,
     LinearTransition
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-
 import { useUser } from '@clerk/clerk-expo';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -55,40 +54,6 @@ const QUICK_ACTIONS = [
     { id: 'chat', label: 'Chat', icon: 'bubble.left.and.bubble.right.fill', route: '/chat' },
 ] as const;
 
-// Tips data with gradient colors
-// Tips data with slightly darker premium gradients for a more professional look
-const TIPS_DATA = [
-    {
-        id: 'capture',
-        icon: 'mic.fill',
-        title: 'Capture',
-        description: 'Voice or text, I understand',
-        gradient: ['#4F46E5', '#4338CA'] as const,
-    },
-    {
-        id: 'brief',
-        icon: 'list.bullet.rectangle',
-        title: 'Brief',
-        description: 'Prioritized daily view',
-        gradient: ['#2563EB', '#1D4ED8'] as const,
-    },
-    {
-        id: 'memory',
-        icon: 'brain.head.profile',
-        title: 'Memory',
-        description: 'Nothing gets forgotten',
-        gradient: ['#E11D48', '#BE123C'] as const,
-    },
-    {
-        id: 'smart',
-        icon: 'wand.and.stars',
-        title: 'Smart',
-        description: 'Context-aware help',
-        gradient: ['#059669', '#047857'] as const,
-    },
-];
-
-
 // Get time-based greeting
 const getGreeting = () => {
     const hour = new Date().getHours();
@@ -97,6 +62,40 @@ const getGreeting = () => {
     return 'Good evening';
 };
 
+
+// Helper for local date string (YYYY-MM-DD)
+const getLocalDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+// Get agent-style narrative briefing
+const getAgentNarrative = (status: HomeStatus, isNewUser: boolean, selectedDate: Date) => {
+    const isToday = selectedDate.toDateString() === new Date().toDateString();
+
+    if (isNewUser && isToday) {
+        return "Welcome! I'm ready to be your second brain. Share a thought in chat to start organizing your life.";
+    }
+
+    if (!isToday) {
+        const dateName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+        if (status.pendingCount === 0) {
+            return `You had a clear schedule on ${dateName}. Everything was under control and preserved.`;
+        }
+        return `On ${dateName}, you had ${status.pendingCount} items recorded. I've preserved all the context for you.`;
+    }
+
+    if (status.pendingCount === 0) {
+        return "You're all settled. I'm standing by if you need to capture a new memory or task right now.";
+    }
+    const topItem = status.topItems[0];
+    if (status.pendingCount === 1) {
+        return `I've noted one item: ${topItem?.title || 'a new task'}. Shall we take a look and get it done?`;
+    }
+    return `You have ${status.pendingCount} items today. I recommend focusing on ${topItem?.title || 'your priority'} first.`;
+};
 
 
 export default function HomeScreen() {
@@ -108,35 +107,117 @@ export default function HomeScreen() {
     const { user } = useUser();
     const { handleScroll } = useTabBar();
     const [status, setStatus] = useState<HomeStatus>(INITIAL_STATUS);
+    const calendarRef = React.useRef<ScrollView>(null);
 
     const [refreshing, setRefreshing] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [allMemories, setAllMemories] = useState<MemoryItem[]>([]);
+    const [selectedDate, setSelectedDate] = useState(new Date(new Date().setHours(0, 0, 0, 0)));
     const [progress, setProgress] = useState<DailyProgress>({ total: 0, completed: 0, percentage: 0 });
-    const [selectedFeature, setSelectedFeature] = useState<string | null>(null);
     const [isNewUser, setIsNewUser] = useState(false);
+    const [historyFilter, setHistoryFilter] = useState<'completed' | 'pending'>('completed');
+    const [showAllHistory, setShowAllHistory] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+    // Load selected avatar
+    useEffect(() => {
+        const loadAvatar = async () => {
+            try {
+                const pending = await SecureStore.getItemAsync('pending_avatar_url');
+                if (pending) {
+                    setAvatarUrl(pending);
+                } else if (user?.imageUrl) {
+                    setAvatarUrl(user.imageUrl);
+                }
+            } catch (e) {
+                console.warn('[Home] Failed to load avatar:', e);
+            }
+        };
+        loadAvatar();
+    }, [user]);
+
+    // Filtered items (Pending vs Completed) based on selected date
+    const { pendingItems, completedItems } = React.useMemo(() => {
+        const dayMemories = allMemories; // Backend already filtered by date!
+
+        const pending = dayMemories
+            .filter(m => m.status !== 'closed')
+            .map(m => ({
+                id: m.id,
+                title: m.title,
+                type: m.type,
+                urgency: m.urgency,
+                dueAt: m.due_at,
+            }));
+
+        const completed = dayMemories
+            .filter(m => m.status === 'closed')
+            .map(m => ({
+                id: m.id,
+                title: m.title,
+                type: m.type,
+                urgency: m.urgency,
+                dueAt: m.due_at,
+            }));
+
+        return { pendingItems: pending, completedItems: completed };
+    }, [allMemories]);
+
+    useEffect(() => {
+        setShowAllHistory(false);
+    }, [selectedDate, historyFilter]);
+
+    // 3. Dynamic Scroll to Today
+    const scrollToToday = useCallback((animated = true) => {
+        if (!calendarRef.current) return;
+        
+        // Calculate index of today based on isNewUser
+        // New users start from today (index 0), existing start from -7 (index 7)
+        const todayIndex = isNewUser ? 0 : 7;
+        
+        // Each chip is 60 width + 12 gap = 72px
+        const chipWidth = 72;
+        const scrollX = (todayIndex * chipWidth) - (SCREEN_WIDTH / 2) + (chipWidth / 2);
+        
+        setTimeout(() => {
+            calendarRef.current?.scrollTo({ x: Math.max(0, scrollX), animated });
+        }, animated ? 600 : 0);
+    }, [isNewUser]);
+
+    // Scroll on initial load and when isNewUser state is determined
+    useEffect(() => {
+        if (!isLoading) {
+            scrollToToday(true);
+        }
+    }, [isLoading, isNewUser, scrollToToday]);
+
+    // 4. Scroll to Today on screen focus
+    useFocusEffect(
+        useCallback(() => {
+            scrollToToday(true);
+        }, [scrollToToday])
+    );
 
     const fetchHomeData = useCallback(async () => {
         if (!user) return;
         try {
+            const dateStr = getLocalDateString(selectedDate);
             const [briefResponse, memoriesResponse] = await Promise.all([
                 getDailyBrief(user.id),
-                getAllMemories(user.id),
+                getMemoriesByDate(user.id, dateStr),
             ]);
-            const items = briefResponse.items;
-            const pendingCount = items.length;
+            const pendingCount = briefResponse.items.length;
             const hasPendingItems = pendingCount > 0;
-            const topItems = items.slice(0, 2);
+            const memories = Array.isArray(memoriesResponse) ? memoriesResponse : (memoriesResponse.items || []);
+            setAllMemories(memories);
 
-            // Calculate today's progress from all memories
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            // Track if the user has zero memories ever
-            setIsNewUser(memoriesResponse.items.length === 0);
+            // Calculate progress for TODAY specifically
+            const todayStr = getLocalDateString(new Date());
+            setIsNewUser(memories.length === 0);
 
-            const todayMemories = memoriesResponse.items.filter(m => {
+            const todayMemories = memories.filter(m => {
                 const createdDate = new Date(m.created_at);
-                createdDate.setHours(0, 0, 0, 0);
-                return createdDate.getTime() === today.getTime();
+                return getLocalDateString(createdDate) === todayStr;
             });
             const totalToday = todayMemories.length;
             const completedToday = todayMemories.filter(m => m.status === 'closed').length;
@@ -162,23 +243,40 @@ export default function HomeScreen() {
 
             setStatus({
                 statusMessage,
-                topItems,
+                topItems: briefResponse.items.slice(0, 2), // Keep status.topItems for briefing
                 hasPendingItems,
                 pendingCount,
                 confidenceMessage: confidence,
             });
         } catch (error) {
-            console.error('Failed to fetch home data:', error);
-            setStatus(prev => ({ ...prev, statusMessage: "Offline mode", confidenceMessage: "Could not sync." }));
+            console.error('[Home] Fetch error:', error);
         } finally {
             setIsLoading(false);
             setRefreshing(false);
         }
-    }, []);
+    }, [user, selectedDate]);
 
     useEffect(() => {
         fetchHomeData();
     }, [fetchHomeData]);
+
+    // Handle date selection and fetch tasks for that date
+    const handleDateSelect = useCallback(async (date: Date) => {
+        if (!user) return;
+        setSelectedDate(date);
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+        // Fetch data for the selected date from the backend
+        try {
+            const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+            const response = await getMemoriesByDate(user.id, dateStr);
+            const memories = Array.isArray(response) ? response : (response.items || []);
+            setAllMemories(memories);
+        } catch (error) {
+            console.error('[Home] Error fetching date tasks:', error);
+            // Fallback: If backend is not ready, we currently show empty list if setAllMemories fails
+        }
+    }, [user]);
 
     // Supabase Realtime subscription
     useEffect(() => {
@@ -239,20 +337,15 @@ export default function HomeScreen() {
     };
 
 
-    const handleTipPress = async (tipId: string) => {
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setSelectedFeature(tipId);
-    };
-
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
 
             <ScrollView
-                style={{ paddingTop: insets.top }}
+                style={{ flex: 1 }}
                 contentContainerStyle={[
                     styles.content,
-                    { paddingTop: Spacing.sm, paddingBottom: insets.bottom + 80 },
+                    { paddingTop: insets.top + Spacing.sm, paddingBottom: insets.bottom + 80 },
                 ]}
                 refreshControl={
                     <RefreshControl
@@ -268,20 +361,47 @@ export default function HomeScreen() {
             >
                 {/* 1. Personalized Greeting Section */}
                 <Animated.View entering={Platform.OS === 'android' ? undefined : FadeIn.duration(600)} style={styles.greetingSection}>
-                    <View style={styles.greetingRow}>
-                        <Text style={styles.waveEmoji}>👋</Text>
-                        <Text style={[styles.greetingText, { color: colors.text }]}>
-                            {getGreeting()},
-                        </Text>
+                    <Image
+                        source={avatarUrl || user?.imageUrl}
+                        style={styles.headerAvatar}
+                        contentFit="cover"
+                    />
+                    <View style={styles.greetingTextContainer}>
+                        <View style={styles.greetingRow}>
+                            <Text style={styles.waveEmoji}>👋</Text>
+                            <Text style={[styles.greetingText, { color: colors.text }]}>
+                                {getGreeting()},
+                            </Text>
+                        </View>
+                        {user && (
+                            <Text style={[styles.greetingName, { color: colors.tint, textAlign: 'center' }]}>
+                                {`${user.firstName || ''} ${user.lastName || ''}`.trim()}
+                            </Text>
+                        )}
                     </View>
-                    {user?.firstName && (
-                        <Text style={[styles.greetingName, { color: colors.tint }]}>
-                            {user.firstName}
-                        </Text>
-                    )}
                 </Animated.View>
 
-                {/* 2. Intelligence Board (Merged Status/Progress) */}
+                {/* 2. Agent's Narrative Section */}
+                <Animated.View
+                    entering={Platform.OS === 'android' ? undefined : FadeInLeft.delay(200).duration(800).springify().damping(18)}
+                    style={styles.narrativeSection}
+                >
+                    <View style={styles.narrativeHeader}>
+                        <Text style={[styles.narrativeLabel, { color: colors.tint }]}>AGENT'S PERSPECTIVE</Text>
+                        <LottieView
+                            source={require('@/assets/animations/Live chatbot.json')}
+                            autoPlay
+                            loop
+                            style={[styles.narrativeThinking, { transform: [{ scale: 1.6 }] }]}
+                            renderMode="SOFTWARE"
+                        />
+                    </View>
+                    <Text style={[styles.narrativeText, { color: colors.text, minHeight: 46 }]} numberOfLines={2}>
+                        {getAgentNarrative(status, isNewUser, selectedDate)}
+                    </Text>
+                </Animated.View>
+
+                {/* 3. Intelligence Board (Merged Status/Progress) */}
                 <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(100).duration(500)} style={styles.boardWrapper}>
                     <LinearGradient
                         colors={colorScheme === 'dark' ? ['#312E81', '#0e0e0eff'] : ['#4F46E5', '#3730A3']}
@@ -338,25 +458,64 @@ export default function HomeScreen() {
                     </LinearGradient>
                 </Animated.View>
 
+                {/* 4. Calendar Timeline */}
+                <View style={styles.calendarSection}>
+                    <ScrollView
+                        ref={calendarRef}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.calendarScroll}
+                    >
+                        {(() => {
+                            const dates = [];
+                            const startOffset = isNewUser ? 0 : -7;
+                            const endOffset = isNewUser ? 10 : 2;
+                            for (let i = startOffset; i <= endOffset; i++) {
+                                const d = new Date();
+                                d.setDate(d.getDate() + i);
+                                dates.push(d);
+                            }
+                            return dates.map((date, idx) => {
+                                const isSelected = date.toDateString() === selectedDate.toDateString();
+                                const isToday = date.toDateString() === new Date().toDateString();
+                                const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+                                const dayDate = date.getDate();
 
-                {/* 4. Priority Items Cards */}
+                                return (
+                                    <Pressable
+                                        key={idx}
+                                        onPress={() => handleDateSelect(date)}
+                                        style={[
+                                            styles.dateChip,
+                                            isSelected && { backgroundColor: `${colors.tint}20`, borderColor: colors.tint }
+                                        ]}
+                                    >
+                                        <Text style={[styles.dateDay, { color: isSelected ? colors.tint : colors.textSecondary }]}>
+                                            {isToday ? 'TODAY' : dayName}
+                                        </Text>
+                                        <Text style={[styles.dateNumber, { color: isSelected ? colors.tint : colors.text }]}>
+                                            {dayDate}
+                                        </Text>
+                                        {isSelected && <View style={[styles.activeDot, { backgroundColor: colors.tint }]} />}
+                                    </Pressable>
+                                );
+                            });
+                        })()}
+                    </ScrollView>
+                </View>
+
+                {/* 5. Priority Items Cards */}
                 <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(350).duration(500)} style={styles.prioritySection}>
                     <View style={styles.sectionHeaderRow}>
-                        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>PRIORITY TODAY</Text>
-                        {status.pendingCount > status.topItems.length && (
-                            <Pressable onPress={() => handleQuickAction('/memory')}>
-                                <Text style={[styles.seeAllText, { color: colors.tint }]}>
-                                    See all ({status.pendingCount})
-                                </Text>
-                            </Pressable>
-                        )}
+                        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
+                            {selectedDate.toDateString() === new Date().toDateString() ? 'PRIORITY TODAY' : `${selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }).toUpperCase()}`}
+                        </Text>
                     </View>
-
-                    {status.topItems.length > 0 ? (
-                        status.topItems.length === 1 ? (
+                    {pendingItems.length > 0 ? (
+                        pendingItems.length === 1 ? (
                             /* Single item — no timeline, just a clean card */
                             (() => {
-                                const item = status.topItems[0];
+                                const item = pendingItems[0];
                                 const urgencyColor = item.urgency === 'high' ? colors.urgencyHigh : (item.urgency === 'medium' ? colors.urgencyMedium : colors.urgencyLow);
                                 const dueDate = item.dueAt ? new Date(item.dueAt) : null;
                                 const hasTime = dueDate ? (dueDate.getHours() !== 0 || dueDate.getMinutes() !== 0) : false;
@@ -373,6 +532,9 @@ export default function HomeScreen() {
                                                 {
                                                     backgroundColor: colors.backgroundSecondary,
                                                     borderColor: colors.border,
+                                                    marginLeft: 0,
+                                                    borderLeftWidth: 4,
+                                                    borderLeftColor: urgencyColor,
                                                 },
                                             ]}
                                         >
@@ -428,9 +590,9 @@ export default function HomeScreen() {
                             <View style={styles.timelineContainer}>
                                 {/* Vertical connector line */}
                                 <View style={[styles.timelineLine, { backgroundColor: colors.border }]} />
-                                {status.topItems.map((item, index) => {
+                                {pendingItems.map((item, index) => {
                                     const urgencyColor = item.urgency === 'high' ? colors.urgencyHigh : (item.urgency === 'medium' ? colors.urgencyMedium : colors.urgencyLow);
-                                    const isLast = index === status.topItems.length - 1;
+                                    const isLast = index === pendingItems.length - 1;
                                     const dueDate = item.dueAt ? new Date(item.dueAt) : null;
                                     const hasTime = dueDate ? (dueDate.getHours() !== 0 || dueDate.getMinutes() !== 0) : false;
                                     return (
@@ -446,14 +608,13 @@ export default function HomeScreen() {
                                                     !isLast && { marginBottom: 4 },
                                                 ]}
                                             >
-                                                {/* Timeline dot + optional time label */}
                                                 <View style={styles.timelineDotColumn}>
                                                     {hasTime && dueDate && (
-                                                        <Text style={[styles.timelineTimeLabel, { color: urgencyColor }]}>
-                                                            {dueDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                                                        <Text style={[styles.timelineTimeLabel, { color: urgencyColor }]} numberOfLines={1}>
+                                                            {dueDate.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }).toLowerCase()}
                                                         </Text>
                                                     )}
-                                                    <View style={[styles.timelineDotOuter, { borderColor: urgencyColor }]}>
+                                                    <View style={styles.timelineDotOuter}>
                                                         <View style={[styles.timelineDotInner, { backgroundColor: urgencyColor }]} />
                                                     </View>
                                                 </View>
@@ -522,148 +683,128 @@ export default function HomeScreen() {
                             </View>
                         )
                     ) : (
-                        <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(400).duration(500)} style={styles.emptyStateContainer}>
-                            {/* Lottie Animation */}
-                            <Animated.View
-                                entering={FadeIn.delay(500).duration(600)}
-                                style={styles.emptyStateIllustration}
-                            >
-                                <LottieView
-                                    source={require('@/assets/animations/Man Working on Laptop.json')}
-                                    autoPlay
-                                    loop
-                                    style={{ width: '98%', height: '99%', transform: [{ scale: 1.3 }] }}
-                                />
-                            </Animated.View>
+                        /* Empty State Container */
+                        <View style={styles.allDoneContainer}>
+                            <View style={styles.emptyActivityContainer}>
+                                <View style={styles.emptyStateIllustration}>
+                                    <LottieView
+                                        source={require('@/assets/animations/Man Working on Laptop.json')}
+                                        autoPlay
+                                        loop={false}
+                                        style={styles.checkLottie}
+                                        renderMode="SOFTWARE"
+                                    />
+                                </View>
+                                <Text style={[styles.emptyActivityHeadline, { color: colors.text }]}>
+                                    {isNewUser ? 'Your space is clear' : 'All tasks completed!'}
+                                </Text>
+                                {selectedDate < new Date(new Date().setHours(0, 0, 0, 0)) && !isNewUser && (
+                                    <View style={styles.historyFilterContainer}>
+                                        <Pressable
+                                            style={[styles.historyFilterPill, historyFilter === 'completed' && { backgroundColor: `${colors.tint}15`, borderColor: `${colors.tint}40` }]}
+                                            onPress={() => {
+                                                setHistoryFilter('completed');
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            }}
+                                        >
+                                            <IconSymbol name="checkmark.circle.fill" size={12} color={historyFilter === 'completed' ? colors.tint : colors.textSecondary} />
+                                            <Text style={[styles.historyFilterText, { color: historyFilter === 'completed' ? colors.tint : colors.textSecondary }]}>Completed</Text>
+                                        </Pressable>
+                                        <Pressable
+                                            style={[styles.historyFilterPill, historyFilter === 'pending' && { backgroundColor: `${colors.urgencyHigh}15`, borderColor: `${colors.urgencyHigh}40` }]}
+                                            onPress={() => {
+                                                setHistoryFilter('pending');
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            }}
+                                        >
+                                            <IconSymbol name="clock.fill" size={12} color={historyFilter === 'pending' ? colors.urgencyHigh : colors.textSecondary} />
+                                            <Text style={[styles.historyFilterText, { color: historyFilter === 'pending' ? colors.urgencyHigh : colors.textSecondary }]}>Not Completed</Text>
+                                        </Pressable>
+                                    </View>
+                                )}
+                            </View>
 
-                            {/* Text */}
-                            <Animated.Text
-                                entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(650).duration(400)}
-                                style={[styles.emptyStateHeadline, { color: colors.text }]}
-                            >
-                                {isNewUser ? 'Welcome to BackForge AI!' : 'You crushed it!'}
-                            </Animated.Text>
-                            <Animated.Text
-                                entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(750).duration(400)}
-                                style={[styles.emptyStateBody, { color: colors.textSecondary }]}
-                            >
-                                {isNewUser
-                                    ? 'Capture your first thought in chat — I\'ll handle the rest.'
-                                    : 'All tasks completed. Enjoy the rest of your day.'}
-                            </Animated.Text>
+                            {/* Show toggled items below Lottie & Filters */}
+                            {((historyFilter === 'completed' && completedItems.length > 0) || (historyFilter === 'pending' && pendingItems.length > 0)) && (
+                                <View style={styles.completedRecordWrapper}>
+                                    <View style={styles.completedHeaderRow}>
+                                        <View style={[styles.completedLine, { backgroundColor: colors.border }]} />
+                                        <Text style={[styles.completedHeaderLabel, { color: colors.textSecondary }]}>
+                                            {historyFilter === 'completed' ? 'COMPLETED RECORDS' : 'NOT COMPLETED'}
+                                        </Text>
+                                        <View style={[styles.completedLine, { backgroundColor: colors.border }]} />
 
-                            {/* CTA for new users */}
-                            {isNewUser && (
-                                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(850).duration(400)}>
-                                    <Pressable
-                                        onPress={handleChat}
-                                        style={({ pressed }) => [
-                                            styles.emptyStatePill,
-                                            {
-                                                backgroundColor: colors.tint,
-                                                transform: [{ scale: pressed ? 0.95 : 1 }],
-                                            },
-                                        ]}
-                                    >
-                                        <IconSymbol name="bubble.left.fill" size={15} color="#FFFFFF" />
-                                        <Text style={styles.emptyStatePillText}>Start a chat</Text>
-                                        <IconSymbol name="arrow.right" size={14} color="rgba(255,255,255,0.7)" />
-                                    </Pressable>
-                                </Animated.View>
+                                        {(historyFilter === 'completed' ? completedItems : pendingItems).length > 4 && (
+                                            <Pressable
+                                                style={styles.seeAllButton}
+                                                onPress={() => {
+                                                    setShowAllHistory(!showAllHistory);
+                                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                                }}
+                                            >
+                                                <Text style={[styles.seeAllText, { color: colors.tint }]}>
+                                                    {showAllHistory ? 'Show Less' : 'See All'}
+                                                </Text>
+                                                <IconSymbol
+                                                    name={showAllHistory ? "chevron.up" : "chevron.down"}
+                                                    size={10}
+                                                    color={colors.tint}
+                                                />
+                                            </Pressable>
+                                        )}
+                                    </View>
+
+                                    {(historyFilter === 'completed' ? completedItems : pendingItems)
+                                        .slice(0, showAllHistory ? undefined : 4)
+                                        .map((item, idx) => (
+                                            <Animated.View
+                                                key={item.id}
+                                                entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(100 * idx).duration(400)}
+                                                style={[
+                                                    styles.historicalRecordCard,
+                                                    {
+                                                        backgroundColor: `${colors.backgroundSecondary}40`,
+                                                        borderColor: colors.border
+                                                    }
+                                                ]}
+                                            >
+                                                <View style={[
+                                                    styles.historicalCardAccent,
+                                                    { backgroundColor: historyFilter === 'completed' ? '#22C55E' : '#EF4444' }
+                                                ]} />
+                                                <View style={styles.historicalCardContent}>
+                                                    <View style={styles.historicalCardHeader}>
+                                                        <View style={styles.historicalTypeRow}>
+                                                            <IconSymbol
+                                                                name={item.type === 'task' ? 'checkmark.circle' : (item.type === 'follow_up' ? 'bubble.left' : 'doc.text')}
+                                                                size={10}
+                                                                color={colors.textSecondary}
+                                                            />
+                                                            <Text style={[styles.historicalTypeText, { color: colors.textSecondary }]}>
+                                                                {item.type || 'Task'}
+                                                            </Text>
+                                                        </View>
+                                                        <View style={[styles.historicalStatusBadge, { backgroundColor: historyFilter === 'completed' ? '#22C55E15' : '#EF444415' }]}>
+                                                            <Text style={[styles.historicalStatusText, { color: historyFilter === 'completed' ? '#22C55E' : '#EF4444' }]}>
+                                                                {historyFilter === 'completed' ? 'DONE' : 'MISSED'}
+                                                            </Text>
+                                                        </View>
+                                                    </View>
+                                                    <Text style={[styles.historicalCardTitle, { color: colors.text }]} numberOfLines={2}>
+                                                        {item.title}
+                                                    </Text>
+                                                </View>
+                                            </Animated.View>
+                                        ))}
+                                </View>
                             )}
-                        </Animated.View>
+                        </View>
                     )}
                 </Animated.View>
 
-                {/* 5. Chat Command Bar */}
-                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(450).duration(500)} style={styles.chatSection}>
-                    <Pressable
-                        onPress={handleChat}
-                        style={({ pressed }) => [
-                            styles.chatInputLike,
-                            {
-                                backgroundColor: colors.backgroundSecondary,
-                                borderColor: colors.border,
-                                transform: [{ scale: pressed ? 0.99 : 1 }],
-                                shadowColor: colors.tint,
-                                shadowOffset: { width: 0, height: 4 },
-                                shadowOpacity: pressed ? 0.1 : 0.05,
-                                shadowRadius: 12,
-                                elevation: 2,
-                            }
-                        ]}
-                    >
-                        <View style={styles.chatInputContent}>
-                            <IconSymbol name="wand.and.stars" size={18} color={colors.tint} />
-                            <Text style={[styles.chatPlaceholder, { color: colors.textSecondary }]}>
-                                Ask BackForge AI anything...
-                            </Text>
-                        </View>
-                        <View style={[styles.chatSendButton, { backgroundColor: colors.tint }]}>
-                            <IconSymbol name="mic.fill" size={16} color="#FFFFFF" />
-                        </View>
-                    </Pressable>
-                </Animated.View>
 
-                {/* 6. Horizontal Tips Carousel */}
-                <Animated.View entering={Platform.OS === 'android' ? undefined : FadeInDown.delay(500).duration(500)} style={styles.tipsSection}>
-                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>HOW BACKFORGE AI HELPS</Text>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.tipsScrollContent}
-                        snapToInterval={150 + 10}
-                        decelerationRate="fast"
-                    >
-                        {TIPS_DATA.map((tip, index) => (
-                            <Animated.View
-                                key={tip.id}
-                                entering={Platform.OS === 'android' ? undefined : FadeInRight.delay(550 + index * 60).duration(400)}
-                            >
-                                <Pressable
-                                    onPress={() => handleTipPress(tip.id)}
-                                    style={({ pressed }) => [
-                                        styles.tipCard,
-                                        Shadows.subtle,
-                                        {
-                                            backgroundColor: colors.background,
-                                            borderColor: `${tip.gradient[0]}20`,
-                                            transform: [{ scale: pressed ? 0.98 : 1 }],
-                                        }
-                                    ]}
-                                >
-                                    <LinearGradient
-                                        colors={[`${tip.gradient[0]}15`, `${tip.gradient[1]}05`]}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={StyleSheet.absoluteFill}
-                                    />
-                                    <View style={styles.tipIconContainer}>
-                                        <LinearGradient
-                                            colors={tip.gradient}
-                                            start={{ x: 0, y: 0 }}
-                                            end={{ x: 1, y: 1 }}
-                                            style={styles.tipIconGradient}
-                                        />
-                                        <IconSymbol name={tip.icon as any} size={15} color="#FFFFFF" />
-                                    </View>
-                                    <View style={styles.tipTextContent}>
-                                        <Text style={[styles.tipTitle, { color: colors.text }]}>{tip.title.toUpperCase()}</Text>
-                                        <Text style={[styles.tipDescription, { color: colors.textSecondary }]} numberOfLines={2}>{tip.description}</Text>
-                                    </View>
-                                </Pressable>
-                            </Animated.View>
-                        ))}
-                    </ScrollView>
-                </Animated.View>
             </ScrollView>
 
-            {/* Feature Guide Modal */}
-            <FeatureGuideModal
-                visible={selectedFeature !== null}
-                featureId={selectedFeature}
-                onClose={() => setSelectedFeature(null)}
-            />
             {/* Confirmation Modal */}
             <Modal
                 visible={!!pendingDoneItem}
@@ -681,7 +822,7 @@ export default function HomeScreen() {
                         <Text style={[styles.modalTitle, { color: colors.text }]}>Mark as complete?</Text>
                         {pendingDoneItem && (
                             <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]} numberOfLines={2}>
-                                {pendingDoneItem.title}
+                                {pendingDoneItem?.title}
                             </Text>
                         )}
                         <View style={styles.modalButtons}>
@@ -725,6 +866,20 @@ const styles = StyleSheet.create({
     greetingSection: {
         marginTop: Spacing.sm,
         marginBottom: Spacing.lg,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
+    headerAvatar: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        borderWidth: 2,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    greetingTextContainer: {
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
     },
     greetingRow: {
@@ -915,7 +1070,7 @@ const styles = StyleSheet.create({
         alignItems: 'stretch',
     },
     timelineDotColumn: {
-        width: 48,
+        width: 56,
         alignItems: 'center',
         paddingTop: 14,
     },
@@ -924,6 +1079,7 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         letterSpacing: 0.3,
         marginBottom: 4,
+        textAlign: 'center', // Added to ensure centering in the new wider column
     },
     timelineDotOuter: {
         width: 14,
@@ -983,10 +1139,11 @@ const styles = StyleSheet.create({
     },
     timelineBottomRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
+        gap: 12,
     },
     timelineDueText: {
+        flex: 1,
         fontSize: 11,
         fontWeight: '700',
         textTransform: 'uppercase',
@@ -1155,51 +1312,216 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    // Tips Section
-    tipsSection: {
+    // Agent Narrative Styles
+    narrativeSection: {
         marginBottom: Spacing.sm,
+        paddingHorizontal: Spacing.sm,
     },
-    tipsScrollContent: {
-        paddingRight: Spacing.md,
-        gap: Spacing.sm,
+    narrativeHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginBottom: 0,
     },
-    tipCard: {
-        width: 150,
-        height: 140,
-        borderRadius: 24,
-        marginRight: 10,
-        padding: 16,
+    narrativeThinking: {
+        width: 42,
+        height: 42,
+    },
+    narrativeLabel: {
+        fontSize: 12.5,
+        fontWeight: '900',
+        letterSpacing: 1.2,
+        opacity: 0.9,
+    },
+    narrativeText: {
+        fontSize: 15.5,
+        lineHeight: 22,
+        fontWeight: '600',
+        letterSpacing: -0.1,
+    },
+    // Calendar Styles
+    calendarSection: {
+        marginBottom: Spacing.md,
+    },
+    calendarScroll: {
+        paddingHorizontal: Spacing.md,
+        gap: 12,
+        paddingBottom: 4,
+    },
+    dateChip: {
+        width: 64,
+        height: 80,
+        borderRadius: 20,
         borderWidth: 1,
-        justifyContent: 'space-between',
-        overflow: 'hidden',
-    },
-    tipIconContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 10,
+        borderColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(255,255,255,0.03)',
         alignItems: 'center',
         justifyContent: 'center',
-        overflow: 'hidden',
+        gap: 4,
     },
-    tipIconGradient: {
+    dateDay: {
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 0.5,
+    },
+    dateNumber: {
+        fontSize: 20,
+        fontWeight: '800',
+    },
+    timelineMarker: {
+        width: 32,
+        alignItems: 'center',
+        paddingTop: 14,
+    },
+    timelineDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        borderWidth: 2,
+    },
+    activeDot: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        marginTop: 2,
+    },
+    // Completed List Styles
+    allDoneContainer: {
+        alignItems: 'center',
+        paddingTop: 0,
+    },
+    emptyActivityContainer: {
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    checkLottie: {
+        width: 360,
+        height: 360,
+        marginTop: -20,
+    },
+    emptyActivityHeadline: {
+        fontSize: 18,
+        fontWeight: '800',
+        marginBottom: 4,
+        letterSpacing: -0.2,
+    },
+    emptyActivityBody: {
+        fontSize: 13,
+        textAlign: 'center',
+        paddingHorizontal: 40,
+        lineHeight: 18,
+    },
+    completedRecordWrapper: {
+        width: '100%',
+        marginTop: 8,
+    },
+    completedHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 16,
+    },
+    seeAllButton: {
         position: 'absolute',
-        top: 0,
-        left: 0,
         right: 0,
-        bottom: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
     },
-    tipTextContent: {
-        marginTop: 10,
+    completedLine: {
+        flex: 1,
+        height: 1,
+        opacity: 0.5,
     },
-    tipTitle: {
+    completedHeaderLabel: {
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 1,
+    },
+    // Historical Filter & Card Styles
+    historyFilterContainer: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 16,
+    },
+    historyFilterPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)',
+    },
+    historyFilterText: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    historicalRecordCard: {
+        width: '100%',
+        borderRadius: 16,
+        borderWidth: 1,
+        marginBottom: 12,
+        overflow: 'hidden',
+        flexDirection: 'row',
+    },
+    historicalCardAccent: {
+        width: 4,
+        height: '100%',
+        position: 'absolute',
+        left: 0,
+        top: 0,
+    },
+    historicalCardContent: {
+        flex: 1,
+        padding: 16,
+        paddingLeft: 20,
+    },
+    historicalCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    historicalTypeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    historicalTypeText: {
         fontSize: 11,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    historicalStatusBadge: {
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 6,
+    },
+    historicalStatusText: {
+        fontSize: 9,
         fontWeight: '800',
         letterSpacing: 0.5,
-        marginBottom: 4,
     },
-    tipDescription: {
-        fontSize: 12,
+    historicalCardTitle: {
+        fontSize: 15,
+        fontWeight: '600',
+        lineHeight: 22,
+    },
+    completedCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        padding: 14,
+        borderRadius: 12,
+        borderWidth: 1,
+        marginBottom: 8,
+    },
+    completedCardTitle: {
+        flex: 1,
+        fontSize: 14,
         fontWeight: '500',
-        lineHeight: 16,
     },
 });

@@ -6,7 +6,11 @@ import React, { useRef } from 'react';
 import { Dimensions, Image, ImageSourcePropType, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+// Responsive scaling helper
+const scale = height / 812; // Based on iPhone X height
+const normalize = (size: number) => Math.round(size * scale);
 
 interface SlideProps {
     title: string;
@@ -44,7 +48,7 @@ export function Slide({ title, subtitle, icon, image, lottieSource, iconColor, c
                     <Image source={image} style={styles.image} resizeMode="contain" />
                 ) : icon ? (
                     <View style={[styles.iconContainer, { backgroundColor: activeColor + '10' }]}>
-                        <IconSymbol name={icon} size={80} color={activeColor} />
+                        <IconSymbol name={icon} size={normalize(80)} color={activeColor} />
                     </View>
                 ) : null}
             </Animated.View>
@@ -78,32 +82,32 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         padding: Spacing.xl,
-        paddingTop: 60,
+        paddingTop: normalize(32), // Reduced from 60
     },
     imageContainer: {
-        marginBottom: -12,
+        marginBottom: normalize(12),
         alignItems: 'center',
         justifyContent: 'center',
     },
     lottieWrapper: {
-        width: 280,
-        height: 280,
+        width: normalize(240), // Reduced from 280
+        height: normalize(240),
         alignItems: 'center',
         justifyContent: 'center',
     },
     lottie: {
-        width: 280,
-        height: 280,
+        width: '100%',
+        height: '100%',
     },
     image: {
-        width: 220,
-        height: 220,
-        borderRadius: 110,
+        width: normalize(200),
+        height: normalize(200),
+        borderRadius: normalize(100),
     },
     iconContainer: {
-        width: 200,
-        height: 200,
-        borderRadius: 100,
+        width: normalize(180),
+        height: normalize(180),
+        borderRadius: normalize(90),
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -112,20 +116,21 @@ const styles = StyleSheet.create({
         maxWidth: '90%',
     },
     title: {
-        fontSize: 32,
+        fontSize: normalize(28), // Reduced from 32, made responsive
         fontWeight: '800',
         textAlign: 'center',
-        marginBottom: Spacing.md,
+        marginBottom: normalize(8),
+        lineHeight: normalize(34),
         letterSpacing: -0.5,
     },
     subtitle: {
-        fontSize: 18,
+        fontSize: normalize(16), // Reduced from 18, made responsive
         textAlign: 'center',
-        lineHeight: 26,
+        lineHeight: normalize(24),
         opacity: 0.9,
     },
     childrenContainer: {
-        marginTop: Spacing.xl,
+        marginTop: normalize(16),
         width: '100%',
     }
 });

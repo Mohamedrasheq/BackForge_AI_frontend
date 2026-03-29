@@ -1,39 +1,34 @@
-import { GlassButton } from '@/components/ui/glass-button';
 import { GlassCard } from '@/components/ui/glass-card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Colors, Shadows, Spacing } from '@/constants/theme';
 import { haptics } from '@/lib/haptics';
-import { isSDKAvailable, isProActive } from '@/services/revenuecat';
+import { isProActive, isSDKAvailable } from '@/services/revenuecat';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import LottieView from 'lottie-react-native';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Image,
+    Dimensions,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
     Text,
-    View,
-    Dimensions,
+    View
 } from 'react-native';
 import Purchases, { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
-import Animated, { 
-    FadeIn, 
-    FadeInDown, 
+import Animated, {
+    FadeIn,
+    FadeInDown,
     FadeInUp,
     useAnimatedStyle,
     useSharedValue,
-    withSpring,
-    withRepeat,
-    withSequence,
-    withTiming
+    withSpring
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import LottieView from 'lottie-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Defs, RadialGradient as SvgRadialGradient, Stop, Rect } from 'react-native-svg';
+// Svg imports removed to fix topSvgLayout crash on Fabric
 
 const { width, height } = Dimensions.get('window');
 
@@ -56,7 +51,7 @@ export default function PaywallScreen() {
     const insets = useSafeAreaInsets();
     const colorScheme = 'light';
     const colors = Colors[colorScheme];
-    
+
     const [offering, setOffering] = useState<PurchasesOffering | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isPurchasing, setIsPurchasing] = useState(false);
@@ -124,30 +119,10 @@ export default function PaywallScreen() {
     };
 
     const features = [
-        {
-            icon: 'wand.and.stars' as const,
-            title: 'Unlimited Chats',
-            tag: 'POPULAR',
-            gradient: ['#6366F1', '#818CF8'] as [string, string],
-        },
-        {
-            icon: 'person.2.fill' as const,
-            title: 'Team Shared Agents',
-            tag: 'NEW',
-            gradient: ['#F59E0B', '#FBBF24'] as [string, string],
-        },
-        {
-            icon: 'hammer.fill' as const,
-            title: 'Custom Pro Tools',
-            tag: 'PRO',
-            gradient: ['#E11D48', '#FB7185'] as [string, string],
-        },
-        {
-            icon: 'bolt.fill' as const,
-            title: 'Elite Models',
-            tag: 'SPEED',
-            gradient: ['#10B981', '#34D399'] as [string, string],
-        },
+        { text: 'Unlimited chats' },
+        { text: 'Connection support for all tools' },
+        { text: 'Elite models' },
+        { text: 'Future updates' },
     ];
 
     if (isLoading) {
@@ -162,28 +137,14 @@ export default function PaywallScreen() {
         <View style={[styles.container, { backgroundColor: LIGHT_PREMIUM.pearl }]}>
             <StatusBar style="dark" />
 
-            {/* Background Aesthetic Layers - Radial Gradient Emulation */}
-            <View style={StyleSheet.absoluteFill}>
-                <Svg height="100%" width="100%">
-                    <Defs>
-                        <SvgRadialGradient
-                            id="grad"
-                            cx="50%"
-                            cy="30%"
-                            rx="80%"
-                            ry="60%"
-                            fx="50%"
-                            fy="30%"
-                            gradientUnits="userSpaceOnUse"
-                        >
-                            <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="1" />
-                            <Stop offset="100%" stopColor="#F8FAFC" stopOpacity="1" />
-                        </SvgRadialGradient>
-                    </Defs>
-                    <Rect x="0" y="0" width="100%" height="100%" fill="url(#grad)" />
-                </Svg>
-            </View>
-            
+            {/* Background Aesthetic Layers - Linear Gradient as fallback for Radial */}
+            <LinearGradient
+                colors={['#FFFFFF', '#F8FAFC']}
+                style={StyleSheet.absoluteFill}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+            />
+
 
             <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
                 <Pressable
@@ -199,12 +160,12 @@ export default function PaywallScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 {/* Hero Section */}
-                <Animated.View entering={FadeInUp.delay(100).duration(800)} style={styles.hero}>
+                <Animated.View entering={Platform.OS === 'android' ? FadeIn.delay(100).duration(800) : FadeInUp.delay(100).duration(800)} style={styles.hero}>
                     <LottieView
-                        source={require('../assets/animations/Live chatbot.json')}
+                        source={require('../assets/animations/Business decisions Lottie JSON animation.json')}
                         autoPlay
                         loop
-                        renderMode="HARDWARE"
+                        renderMode="SOFTWARE"
                         resizeMode="cover"
                         style={styles.heroLottie}
                     />
@@ -216,34 +177,30 @@ export default function PaywallScreen() {
                     </View>
                 </Animated.View>
 
-                {/* Features Grid */}
-                <View style={styles.featuresGrid}>
+                {/* Features List inside a single Card */}
+                <Text style={styles.sectionTitle}>Features</Text>
+                <Animated.View 
+                    entering={FadeInDown.delay(300).duration(800)}
+                    style={styles.featuresCard}
+                >
                     {features.map((feature, index) => (
-                        <Animated.View
-                            key={feature.title}
-                            entering={FadeInDown.delay(300 + index * 100).duration(600).springify()}
-                            style={styles.featureCard}
-                        >
-                            <View style={styles.featureCardTop}>
-                                <LinearGradient
-                                    colors={feature.gradient}
-                                    style={styles.featureIconSmall}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                >
-                                    <IconSymbol name={feature.icon} size={14} color="#FFF" />
-                                </LinearGradient>
-                                <View style={[styles.featureTag, { backgroundColor: feature.gradient[0] + '15' }]}>
-                                    <Text style={[styles.featureTagText, { color: feature.gradient[0] }]}>{feature.tag}</Text>
+                        <View key={feature.text}>
+                            <View style={styles.featureItem}>
+                                <View style={styles.checkmarkWrapper}>
+                                    <IconSymbol name="checkmark.circle.fill" size={18} color={LIGHT_PREMIUM.primary} />
                                 </View>
+                                <Text style={styles.featureText}>{feature.text}</Text>
                             </View>
-                            <Text style={styles.featureCardTitle}>{feature.title}</Text>
-                        </Animated.View>
+                            {index < features.length - 1 && <View style={styles.divider} />}
+                        </View>
                     ))}
-                </View>
+                </Animated.View>
 
                 {/* Pricing Section */}
-                <Animated.View entering={FadeIn.delay(800).duration(800)} style={styles.pricingSection}>
+                <Animated.View 
+                    entering={Platform.OS === 'android' ? undefined : FadeIn.delay(800).duration(800)} 
+                    style={styles.pricingSection}
+                >
                     {isAlreadyPro ? (
                         <GlassCard style={styles.proStatusCard} animate={false}>
                             <View style={styles.proStatusContent}>
@@ -276,8 +233,8 @@ export default function PaywallScreen() {
                                 </View>
                             )}
 
-                            <Pressable 
-                                onPress={handleRestore} 
+                            <Pressable
+                                onPress={handleRestore}
                                 style={({ pressed }) => [styles.restoreButton, { opacity: pressed ? 0.6 : 1 }]}
                             >
                                 <Text style={styles.restoreText}>Restore Purchases</Text>
@@ -295,15 +252,15 @@ export default function PaywallScreen() {
 }
 
 // ─── Package Card Component ─────────────────────────────────────────────────────
-function PackageCard({ 
-    pkg, 
-    isSelected, 
-    onSelect, 
-    onPurchase, 
-    isPurchasing 
-}: { 
-    pkg: PurchasesPackage, 
-    isSelected: boolean, 
+function PackageCard({
+    pkg,
+    isSelected,
+    onSelect,
+    onPurchase,
+    isPurchasing
+}: {
+    pkg: PurchasesPackage,
+    isSelected: boolean,
     onSelect: () => void,
     onPurchase: () => void,
     isPurchasing: boolean
@@ -322,11 +279,11 @@ function PackageCard({
     return (
         <Pressable onPress={onSelect} style={styles.pkgPressable}>
             <Animated.View style={[animatedStyle, { width: '100%' }]}>
-                <View 
+                <View
                     style={[
-                        styles.pkgCard, 
-                        isSelected ? { 
-                            borderColor: LIGHT_PREMIUM.primary, 
+                        styles.pkgCard,
+                        isSelected ? {
+                            borderColor: LIGHT_PREMIUM.primary,
                             borderWidth: 2,
                             backgroundColor: '#FFFFFF',
                         } : {
@@ -341,7 +298,7 @@ function PackageCard({
                             <Text style={styles.bestValueText}>SAVE 40%</Text>
                         </View>
                     )}
-                    
+
                     <View style={styles.pkgTopRow}>
                         <View style={styles.pkgInfoWrapper}>
                             <Text style={[styles.pkgName, { color: LIGHT_PREMIUM.charcoal }]}>
@@ -358,7 +315,7 @@ function PackageCard({
                     </View>
 
                     {isSelected && (
-                        <Animated.View entering={FadeIn.duration(300)}>
+                        <Animated.View entering={Platform.OS === 'android' ? undefined : FadeIn.duration(300)}>
                             <Pressable
                                 onPress={(e) => {
                                     e.stopPropagation();
@@ -367,7 +324,7 @@ function PackageCard({
                                 disabled={isPurchasing}
                                 style={({ pressed }) => [
                                     styles.purchaseButton,
-                                    { 
+                                    {
                                         backgroundColor: LIGHT_PREMIUM.primary,
                                         opacity: pressed || isPurchasing ? 0.8 : 1
                                     }
@@ -409,7 +366,7 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingHorizontal: Spacing.lg,
     },
-    
+
     // Hero
     hero: {
         alignItems: 'center',
@@ -440,51 +397,47 @@ const styles = StyleSheet.create({
         maxWidth: 280,
     },
 
-    // Features Grid
-    featuresGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-        marginBottom: Spacing.xxl,
-        justifyContent: 'space-between',
+    // Features List
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: LIGHT_PREMIUM.charcoal,
+        marginBottom: 12,
+        marginLeft: 4,
     },
-    featureCard: {
-        width: (width - Spacing.lg * 2 - 12) / 2,
+    featuresCard: {
+        marginBottom: Spacing.xxl,
         backgroundColor: '#FFFFFF',
-        borderRadius: 20,
-        padding: 16,
-        ...Shadows.subtle,
+        borderRadius: 24,
+        padding: 20,
         borderWidth: 1,
         borderColor: '#F1F5F9',
+        ...Shadows.subtle,
     },
-    featureCardTop: {
+    featureItem: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        gap: 14,
+        paddingVertical: 12,
     },
-    featureIconSmall: {
-        width: 28,
-        height: 28,
-        borderRadius: 10,
+    divider: {
+        height: 1,
+        backgroundColor: '#F1F5F9',
+        marginLeft: 46, // Aligns with the end of the checkmark
+    },
+    checkmarkWrapper: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: LIGHT_PREMIUM.primary + '10',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    featureTag: {
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 6,
-    },
-    featureTagText: {
-        fontSize: 9,
-        fontWeight: '900',
-        letterSpacing: 0.5,
-    },
-    featureCardTitle: {
-        fontSize: 14,
-        fontWeight: '700',
+    featureText: {
+        fontSize: 16,
+        fontWeight: '600',
         color: LIGHT_PREMIUM.charcoal,
-        lineHeight: 18,
+        flex: 1,
     },
 
     // Pricing

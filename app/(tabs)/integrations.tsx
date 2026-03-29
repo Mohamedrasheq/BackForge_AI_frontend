@@ -9,8 +9,10 @@ import {
     disconnectService,
     getCredentialsStatus,
 } from '@/services/api';
+import { isProActive } from '@/services/revenuecat';
 import { useUser } from '@clerk/clerk-expo';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -203,6 +205,8 @@ export default function IntegrationsScreen() {
     const [connectedServices, setConnectedServices] = useState<ServiceStatus[]>([]);
     const [availableServices, setAvailableServices] = useState<AvailableService[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isProMember, setIsProMember] = useState(false);
+    const router = useRouter();
 
     // Connection Modal State
     const [selectedService, setSelectedService] = useState<AvailableService | null>(null);
@@ -228,6 +232,11 @@ export default function IntegrationsScreen() {
 
     useEffect(() => {
         fetchStatus();
+        const checkPro = async () => {
+            const pro = await isProActive();
+            setIsProMember(pro);
+        };
+        checkPro();
     }, [fetchStatus]);
 
     const onRefresh = useCallback(() => {
@@ -236,6 +245,15 @@ export default function IntegrationsScreen() {
     }, [fetchStatus]);
 
     const handleConnectPress = (service: AvailableService) => {
+        // Restricted services for free users
+        const isRestricted = !['github', 'linear'].includes(service.name.toLowerCase());
+        
+        if (isRestricted && !isProMember) {
+            haptics.medium();
+            router.push('/paywall');
+            return;
+        }
+
         haptics.selection();
         setSelectedService(service);
         setCredentials({});
@@ -305,6 +323,9 @@ export default function IntegrationsScreen() {
     // ─── Gradient Service Card ──────────────────────────────────────
     const renderService = ({ item }: { item: AvailableService }) => {
         const isConnected = connectedServices.some(s => s.service.toLowerCase() === item.name.toLowerCase());
+        const isRestricted = !['github', 'linear'].includes(item.name.toLowerCase());
+        const isLocked = !isConnected && !isProMember && isRestricted;
+        
         const connectionInfo = connectedServices.find(s => s.service.toLowerCase() === item.name.toLowerCase());
         const config = getServiceConfig(item.name);
 
@@ -325,6 +346,7 @@ export default function IntegrationsScreen() {
                         style={[
                             styles.serviceCard,
                             !isConnected && { borderWidth: 1, borderColor: colors.border },
+                            isLocked && { opacity: 0.8 },
                         ]}
                     >
                         {/* Top Row: Emoji + Status */}
@@ -339,6 +361,11 @@ export default function IntegrationsScreen() {
                                 <View style={styles.linkedBadge}>
                                     <View style={styles.linkedDot} />
                                     <Text style={styles.linkedText}>Linked</Text>
+                                </View>
+                            ) : isLocked ? (
+                                <View style={[styles.connectBadge, { backgroundColor: colors.textSecondary + '15' }]}>
+                                    <IconSymbol name="lock.fill" size={12} color={colors.textSecondary} />
+                                    <Text style={[styles.connectBadgeText, { color: colors.textSecondary }]}>Pro</Text>
                                 </View>
                             ) : (
                                 <View style={[styles.connectBadge, { backgroundColor: config.brandColor + '15' }]}>

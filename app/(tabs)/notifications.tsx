@@ -1,7 +1,5 @@
 import { EmptyState } from '@/components/ui/empty-state';
-import { Header } from '@/components/ui/header';
 
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTabBar } from '@/lib/tab-bar-context';
@@ -19,7 +17,6 @@ import {
     Text,
     View,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function NotificationsScreen() {
@@ -100,13 +97,19 @@ export default function NotificationsScreen() {
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-            <Header showBranding={false} />
 
             <FlatList
                 data={notifications}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }, notifications.length === 0 && { flex: 1 }]}
+                contentContainerStyle={[
+                    styles.list, 
+                    { 
+                        paddingTop: insets.top + Spacing.md,
+                        paddingBottom: insets.bottom + 100 
+                    }, 
+                    notifications.length === 0 && { flex: 1 }
+                ]}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.tint} />
                 }
@@ -118,7 +121,7 @@ export default function NotificationsScreen() {
                         title="Quiet for Now"
                         description="You're all caught up! We'll notify you here if anything needs your immediate attention."
                         actionLabel="Check My Brief"
-                        onAction={() => router.push('/brief')}
+                        onAction={() => router.push('./brief')}
                     />
                 }
             />

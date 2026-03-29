@@ -60,6 +60,8 @@ export function Header({
                 styles.container,
                 {
                     paddingTop: insets.top + Spacing.sm,
+                    backgroundColor: colors.background,
+                    borderBottomColor: colors.border,
                 },
                 style,
             ]}
@@ -143,6 +145,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.sm,
         zIndex: 10,
+        backgroundColor: Colors.light.background, // Fallback, will be overridden by dynamic color
+        borderBottomWidth: 1,
     },
     content: {
         flexDirection: 'row',

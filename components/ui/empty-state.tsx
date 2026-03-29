@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import LottieView from 'lottie-react-native';
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 
 interface EmptyStateProps {
     lottieSource?: any; // For local require or URL

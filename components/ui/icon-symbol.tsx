@@ -27,6 +27,7 @@ const MAPPING: Record<string, string> = {
   'chevron.right': 'chevron-right',
   'bell.fill': 'notifications',
   'person.circle.fill': 'account-circle',
+  'person.crop.circle.fill': 'account-circle',
   'calendar': 'calendar-today',
   'clock': 'access-time',
   'checkmark.circle': 'check-circle',

@@ -149,6 +149,21 @@ export async function getAllMemories(userId: string): Promise<MemoriesResponse> 
 }
 
 /**
+ * Get memories for a specific date
+ * GET /api/memories?userId=...&date=YYYY-MM-DD
+ */
+export async function getMemoriesByDate(userId: string, date: string): Promise<MemoriesResponse> {
+    console.log(`[API] GET ${API_BASE}/memories?userId=${userId}&date=${date}`);
+    const response = await fetch(`${API_BASE}/memories?userId=${encodeURIComponent(userId)}&date=${encodeURIComponent(date)}`);
+
+    if (!response.ok) {
+        throw new Error('Failed to fetch memories for date');
+    }
+
+    return response.json();
+}
+
+/**
  * Delete user account and data
  * POST /api/delete-account
  */

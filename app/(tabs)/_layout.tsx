@@ -1,5 +1,6 @@
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { Redirect, Tabs } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import React, { useEffect } from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
@@ -32,10 +33,10 @@ function AnimatedTabBar(props: BottomTabBarProps) {
   }
 
   return (
-    <Animated.View style={[{ 
-      position: 'absolute', 
-      bottom: 0, 
-      left: 0, 
+    <Animated.View style={[{
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
       right: 0,
       height: 64 + insets.bottom,
     }, animatedStyle]}>
@@ -53,14 +54,31 @@ function TabsContent() {
   const colors = Colors[colorScheme];
 
   useEffect(() => {
-    if (isSignedIn && user) {
-      syncUserToBackend({
-        id: user.id,
-        emailAddresses: user.emailAddresses.map(e => ({ emailAddress: e.emailAddress })),
-        firstName: user.firstName,
-        imageUrl: user.imageUrl,
-      });
-    }
+    const sync = async () => {
+      if (isSignedIn && user) {
+        let finalAvatarUrl = user.imageUrl;
+
+        try {
+          const pendingAvatar = await SecureStore.getItemAsync('pending_avatar_url');
+          if (pendingAvatar) {
+            finalAvatarUrl = pendingAvatar;
+          }
+        } catch (e) {
+          console.warn('[TabLayout] Failed to read pending avatar:', e);
+        }
+
+        await syncUserToBackend({
+          id: user.id,
+          emailAddresses: user.emailAddresses.map(e => ({ emailAddress: e.emailAddress })),
+          firstName: user.firstName,
+          imageUrl: finalAvatarUrl,
+        });
+
+        // Optional: Clear after first sync to let Clerk take over or keep it in metadata
+        // For now, we'll keep it simple.
+      }
+    };
+    sync();
   }, [isSignedIn, user]);
 
   if (!isLoaded) {
@@ -113,7 +131,7 @@ function TabsContent() {
       <Tabs.Screen
         name="notifications"
         options={{
-          title: 'alert',
+          title: 'Alerts',
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="bell.fill" color={color} />
           ),
@@ -134,6 +152,15 @@ function TabsContent() {
           title: 'Links',
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="link" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Config',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="gearshape.fill" color={color} />
           ),
         }}
       />

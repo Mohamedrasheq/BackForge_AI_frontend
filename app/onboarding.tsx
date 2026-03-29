@@ -1,3 +1,4 @@
+import { AvatarSelector } from '@/components/onboarding/avatar-selector';
 import { Slide } from '@/components/onboarding/slide';
 import { SwipeButton } from '@/components/onboarding/swipe-button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -11,7 +12,11 @@ import React, { useRef, useState } from 'react';
 import { Dimensions, FlatList, Pressable, StyleSheet, View, ViewToken } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+// Responsive scaling helper
+const scale = height / 812;
+const normalize = (size: number) => Math.round(size * scale);
 
 // Indigo-tinted gradients per slide
 const SLIDE_BACKGROUNDS: readonly (readonly [string, string, string])[] = [
@@ -20,6 +25,7 @@ const SLIDE_BACKGROUNDS: readonly (readonly [string, string, string])[] = [
     ['#EEF2FF', '#E0E7FF', '#FFFFFF'], // Deeper indigo
     ['#F5F3FF', '#EDE9FE', '#FFFFFF'], // Violet tint
     ['#EEF2FF', '#F0FDFA', '#FFFFFF'], // Indigo to teal
+    ['#FFFFFF', '#F8FAFC', '#F1F5F9'], // Neutral for avatar selection
 ];
 
 // Matching vibrant colors for buttons and prominent UI elements
@@ -29,6 +35,7 @@ const SLIDE_BUTTON_COLORS = [
     '#4F46E5', // Indigo
     '#7C3AED', // Violet
     '#0D9488', // Teal
+    '#64748B', // Slate for avatar selection
 ];
 
 interface SlideData {
@@ -69,6 +76,12 @@ const SLIDES: SlideData[] = [
         subtitle: 'Nothing is sent without approval.\nYour data stays private and secure.',
         lottieSource: require('@/assets/animations/onboarding-5.json'),
     },
+    {
+        id: '6',
+        title: "Choose your\nagent's look",
+        subtitle: 'Select an avatar that represents your personal assistant.',
+        lottieSource: null,
+    },
 ];
 
 export default function OnboardingScreen() {
@@ -76,11 +89,15 @@ export default function OnboardingScreen() {
     const colorScheme = useColorScheme() ?? 'light';
     const colors = Colors[colorScheme];
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [selectedAvatar, setSelectedAvatar] = useState<{ id: string; url: string } | null>(null);
     const flatListRef = useRef<FlatList>(null);
 
     const finishOnboarding = async () => {
         try {
             await SecureStore.setItemAsync('has_launched_app', 'true');
+            if (selectedAvatar) {
+                await SecureStore.setItemAsync('pending_avatar_url', selectedAvatar.url);
+            }
         } catch (error) {
             console.error('Failed to save launch state:', error);
         }
@@ -129,7 +146,7 @@ export default function OnboardingScreen() {
                                 },
                             ]}
                         >
-                            <IconSymbol name="arrow.right" size={18} color={SLIDE_BUTTON_COLORS[currentIndex]} />
+                            <IconSymbol name="arrow.right" size={normalize(18)} color={SLIDE_BUTTON_COLORS[currentIndex]} />
                         </Pressable>
                     ) : (
                         <View />
@@ -151,7 +168,14 @@ export default function OnboardingScreen() {
                             title={item.title}
                             subtitle={item.subtitle}
                             lottieSource={item.lottieSource}
-                        />
+                        >
+                            {item.id === '6' && (
+                                <AvatarSelector
+                                    selectedId={selectedAvatar?.id ?? null}
+                                    onSelect={(id, url) => setSelectedAvatar({ id, url })}
+                                />
+                            )}
+                        </Slide>
                     )}
                 />
             </SafeAreaView>
@@ -167,7 +191,7 @@ export default function OnboardingScreen() {
                                     styles.dot,
                                     {
                                         backgroundColor: index === currentIndex ? SLIDE_BUTTON_COLORS[currentIndex] : colors.border,
-                                        width: index === currentIndex ? 24 : 8,
+                                        width: index === currentIndex ? normalize(24) : normalize(8),
                                     },
                                 ]}
                             />
@@ -194,25 +218,27 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'flex-end',
         paddingHorizontal: Spacing.xl,
-        paddingTop: Spacing.sm,
+        paddingTop: normalize(8),
+        height: normalize(44),
+        alignItems: 'center',
     },
     skipButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: normalize(36),
+        height: normalize(36),
+        borderRadius: normalize(18),
         borderWidth: 1,
         alignItems: 'center',
         justifyContent: 'center',
     },
     skipText: {
-        fontSize: 16,
+        fontSize: normalize(14),
         fontWeight: '500',
     },
     footer: {
-        paddingTop: Spacing.xl,
+        paddingTop: normalize(16),
         paddingHorizontal: Spacing.xl,
-        paddingBottom: 48,
-        gap: Spacing.xl,
+        paddingBottom: normalize(32),
+        gap: normalize(16),
     },
     paginator: {
         flexDirection: 'row',
@@ -224,14 +250,14 @@ const styles = StyleSheet.create({
         borderRadius: 4,
     },
     button: {
-        paddingVertical: 16,
-        borderRadius: 14,
+        paddingVertical: normalize(14),
+        borderRadius: normalize(14),
         alignItems: 'center',
         justifyContent: 'center',
     },
     buttonText: {
         color: '#FFFFFF',
-        fontSize: 17,
+        fontSize: normalize(16),
         fontWeight: '600',
     },
 });

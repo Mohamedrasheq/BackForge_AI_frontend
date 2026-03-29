@@ -11,7 +11,7 @@ const REVENUECAT_KEYS = {
 const ENTITLEMENT_ID = 'BackForge AI Pro';
 const DAILY_LIMIT_KEY = 'loop_daily_chat_limit';
 const LAST_RESET_KEY = 'loop_last_chat_reset_date';
-const MAX_FREE_MESSAGES = 5;
+const MAX_FREE_MESSAGES = 2;
 
 /**
  * Check if the RevenueCat SDK is configured and ready
