@@ -213,8 +213,8 @@ export default function ChatScreen() {
         const proStatus = await isProActive();
         setIsPro(proStatus);
         if (!proStatus) {
-            const { remaining } = await getDailyMessageStats();
-            setRemainingMessages(remaining);
+          const { remaining } = await getDailyMessageStats();
+          setRemainingMessages(remaining);
         }
       };
       checkLimit();
@@ -264,7 +264,7 @@ export default function ChatScreen() {
     // Check if tool is mentioned and connected
     const toolKeywords = ['github', 'linear', 'gmail', 'notion', 'slack', 'jira', 'trello', 'asana', 'todoist', 'confluence', 'discord', 'calendar'];
     const mentionedTool = toolKeywords.find(kw => text.toLowerCase().includes(kw));
-    
+
     if (mentionedTool && !connectedServices.includes(mentionedTool)) {
       const toolName = mentionedTool.charAt(0).toUpperCase() + mentionedTool.slice(1);
       const assistantMessage: ChatMessage = {
@@ -350,7 +350,7 @@ export default function ChatScreen() {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
-      // Increment count only after successfully initiating (or completion)
+      // Increment count only after successfully initiating (or completion).
       const proStatus = await isProActive();
       setIsPro(proStatus);
       if (!proStatus) {
@@ -359,6 +359,7 @@ export default function ChatScreen() {
         setRemainingMessages(remaining);
       }
     }
+
   }, [inputText, isLoading, user, messages, connectedServices, router]);
 
   const handleConfirmSchedule = useCallback(async () => {
@@ -547,8 +548,8 @@ export default function ChatScreen() {
               entering={SlideInDown.springify().damping(18).stiffness(120).mass(0.8)}
               exiting={SlideOutDown.duration(300)}
               style={[
-                styles.scheduleModalContainer, 
-                { 
+                styles.scheduleModalContainer,
+                {
                   backgroundColor: colors.glass,
                   paddingBottom: Math.max(40, insets.bottom + 20)
                 }
@@ -737,7 +738,7 @@ export default function ChatScreen() {
                   {remainingMessages} free {remainingMessages === 1 ? 'message' : 'messages'} remaining today
                 </Text>
               ) : (
-                <Pressable 
+                <Pressable
                   onPress={() => router.push('/paywall')}
                   style={({ pressed }) => [
                     styles.limitReachedBadge,
