@@ -1,6 +1,6 @@
 # RevenueCat Subscription Setup Guide
 
-This document outlines the setup required to enable the **BackForge AI Pro** subscription in the application.
+This document outlines the setup required to enable the **BackForge-AI Pro** subscription in the application.
 
 ## 1. Dashboard Configuration
 
@@ -18,14 +18,14 @@ This document outlines the setup required to enable the **BackForge AI Pro** sub
 
 ### B. Entitlements
 1. Go to **Entitlements**.
-2. Create a new Entitlement with the ID: **`Loop Pro`**.
-   - *Note: This ID is referenced directly in `services/revenuecat.ts`.*
+2. Create a new Entitlement with the ID: **`BackForge-AI Pro`** (hyphen, not space).
+   - *Note: This ID is referenced directly in `services/revenuecat.ts` as `ENTITLEMENT_ID`.*
 
 ### C. Products (Setting up without Product IDs)
 If you haven't created products in the App Store or Play Store yet, don't worry. You can still proceed:
 1. **Get your Keys**: Create the iOS and Android configurations in RevenueCat anyway. It will give you the `appl_` and `goog_` keys immediately.
-2. **Use Simulation Mode**: I have built a "Sandbox Fallback" into the app. When the app detects that no real products are available from the store, it will show a **"Subscribe (Demo)"** button. 
-   - Clicking this will simulate a successful purchase and grant the "BackForge AI Pro" entitlement locally.
+2. **Use Simulation Mode**: A "Sandbox Fallback" is built into the app. When the app detects that no real products are available from the store, it will show a **"Subscribe (Demo)"** button. 
+   - Clicking this will simulate a successful purchase and grant the `BackForge-AI Pro` entitlement locally.
    - This allows you to test the entire experience (daily limits, paywall UI, and Pro status) while you wait for your developer accounts or product IDs to be ready.
 
 ### D. Offerings (Once products are ready)
@@ -60,6 +60,8 @@ The app is pre-configured with the following logic:
 ---
 
 ## 4. Key References
-- **Entitlement ID**: `BackForge AI Pro`
-- **Main Service**: `services/revenuecat.ts`
+- **Entitlement ID**: `BackForge-AI Pro` (with hyphen — must match exactly in RevenueCat dashboard)
+- **Main Service**: `services/revenuecat.ts` — `isProActive()`, `getDailyMessageStats()`, `incrementDailyMessageCount()`
 - **UI Screen**: `app/paywall.tsx`
+- **Pro status DB fallback**: `services/api.ts` — `getProStatus(userId)` calls `GET /api/users/pro-status`
+- **Pro check pattern**: All screens use `(await isProActive()) || (await getProStatus(userId))` — either source grants access

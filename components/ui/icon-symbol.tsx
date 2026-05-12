@@ -72,7 +72,7 @@ const MAPPING: Record<string, string> = {
   'square.stack.3d.up.fill': 'layers',
   'layers.fill': 'layers',
   'mail.fill': 'mail',
-  'calendar.badge.plus': 'calendar-add-on',
+  'calendar.badge.plus': 'event-note',
   'doc.text.fill': 'description',
   'square.grid.2x2.fill': 'dashboard',
   'circle.circle': 'adjust',
@@ -94,6 +94,8 @@ const MAPPING: Record<string, string> = {
   'magnifyingglass': 'search',
   'person.2.fill': 'people',
   'hammer.fill': 'build',
+  'square.and.pencil': 'edit',
+  'message.fill': 'message',
 } as any;
 
 

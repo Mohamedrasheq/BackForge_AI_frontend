@@ -300,14 +300,6 @@ export default function SettingsScreen() {
                         />
                         <Divider color={colors.border} />
                         <SettingsRow
-                            icon="moon.fill"
-                            label="Appearance"
-                            value="System"
-                            showChevron
-                            colors={colors}
-                        />
-                        <Divider color={colors.border} />
-                        <SettingsRow
                             icon="link"
                             label="Integrations"
                             value="Manage"
@@ -326,9 +318,7 @@ export default function SettingsScreen() {
                             icon="book.fill"
                             label="How it Works"
                             showChevron
-                            onPress={() => {
-                                /* Open guide */
-                            }}
+                            onPress={() => router.push('/how-it-works')}
                             colors={colors}
                         />
                         <Divider color={colors.border} />

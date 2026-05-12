@@ -102,9 +102,13 @@ Use `icon-symbol.tsx` for cross-platform icons — it maps SF Symbols (iOS) to M
 `_layout.tsx` handles routing based on Clerk auth state: unauthenticated → onboarding → sign-in, authenticated → tabs. RevenueCat is initialized and user identified in `_layout.tsx`.
 
 ### Subscription / Pro Features
-- Check `services/revenuecat.ts` for `checkProEntitlement()` and `getRemainingMessages()`
-- Free tier: 5 chat messages/day
-- Pro: unlimited messages + premium features
+- **Entitlement ID**: `BackForge-AI Pro` (hyphen, must match RevenueCat dashboard exactly)
+- `services/revenuecat.ts` — `isProActive()` checks the RevenueCat SDK for an active entitlement
+- `services/api.ts` — `getProStatus(userId)` calls `GET /api/users/pro-status` as a DB fallback
+- **Dual-check pattern** (used in all screens): `(await isProActive()) || (await getProStatus(userId))`
+  - Either source returning `true` grants Pro access — handles offline SDK or subscription synced via webhook
+- `getDailyMessageStats()` / `incrementDailyMessageCount()` — free tier message tracking (5/day)
+- Pro status is re-checked on every screen focus via `useFocusEffect`
 - Demo mode fallback available for Expo Go testing (no native purchase needed)
 - Paywall at `app/paywall.tsx`
 

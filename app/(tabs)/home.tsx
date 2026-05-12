@@ -5,15 +5,16 @@ import { subscribeToMemoryChanges } from '@/lib/supabase';
 import { useTabBar } from '@/lib/tab-bar-context';
 import { closeMemory, getDailyBrief, getMemoriesByDate } from '@/services/api';
 import type { DailyBriefItem, MemoryItem } from '@/types/api';
+import { useUser } from '@clerk/clerk-expo';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
-import { Image } from 'expo-image';
+import { StatusBar } from 'expo-status-bar';
 import LottieView from 'lottie-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Dimensions, Image as RNImage, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
     FadeIn,
     FadeInDown,
@@ -22,9 +23,19 @@ import Animated, {
     LinearTransition
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useUser } from '@clerk/clerk-expo';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const RANDOM_TAGLINES = [
+    "Ready to build,",
+    "Time to shine,",
+    "Stay sharp,",
+    "Second brain active,",
+    "Focus mode,",
+    "Your move,",
+    "Think big,",
+    "Make it happen,",
+];
 
 type HomeStatus = {
     statusMessage: string;
@@ -72,8 +83,10 @@ const getLocalDateString = (date: Date) => {
 };
 
 // Get agent-style narrative briefing
-const getAgentNarrative = (status: HomeStatus, isNewUser: boolean, selectedDate: Date) => {
+const getAgentNarrative = (pendingItems: DailyBriefItem[], isNewUser: boolean, selectedDate: Date) => {
     const isToday = selectedDate.toDateString() === new Date().toDateString();
+    const pendingCount = pendingItems.length;
+    const topItem = pendingItems[0];
 
     if (isNewUser && isToday) {
         return "Welcome! I'm ready to be your second brain. Share a thought in chat to start organizing your life.";
@@ -81,20 +94,19 @@ const getAgentNarrative = (status: HomeStatus, isNewUser: boolean, selectedDate:
 
     if (!isToday) {
         const dateName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
-        if (status.pendingCount === 0) {
+        if (pendingCount === 0) {
             return `You had a clear schedule on ${dateName}. Everything was under control and preserved.`;
         }
-        return `On ${dateName}, you had ${status.pendingCount} items recorded. I've preserved all the context for you.`;
+        return `On ${dateName}, you had ${pendingCount} items recorded. I've preserved all the context for you.`;
     }
 
-    if (status.pendingCount === 0) {
+    if (pendingCount === 0) {
         return "You're all settled. I'm standing by if you need to capture a new memory or task right now.";
     }
-    const topItem = status.topItems[0];
-    if (status.pendingCount === 1) {
+    if (pendingCount === 1) {
         return `I've noted one item: ${topItem?.title || 'a new task'}. Shall we take a look and get it done?`;
     }
-    return `You have ${status.pendingCount} items today. I recommend focusing on ${topItem?.title || 'your priority'} first.`;
+    return `You have ${pendingCount} items today. I recommend focusing on ${topItem?.title || 'your priority'} first.`;
 };
 
 
@@ -106,7 +118,14 @@ export default function HomeScreen() {
 
     const { user } = useUser();
     const { handleScroll } = useTabBar();
+
+    const getRandomTagline = useCallback(() => {
+        const randomIdx = Math.floor(Math.random() * RANDOM_TAGLINES.length);
+        return RANDOM_TAGLINES[randomIdx];
+    }, []);
+
     const [status, setStatus] = useState<HomeStatus>(INITIAL_STATUS);
+    const [activeTagline, setActiveTagline] = useState(getRandomTagline());
     const calendarRef = React.useRef<ScrollView>(null);
 
     const [refreshing, setRefreshing] = useState(false);
@@ -130,7 +149,7 @@ export default function HomeScreen() {
                     setAvatarUrl(user.imageUrl);
                 }
             } catch (e) {
-                console.warn('[Home] Failed to load avatar:', e);
+                console.error('[Home] Failed to load avatar:', e);
             }
         };
         loadAvatar();
@@ -170,15 +189,15 @@ export default function HomeScreen() {
     // 3. Dynamic Scroll to Today
     const scrollToToday = useCallback((animated = true) => {
         if (!calendarRef.current) return;
-        
+
         // Calculate index of today based on isNewUser
         // New users start from today (index 0), existing start from -7 (index 7)
         const todayIndex = isNewUser ? 0 : 7;
-        
+
         // Each chip is 60 width + 12 gap = 72px
         const chipWidth = 72;
         const scrollX = (todayIndex * chipWidth) - (SCREEN_WIDTH / 2) + (chipWidth / 2);
-        
+
         setTimeout(() => {
             calendarRef.current?.scrollTo({ x: Math.max(0, scrollX), animated });
         }, animated ? 600 : 0);
@@ -200,6 +219,7 @@ export default function HomeScreen() {
 
     const fetchHomeData = useCallback(async () => {
         if (!user) return;
+        setAllMemories([]);
         try {
             const dateStr = getLocalDateString(selectedDate);
             const [briefResponse, memoriesResponse] = await Promise.all([
@@ -211,16 +231,11 @@ export default function HomeScreen() {
             const memories = Array.isArray(memoriesResponse) ? memoriesResponse : (memoriesResponse.items || []);
             setAllMemories(memories);
 
-            // Calculate progress for TODAY specifically
-            const todayStr = getLocalDateString(new Date());
-            setIsNewUser(memories.length === 0);
+            const isToday = getLocalDateString(selectedDate) === getLocalDateString(new Date());
+            setIsNewUser(isToday && memories.length === 0);
 
-            const todayMemories = memories.filter(m => {
-                const createdDate = new Date(m.created_at);
-                return getLocalDateString(createdDate) === todayStr;
-            });
-            const totalToday = todayMemories.length;
-            const completedToday = todayMemories.filter(m => m.status === 'closed').length;
+            const totalToday = memories.length;
+            const completedToday = memories.filter(m => m.status === 'closed').length;
             setProgress({
                 total: totalToday,
                 completed: completedToday,
@@ -262,28 +277,15 @@ export default function HomeScreen() {
 
     // Handle date selection and fetch tasks for that date
     const handleDateSelect = useCallback(async (date: Date) => {
-        if (!user) return;
         setSelectedDate(date);
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-        // Fetch data for the selected date from the backend
-        try {
-            const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
-            const response = await getMemoriesByDate(user.id, dateStr);
-            const memories = Array.isArray(response) ? response : (response.items || []);
-            setAllMemories(memories);
-        } catch (error) {
-            console.error('[Home] Error fetching date tasks:', error);
-            // Fallback: If backend is not ready, we currently show empty list if setAllMemories fails
-        }
-    }, [user]);
+    }, []);
 
     // Supabase Realtime subscription
     useEffect(() => {
         if (!user) return;
 
         const unsubscribe = subscribeToMemoryChanges(user.id, () => {
-            console.log('[Home] Realtime update received');
             fetchHomeData();
         });
 
@@ -292,8 +294,9 @@ export default function HomeScreen() {
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
+        setActiveTagline(getRandomTagline());
         fetchHomeData();
-    }, [fetchHomeData]);
+    }, [fetchHomeData, getRandomTagline]);
 
     // ── Task completion confirmation flow ──
     const [pendingDoneItem, setPendingDoneItem] = useState<DailyBriefItem | null>(null);
@@ -361,23 +364,22 @@ export default function HomeScreen() {
             >
                 {/* 1. Personalized Greeting Section */}
                 <Animated.View entering={Platform.OS === 'android' ? undefined : FadeIn.duration(600)} style={styles.greetingSection}>
-                    <Image
-                        source={avatarUrl || user?.imageUrl}
-                        style={styles.headerAvatar}
-                        contentFit="cover"
-                    />
+                    <View style={styles.avatarContainer}>
+                        <Image
+                            source={avatarUrl || user?.imageUrl}
+                            style={styles.headerAvatar}
+                            contentFit="cover"
+                        />
+                    </View>
                     <View style={styles.greetingTextContainer}>
-                        <View style={styles.greetingRow}>
-                            <Text style={styles.waveEmoji}>👋</Text>
-                            <Text style={[styles.greetingText, { color: colors.text }]}>
-                                {getGreeting()},
-                            </Text>
-                        </View>
-                        {user && (
-                            <Text style={[styles.greetingName, { color: colors.tint, textAlign: 'center' }]}>
-                                {`${user.firstName || ''} ${user.lastName || ''}`.trim()}
-                            </Text>
-                        )}
+                        <Text
+                            style={[
+                                styles.greetingText,
+                                { color: colors.text, textAlign: 'center', paddingHorizontal: Spacing.md }
+                            ]}
+                        >
+                            <Text style={styles.waveEmoji}>👋</Text> {getGreeting()}, {activeTagline} <Text style={{ color: colors.tint }}>{user?.firstName || ''}</Text>
+                        </Text>
                     </View>
                 </Animated.View>
 
@@ -388,16 +390,9 @@ export default function HomeScreen() {
                 >
                     <View style={styles.narrativeHeader}>
                         <Text style={[styles.narrativeLabel, { color: colors.tint }]}>AGENT'S PERSPECTIVE</Text>
-                        <LottieView
-                            source={require('@/assets/animations/Live chatbot.json')}
-                            autoPlay
-                            loop
-                            style={[styles.narrativeThinking, { transform: [{ scale: 1.6 }] }]}
-                            renderMode="SOFTWARE"
-                        />
                     </View>
                     <Text style={[styles.narrativeText, { color: colors.text, minHeight: 46 }]} numberOfLines={2}>
-                        {getAgentNarrative(status, isNewUser, selectedDate)}
+                        {getAgentNarrative(pendingItems, isNewUser, selectedDate)}
                     </Text>
                 </Animated.View>
 
@@ -866,20 +861,24 @@ const styles = StyleSheet.create({
     greetingSection: {
         marginTop: Spacing.sm,
         marginBottom: Spacing.lg,
-        flexDirection: 'row',
         alignItems: 'center',
-        gap: 16,
+        gap: 8,
     },
-    headerAvatar: {
+    avatarContainer: {
         width: 64,
         height: 64,
         borderRadius: 32,
         borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(255,255,255,0.15)',
+        overflow: 'hidden',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+    },
+    headerAvatar: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 32,
     },
     greetingTextContainer: {
-        flex: 1,
-        justifyContent: 'center',
         alignItems: 'center',
     },
     greetingRow: {

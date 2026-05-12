@@ -53,7 +53,7 @@ export interface MemoryItem {
     created_at: string;
 }
 
-export type NotificationStatus = "scheduled" | "sent" | "failed";
+export type NotificationStatus = "scheduled" | "sent" | "failed" | "cancelled";
 
 export interface Notification {
     id: string;

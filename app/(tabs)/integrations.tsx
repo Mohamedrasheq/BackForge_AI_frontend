@@ -8,11 +8,12 @@ import {
     connectService,
     disconnectService,
     getCredentialsStatus,
+    getProStatus,
 } from '@/services/api';
 import { isProActive } from '@/services/revenuecat';
 import { useUser } from '@clerk/clerk-expo';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -46,6 +47,15 @@ type ServiceConfig = {
 };
 
 const SERVICE_CONFIG: Record<string, ServiceConfig> = {
+    reminder: {
+        emoji: '⏰',
+        icon: 'bell.badge.fill',
+        gradientColors: ['#F59E0B', '#D97706'],
+        brandColor: '#F59E0B',
+        instruction: '',
+        capabilities: ['Schedule reminders', 'Push notifications', 'Smart time suggestions', 'Recurring reminders'],
+        limitations: ['No location-based reminders'],
+    },
     github: {
         emoji: '🐙',
         icon: 'terminal',
@@ -205,6 +215,7 @@ export default function IntegrationsScreen() {
     const [connectedServices, setConnectedServices] = useState<ServiceStatus[]>([]);
     const [availableServices, setAvailableServices] = useState<AvailableService[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [activeFilter, setActiveFilter] = useState<'all' | 'connected' | 'not_connected'>('all');
     const [isProMember, setIsProMember] = useState(false);
     const router = useRouter();
 
@@ -232,12 +243,18 @@ export default function IntegrationsScreen() {
 
     useEffect(() => {
         fetchStatus();
-        const checkPro = async () => {
-            const pro = await isProActive();
-            setIsProMember(pro);
-        };
-        checkPro();
     }, [fetchStatus]);
+
+    useFocusEffect(
+        React.useCallback(() => {
+            const checkPro = async () => {
+                const sdkPro = await isProActive();
+                const dbPro = user?.id ? await getProStatus(user.id) : false;
+                setIsProMember(sdkPro || dbPro);
+            };
+            checkPro();
+        }, [user?.id])
+    );
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
@@ -246,7 +263,7 @@ export default function IntegrationsScreen() {
 
     const handleConnectPress = (service: AvailableService) => {
         // Restricted services for free users
-        const isRestricted = !['github', 'linear'].includes(service.name.toLowerCase());
+        const isRestricted = !['github'].includes(service.name.toLowerCase());
         
         if (isRestricted && !isProMember) {
             haptics.medium();
@@ -281,8 +298,11 @@ export default function IntegrationsScreen() {
             haptics.success();
             fetchStatus();
         } catch (err: any) {
-            // show inline error if needed
             haptics.error();
+            Alert.alert(
+                'Disconnect Failed',
+                err.message || 'Could not disconnect the service. Please try again.',
+            );
         } finally {
             setDisconnectTarget(null);
         }
@@ -322,8 +342,9 @@ export default function IntegrationsScreen() {
 
     // ─── Gradient Service Card ──────────────────────────────────────
     const renderService = ({ item }: { item: AvailableService }) => {
-        const isConnected = connectedServices.some(s => s.service.toLowerCase() === item.name.toLowerCase());
-        const isRestricted = !['github', 'linear'].includes(item.name.toLowerCase());
+        const isBuiltIn = item.name.toLowerCase() === 'reminder';
+        const isConnected = isBuiltIn || connectedServices.some(s => s.service.toLowerCase() === item.name.toLowerCase());
+        const isRestricted = !['github'].includes(item.name.toLowerCase()) && !isBuiltIn;
         const isLocked = !isConnected && !isProMember && isRestricted;
         
         const connectionInfo = connectedServices.find(s => s.service.toLowerCase() === item.name.toLowerCase());
@@ -332,7 +353,7 @@ export default function IntegrationsScreen() {
         return (
             <View style={styles.cardContainer}>
                 <Pressable
-                    onPress={() => isConnected ? handleDisconnect(item.name) : handleConnectPress(item)}
+                    onPress={() => isBuiltIn ? null : (isConnected ? handleDisconnect(item.name) : handleConnectPress(item))}
                     style={({ pressed }) => [
                         { transform: [{ scale: pressed ? 0.97 : 1 }] },
                     ]}
@@ -412,16 +433,47 @@ export default function IntegrationsScreen() {
                                 Connected {new Date(connectionInfo.connected_at).toLocaleDateString()}
                             </Text>
                         )}
+                        {isBuiltIn && (
+                            <Text style={styles.cardConnectedAt}>
+                                Built-in · Always active
+                            </Text>
+                        )}
                     </LinearGradient>
                 </Pressable>
             </View>
         );
     };
 
-    const filteredServices = (availableServices || []).filter(s =>
-        s.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Inject built-in Reminder tool into the list
+    const BUILT_IN_SERVICES: AvailableService[] = [
+        {
+            name: 'reminder',
+            displayName: 'Reminder',
+            description: 'Smart reminders powered by push notifications. Always on.',
+            credentialFields: [],
+        },
+    ];
+
+    const allServices = [
+        ...BUILT_IN_SERVICES,
+        ...(availableServices || []).filter(s => s.name.toLowerCase() !== 'reminder'),
+    ];
+
+    const filteredServices = allServices.filter(s => {
+        const matchesSearch = s.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            s.description.toLowerCase().includes(searchQuery.toLowerCase());
+        if (!matchesSearch) return false;
+
+        if (activeFilter === 'connected') {
+            const isBuiltIn = s.name.toLowerCase() === 'reminder';
+            return isBuiltIn || connectedServices.some(c => c.service.toLowerCase() === s.name.toLowerCase());
+        }
+        if (activeFilter === 'not_connected') {
+            const isBuiltIn = s.name.toLowerCase() === 'reminder';
+            return !isBuiltIn && !connectedServices.some(c => c.service.toLowerCase() === s.name.toLowerCase());
+        }
+        return true;
+    });
 
     const selectedConfig = selectedService ? getServiceConfig(selectedService.name) : DEFAULT_CONFIG;
 
@@ -430,22 +482,6 @@ export default function IntegrationsScreen() {
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
 
 
-            {/* Search Bar */}
-            <View style={styles.searchBarContainer}>
-                <View style={[styles.searchBarWrapper, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
-                    <IconSymbol name="magnifyingglass" size={18} color={colors.textSecondary} style={styles.searchIcon} />
-                    <TextInput
-                        style={[styles.searchInput, { color: colors.text }]}
-                        placeholder="Search apps..."
-                        placeholderTextColor={colors.textSecondary}
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                        autoCapitalize="none"
-                        clearButtonMode="while-editing"
-                    />
-                </View>
-            </View>
-
             {/* Filter Chips */}
             <View>
                 <ScrollView 
@@ -453,18 +489,15 @@ export default function IntegrationsScreen() {
                     showsHorizontalScrollIndicator={false} 
                     contentContainerStyle={styles.filterContainer}
                 >
-                    {['all', 'connected', 'available'].map((filterKey) => {
-                        const label = filterKey === 'all' ? 'All' : filterKey === 'connected' ? 'Connected' : 'Available';
-                        const isActive = searchQuery === '' ? filterKey === 'all' : false;
+                    {(['all', 'connected', 'not_connected'] as const).map((filterKey) => {
+                        const label = filterKey === 'all' ? 'All' : filterKey === 'connected' ? 'Connected' : 'Not Connected';
+                        const isActive = activeFilter === filterKey;
                         return (
                             <Pressable
                                 key={filterKey}
                                 onPress={() => {
                                     haptics.selection();
-                                    if (filterKey === 'all') setSearchQuery('');
-                                    else if (filterKey === 'connected') {
-                                        setSearchQuery('');
-                                    }
+                                    setActiveFilter(filterKey);
                                 }}
                                 style={[
                                     styles.filterChip,
@@ -895,7 +928,8 @@ const styles = StyleSheet.create({
     },
     filterContainer: {
         paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
+        paddingTop: Spacing.lg,
+        paddingBottom: Spacing.sm,
         gap: Spacing.sm,
     },
     filterChip: {

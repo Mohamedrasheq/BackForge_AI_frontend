@@ -2,7 +2,7 @@ import { GlassCard } from '@/components/ui/glass-card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getAllMemories } from '@/services/api';
+import { getAllMemories, getProStatus } from '@/services/api';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -95,11 +95,12 @@ export default function ProfileScreen() {
     useFocusEffect(
         React.useCallback(() => {
             const checkPro = async () => {
-                const active = await isProActive();
-                setProActive(active);
+                const sdkPro = await isProActive();
+                const dbPro = user?.id ? await getProStatus(user.id) : false;
+                setProActive(sdkPro || dbPro);
             };
             checkPro();
-        }, [])
+        }, [user?.id])
     );
 
     const handleSubscription = async () => {

@@ -15,17 +15,13 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { configureRevenueCat, identifyUser } from '../services/revenuecat';
+import { configureRevenueCat, identifyUser, isSDKAvailable } from '../services/revenuecat';
+import Purchases from 'react-native-purchases';
 
 const tokenCache = {
   async getToken(key: string) {
     try {
       const item = await SecureStore.getItemAsync(key);
-      if (item) {
-        console.log(`${key} was used 🔐 \n`);
-      } else {
-        console.log('No values stored under key: ' + key);
-      }
       return item;
     } catch (error) {
       console.error('SecureStore get item error: ', error);
@@ -56,16 +52,31 @@ function InitialLayout() {
   useEffect(() => {
     const checkFirstLaunch = async () => {
       try {
-        // Initialize RevenueCat
+        // Initialize RevenueCat without userId — user not known yet at this point
         await configureRevenueCat();
 
         const hasLaunched = await SecureStore.getItemAsync('has_launched_app');
         setIsFirstLaunch(hasLaunched === null);
       } catch (error) {
-        setIsFirstLaunch(true); // Default to showing onboarding on error
+        setIsFirstLaunch(true);
       }
     };
     checkFirstLaunch();
+  }, []);
+
+  // ── CustomerInfo listener — updates UI immediately after any purchase/expiry ──
+  useEffect(() => {
+    let removeListener: (() => void) | null = null;
+
+    const attachListener = async () => {
+      if (!(await isSDKAvailable())) return;
+      removeListener = Purchases.addCustomerInfoUpdateListener((customerInfo) => {
+        console.log('[RevenueCat] CustomerInfo updated:', JSON.stringify(customerInfo.entitlements.active));
+      });
+    };
+
+    attachListener();
+    return () => { removeListener?.(); };
   }, []);
 
   // ── Push notification registration ──-
@@ -74,7 +85,7 @@ function InitialLayout() {
 
     const setupPush = async () => {
       try {
-        // Identify user in RevenueCat
+        // Identify user in RevenueCat — merges anonymous session with Clerk userId
         await identifyUser(user.id);
 
         // Set up Android notification channel
@@ -117,7 +128,7 @@ function InitialLayout() {
       if (data?.screen === 'chat') {
         router.push('/(tabs)/chat');
       } else if (data?.screen === 'brief') {
-        router.push('/(tabs)/brief');
+        router.push('/(tabs)/home');
       } else if (data?.screen === 'memory') {
         router.push('/(tabs)/memory');
       }
@@ -142,9 +153,9 @@ function InitialLayout() {
 
     const inTabsGroup = segments[0] === '(tabs)';
     const inModal = segments[0] === 'modal';
-    const inSettings = segments[0] === 'settings';
     const inProfile = segments[0] === 'profile';
     const inPaywall = segments[0] === 'paywall';
+    const inHowItWorks = segments[0] === 'how-it-works';
 
     const inAuthGroup = segments[0] === 'onboarding' || segments[0] === 'sign-in';
     const isRootRoute = !segments[0];
@@ -163,7 +174,7 @@ function InitialLayout() {
       }
     } else {
       // User IS signed in
-      if (inTabsGroup || inModal || inSettings || inProfile || inPaywall) {
+      if (inTabsGroup || inModal || inProfile || inPaywall || inHowItWorks) {
         console.log('[Auth] ✅ Signed in, already on protected screen - ready!');
         setIsNavigationReady(true);
       } else {
@@ -195,8 +206,8 @@ function InitialLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="sign-in" />
-        <Stack.Screen name="settings" />
         <Stack.Screen name="profile" />
+        <Stack.Screen name="how-it-works" />
 
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />

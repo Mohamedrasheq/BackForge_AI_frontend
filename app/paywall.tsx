@@ -2,8 +2,10 @@ import { GlassCard } from '@/components/ui/glass-card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Shadows, Spacing } from '@/constants/theme';
 import { haptics } from '@/lib/haptics';
+import { getProStatus } from '@/services/api';
 import { isProActive, isSDKAvailable } from '@/services/revenuecat';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import LottieView from 'lottie-react-native';
@@ -48,6 +50,7 @@ const LIGHT_PREMIUM = {
 
 export default function PaywallScreen() {
     const router = useRouter();
+    const { user } = useUser();
     const insets = useSafeAreaInsets();
     const colorScheme = 'light';
     const colors = Colors[colorScheme];
@@ -60,8 +63,9 @@ export default function PaywallScreen() {
 
     useEffect(() => {
         async function loadOfferings() {
-            const active = await isProActive();
-            setIsAlreadyPro(active);
+            const sdkPro = await isProActive();
+            const dbPro = user?.id ? await getProStatus(user.id) : false;
+            setIsAlreadyPro(sdkPro || dbPro);
 
             if (!(await isSDKAvailable())) {
                 setIsLoading(false);
@@ -86,7 +90,7 @@ export default function PaywallScreen() {
         }
 
         loadOfferings();
-    }, []);
+    }, [user?.id]);
 
     const handlePurchase = async (packageToBuy: PurchasesPackage) => {
         if (isPurchasing) return;
@@ -95,7 +99,7 @@ export default function PaywallScreen() {
 
         try {
             const { customerInfo } = await Purchases.purchasePackage(packageToBuy);
-            if (customerInfo.entitlements.active['BackForge AI Pro']) {
+            if (customerInfo.entitlements.active['BackForge-AI Pro']) {
                 haptics.success();
                 router.back();
             }

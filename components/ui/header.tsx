@@ -16,6 +16,7 @@ interface HeaderProps {
     rightElement?: React.ReactNode;
     hideDefaultRightElements?: boolean;
     hideAvatar?: boolean;
+    leftElement?: React.ReactNode;
     centerElement?: React.ReactNode;
     style?: ViewStyle;
     leftContainerStyle?: ViewStyle;
@@ -31,6 +32,7 @@ export function Header({
     rightElement,
     hideDefaultRightElements = false,
     hideAvatar = false,
+    leftElement,
     centerElement,
     style,
     leftContainerStyle,
@@ -69,7 +71,8 @@ export function Header({
             <View style={styles.content}>
                 {/* Left Area */}
                 <View style={[styles.leftArea, leftContainerStyle]}>
-                    {!hideAvatar && (
+                    {leftElement}
+                    {!hideAvatar && !leftElement && (
                         <Pressable
                             onPress={handleProfilePress}
                             style={({ pressed }) => [

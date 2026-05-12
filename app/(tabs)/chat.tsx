@@ -11,6 +11,7 @@ import {
   fetchGitHubRepos,
   fetchLinearContext,
   getCredentialsStatus,
+  getProStatus,
   scheduleConfirm,
   sendChatMessageStreaming,
 } from '@/services/api';
@@ -42,6 +43,16 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut, SlideInDown, SlideOutDown, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const SHORTCUT_TAGS = [
+  { tag: '@schedule', label: 'Schedule', icon: 'calendar.badge.plus' },
+  { tag: '@github', label: 'GitHub', icon: 'link' },
+  { tag: '@linear', label: 'Linear', icon: 'pencil' },
+  { tag: '@gmail', label: 'Gmail', icon: 'envelope.fill' },
+  { tag: '@slack', label: 'Slack', icon: 'bubble.left.and.bubble.right.fill' },
+  { tag: '@notion', label: 'Notion', icon: 'doc.text.fill' },
+  { tag: '@jira', label: 'Jira', icon: 'ticket.fill' },
+];
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -168,15 +179,15 @@ export default function ChatScreen() {
 
     fetchLinearContext(user.id)
       .then(setLinearContext)
-      .catch((err) => console.warn('[Chat] Failed to fetch Linear context:', err));
+      .catch((err) => console.error('[Chat] Failed to fetch Linear context:', err));
 
     fetchGitHubRepos(user.id)
       .then(setGithubRepos)
-      .catch((err) => console.warn('[Chat] Failed to fetch GitHub repos:', err));
+      .catch((err) => console.error('[Chat] Failed to fetch GitHub repos:', err));
 
     getCredentialsStatus(user.id)
       .then(data => setConnectedServices((data.connected || []).map(s => s.service.toLowerCase())))
-      .catch((err) => console.warn('[Chat] Failed to fetch connected services:', err));
+      .catch((err) => console.error('[Chat] Failed to fetch connected services:', err));
   }, [user]);
 
   // ── Chat state ──
@@ -191,8 +202,9 @@ export default function ChatScreen() {
   const [pendingScheduleItem, setPendingScheduleItem] = useState<any>(null);
   const [isScheduling, setIsScheduling] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [isPro, setIsPro] = useState<boolean>(true);
+  const [isPro, setIsPro] = useState<boolean>(false);
   const [remainingMessages, setRemainingMessages] = useState<number>(2);
+  const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
 
 
   useFocusEffect(
@@ -208,9 +220,11 @@ export default function ChatScreen() {
       ];
       setCurrentQuote(quotes[Math.floor(Math.random() * quotes.length)]);
 
-      // Check message limit on focus
+      // Check message limit on focus — SDK or DB either being true grants pro access
       const checkLimit = async () => {
-        const proStatus = await isProActive();
+        const sdkPro = await isProActive();
+        const dbPro = user?.id ? await getProStatus(user.id) : false;
+        const proStatus = sdkPro || dbPro;
         setIsPro(proStatus);
         if (!proStatus) {
           const { remaining } = await getDailyMessageStats();
@@ -218,7 +232,7 @@ export default function ChatScreen() {
         }
       };
       checkLimit();
-    }, [router])
+    }, [user?.id])
   );
 
   // ── Keyboard handling for iOS gap ──
@@ -241,8 +255,8 @@ export default function ChatScreen() {
     const text = inputText.trim();
     if (!text || isLoading || !user) return;
 
-    // Check message limit
-    const isUserPro = await isProActive();
+    // Check message limit — SDK or DB either being true grants pro access
+    const isUserPro = (await isProActive()) || (user?.id ? await getProStatus(user.id) : false);
     if (!isUserPro) {
       const { remaining } = await getDailyMessageStats();
       if (remaining <= 0) {
@@ -351,7 +365,7 @@ export default function ChatScreen() {
     } finally {
       setIsLoading(false);
       // Increment count only after successfully initiating (or completion).
-      const proStatus = await isProActive();
+      const proStatus = (await isProActive()) || (user?.id ? await getProStatus(user.id) : false);
       setIsPro(proStatus);
       if (!proStatus) {
         await incrementDailyMessageCount();
@@ -441,7 +455,24 @@ export default function ChatScreen() {
         showBranding={false}
         hideDefaultRightElements={true}
         hideAvatar={true}
-        style={{ paddingRight: Spacing.sm }}
+        style={{ paddingHorizontal: Spacing.sm }}
+        leftElement={
+          <Pressable
+            onPress={() => {
+              haptics.medium();
+              setIsHelpModalVisible(true);
+            }}
+            style={({ pressed }) => [
+              styles.headerIconBtn,
+              {
+                opacity: pressed ? 0.6 : 1,
+                backgroundColor: `${colors.tint}12`,
+              },
+            ]}
+          >
+            <IconSymbol name="info.circle.fill" size={20} color={colors.tint} />
+          </Pressable>
+        }
         centerElement={
           <Image
             source={require('@/assets/images/brand_logo_cropped.png')}
@@ -455,7 +486,7 @@ export default function ChatScreen() {
               setMessages([]);
             }}
             style={({ pressed }) => [
-              styles.clearButton,
+              styles.headerIconBtn,
               {
                 opacity: pressed ? 0.6 : 1,
                 backgroundColor: `${colors.textSecondary}12`,
@@ -722,6 +753,88 @@ export default function ChatScreen() {
             </Animated.View>
           </View>
         </Modal>
+  
+        {/* Help Reference Modal */}
+        <Modal
+          visible={isHelpModalVisible}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => setIsHelpModalVisible(false)}
+        >
+          <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
+            <Pressable 
+                style={StyleSheet.absoluteFill} 
+                onPress={() => setIsHelpModalVisible(false)}
+            >
+                <BlurView intensity={80} tint={colorScheme === 'dark' ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+            </Pressable>
+            
+            <Animated.View 
+                entering={FadeInDown.springify()} 
+                style={[styles.helpContainer, { backgroundColor: colors.background, borderColor: colors.border }]}
+            >
+              <View style={styles.helpHeader}>
+                <View>
+                  <Text style={[styles.helpTitle, { color: colors.text }]}>Command Reference</Text>
+                  <Text style={[styles.helpSubtitle, { color: colors.textSecondary }]}>How to trigger specialized tools</Text>
+                </View>
+                <Pressable onPress={() => setIsHelpModalVisible(false)} style={styles.closeHelp}>
+                    <IconSymbol name="xmark.circle.fill" size={28} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.helpScroll}>
+                <View style={styles.helpSection}>
+                  <Text style={[styles.helpSectionLabel, { color: colors.tint }]}>1. TRIGGERING TOOLS</Text>
+                  <Text style={[styles.helpText, { color: colors.textSecondary }]}>
+                    Use <Text style={{ fontWeight: '700', color: colors.text }}>@tags</Text> in your message to trigger specialized actions. 
+                    The AI will NOT proposal actions without these tags.
+                  </Text>
+                </View>
+
+                <View style={styles.helpSection}>
+                  <Text style={[styles.helpSectionLabel, { color: colors.tint }]}>2. KEYWORDS</Text>
+                  <View style={styles.tagGrid}>
+                    <View style={[styles.tagInfo, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                        <Text style={[styles.tagCode, { color: colors.tint }]}>@schedule</Text>
+                        <Text style={[styles.tagDesc, { color: colors.textSecondary }]}>Triggers task capture & reminder flow.</Text>
+                    </View>
+                    <View style={[styles.tagInfo, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                        <Text style={[styles.tagCode, { color: colors.tint }]}>@platform</Text>
+                        <Text style={[styles.tagDesc, { color: colors.textSecondary }]}>Drafts actions for connected apps (@github, @gmail, etc.)</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.helpSection}>
+                  <Text style={[styles.helpSectionLabel, { color: colors.tint }]}>3. ROUTING LOGIC</Text>
+                  <View style={[styles.logicBox, { backgroundColor: colors.tint + '08' }]}>
+                    <View style={styles.logicRow}>
+                        <View style={[styles.logicDot, { backgroundColor: colors.tint }]} />
+                        <Text style={[styles.helpText, { color: colors.text, fontSize: 13 }]}>
+                            <Text style={{ fontWeight: '700' }}>Tool Tags</Text> route to Claude for high-fidelity reasoning.
+                        </Text>
+                    </View>
+                    <View style={styles.logicRow}>
+                        <View style={[styles.logicDot, { backgroundColor: colors.textSecondary }]} />
+                        <Text style={[styles.helpText, { color: colors.textSecondary, fontSize: 13 }]}>
+                            <Text style={{ fontWeight: '600' }}>General Chat</Text> routes to OpenAI for faster responses.
+                        </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <Pressable 
+                    onPress={() => setIsHelpModalVisible(false)}
+                    style={[styles.helpDoneBtn, { backgroundColor: colors.tint }]}
+                >
+                    <Text style={styles.helpDoneText}>Got it!</Text>
+                </Pressable>
+              </ScrollView>
+            </Animated.View>
+          </View>
+        </Modal>
 
         <View style={[
           styles.inputContainer,
@@ -754,6 +867,39 @@ export default function ChatScreen() {
               )}
             </Animated.View>
           )}
+  
+          {/* Shortcuts Bar */}
+          <View style={styles.shortcutsWrapper}>
+            <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.shortcutsList}
+            >
+              {SHORTCUT_TAGS.map((tool) => (
+                <Pressable
+                  key={tool.tag}
+                  onPress={() => {
+                    haptics.light();
+                    const tag = `${tool.tag} `;
+                    if (!inputText.includes(tool.tag)) {
+                        setInputText(prev => prev.trim() ? `${prev} ${tag}` : tag);
+                    }
+                  }}
+                  style={({ pressed }) => [
+                    styles.shortcutChip,
+                    { 
+                        backgroundColor: colors.backgroundSecondary,
+                        borderColor: colors.border,
+                        opacity: pressed ? 0.7 : 1 
+                    }
+                  ]}
+                >
+                  <IconSymbol name={tool.icon as any} size={14} color={colors.tint} />
+                  <Text style={[styles.shortcutTag, { color: colors.text }]}>{tool.tag}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
 
           <View style={styles.inputRow}>
             <GlassInput
@@ -797,6 +943,118 @@ const styles = StyleSheet.create({
   },
   bubbleWrapper: {
     gap: Spacing.sm,
+  },
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shortcutsWrapper: {
+    paddingVertical: Spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  shortcutsList: {
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.xs,
+  },
+  shortcutChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
+  },
+  shortcutTag: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  helpContainer: {
+    width: '90%',
+    maxHeight: '80%',
+    borderRadius: 32,
+    borderWidth: 1,
+    padding: Spacing.lg,
+    overflow: 'hidden',
+  },
+  helpHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  helpTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  helpSubtitle: {
+    fontSize: 14,
+  },
+  closeHelp: {
+    opacity: 0.8,
+  },
+  helpScroll: {
+    gap: Spacing.xl,
+  },
+  helpSection: {
+    gap: Spacing.sm,
+  },
+  helpSectionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  helpText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  tagGrid: {
+    gap: Spacing.xs,
+  },
+  tagInfo: {
+    padding: Spacing.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+  },
+  tagCode: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  tagDesc: {
+    fontSize: 13,
+  },
+  logicBox: {
+    padding: Spacing.md,
+    borderRadius: 16,
+    gap: 12,
+  },
+  logicRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  logicDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  helpDoneBtn: {
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  helpDoneText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
   userBubble: {
     alignSelf: 'flex-end',

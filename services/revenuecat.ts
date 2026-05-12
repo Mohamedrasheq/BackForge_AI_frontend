@@ -4,11 +4,11 @@ import Purchases from 'react-native-purchases';
 import PurchasesUI from 'react-native-purchases-ui';
 
 const REVENUECAT_KEYS = {
-    apple: 'appl_REPLACE_WITH_YOUR_IOS_KEY',
-    google: 'goog_UxjncKDTGMHQXIeiuTQZBRkFzkW',
+    apple: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? '',
+    google: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? 'goog_UxjncKDTGMHQXIeiuTQZBRkFzkW',
 };
 
-const ENTITLEMENT_ID = 'BackForge AI Pro';
+const ENTITLEMENT_ID = 'BackForge-AI Pro';
 const DAILY_LIMIT_KEY = 'loop_daily_chat_limit';
 const LAST_RESET_KEY = 'loop_last_chat_reset_date';
 const MAX_FREE_MESSAGES = 2;
@@ -42,8 +42,8 @@ export async function configureRevenueCat(userId?: string) {
             default: '',
         });
 
-        if (!apiKey || apiKey.includes('REPLACE_WITH_YOUR')) {
-            console.warn('[RevenueCat] Skipping configuration: API Key not provided');
+        if (!apiKey) {
+            console.warn('[RevenueCat] Skipping configuration: API Key not set in env');
             return;
         }
 

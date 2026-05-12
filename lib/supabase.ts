@@ -7,9 +7,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// TODO: Replace these with your actual Supabase credentials
-const SUPABASE_URL = "https://abixxxmpbqkigvppbyuk.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpeHh4bXBibXFraWd2cHBieXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0NzQ0NzksImV4cCI6MjA3MjA1MDQ3OX0.7g57F3610516z-5K_k78c85_x-qB_p9_o-t476-l8o0";
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     realtime: {

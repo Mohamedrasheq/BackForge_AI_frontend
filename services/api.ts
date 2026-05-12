@@ -38,7 +38,6 @@ export const API_BASE = ENV_API_URL || 'https://back-forge-ai.vercel.app/api';
 export async function captureMessage(
     payload: CapturePayload
 ): Promise<CaptureResponse> {
-    console.log(`[API] POST ${API_BASE}/capture`);
     const response = await fetch(`${API_BASE}/capture`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -57,7 +56,6 @@ export async function captureMessage(
  * GET /api/daily-brief
  */
 export async function getDailyBrief(userId: string): Promise<DailyBriefResponse> {
-    console.log(`[API] GET ${API_BASE}/daily-brief?userId=${userId}`);
     const response = await fetch(`${API_BASE}/daily-brief?userId=${encodeURIComponent(userId)}`);
 
     if (!response.ok) {
@@ -72,7 +70,6 @@ export async function getDailyBrief(userId: string): Promise<DailyBriefResponse>
  * GET /api/assistant
  */
 export async function getAssistantGuidance(userId: string): Promise<AssistantResponse> {
-    console.log(`[API] GET ${API_BASE}/assistant?userId=${userId}`);
     const response = await fetch(`${API_BASE}/assistant?userId=${encodeURIComponent(userId)}`);
 
     if (!response.ok) {
@@ -153,7 +150,6 @@ export async function getAllMemories(userId: string): Promise<MemoriesResponse> 
  * GET /api/memories?userId=...&date=YYYY-MM-DD
  */
 export async function getMemoriesByDate(userId: string, date: string): Promise<MemoriesResponse> {
-    console.log(`[API] GET ${API_BASE}/memories?userId=${userId}&date=${date}`);
     const response = await fetch(`${API_BASE}/memories?userId=${encodeURIComponent(userId)}&date=${encodeURIComponent(date)}`);
 
     if (!response.ok) {
@@ -192,7 +188,6 @@ export async function deleteAccount(
 export async function sendChatMessage(
     payload: ChatRequest
 ): Promise<ChatResponse> {
-    console.log(`[API] POST ${API_BASE}/chat`);
     const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -215,7 +210,6 @@ export async function sendChatMessageStreaming(
     onDelta: (event: any) => void
 ): Promise<ChatResponse> {
     return new Promise((resolve, reject) => {
-        console.log(`[API] POST ${API_BASE}/chat (streaming via XHR)`);
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', `${API_BASE}/chat`);
@@ -311,7 +305,6 @@ export async function sendChatMessageStreaming(
 export async function executeAction(
     payload: ExecuteRequest
 ): Promise<ExecuteResponse> {
-    console.log(`[API] POST ${API_BASE}/execute`);
     const response = await fetch(`${API_BASE}/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -330,7 +323,6 @@ export async function executeAction(
  * GET /api/linear/context
  */
 export async function fetchLinearContext(userId: string): Promise<LinearContextResponse> {
-    console.log(`[API] GET ${API_BASE}/linear/context?userId=${userId}`);
     const response = await fetch(`${API_BASE}/linear/context?userId=${encodeURIComponent(userId)}`);
 
     if (!response.ok) {
@@ -345,7 +337,6 @@ export async function fetchLinearContext(userId: string): Promise<LinearContextR
  * GET /api/github/repos
  */
 export async function fetchGitHubRepos(userId: string): Promise<GitHubRepo[]> {
-    console.log(`[API] GET ${API_BASE}/github/repos?userId=${userId}`);
     const response = await fetch(`${API_BASE}/github/repos?userId=${encodeURIComponent(userId)}`);
 
     if (!response.ok) {
@@ -362,7 +353,6 @@ export async function fetchGitHubRepos(userId: string): Promise<GitHubRepo[]> {
 export async function scheduleConfirm(
     payload: ScheduleConfirmPayload
 ): Promise<ScheduleConfirmResponse> {
-    console.log(`[API] POST ${API_BASE}/schedule-confirm`);
     const response = await fetch(`${API_BASE}/schedule-confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -389,7 +379,6 @@ export async function registerPushToken(
     deviceToken?: string,
     token?: string
 ): Promise<{ success: boolean }> {
-    console.log(`[API] POST ${API_BASE}/notifications/register`);
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -475,4 +464,20 @@ export async function disconnectService(payload: {
     });
     if (!response.ok) throw new Error("Failed to disconnect service");
     return response.json();
+}
+
+/**
+ * Get pro status from the database for a user
+ * GET /api/users/pro-status?userId=...
+ * Returns false on any error so it never blocks the UI.
+ */
+export async function getProStatus(userId: string): Promise<boolean> {
+    try {
+        const response = await fetch(`${API_BASE}/users/pro-status?userId=${encodeURIComponent(userId)}`);
+        if (!response.ok) return false;
+        const data = await response.json();
+        return data.isPro ?? false;
+    } catch {
+        return false;
+    }
 }
