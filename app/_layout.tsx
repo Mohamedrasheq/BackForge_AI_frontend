@@ -13,7 +13,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const tokenCache = {
@@ -46,7 +46,7 @@ function InitialLayout() {
   }, [getToken]);
 
   useEffect(() => {
-    if (!isSignedIn || hasRegisteredPush.current) return;
+    if (Platform.OS === 'web' || !isSignedIn || hasRegisteredPush.current) return;
 
     const setupPush = async () => {
       try {
@@ -67,6 +67,7 @@ function InitialLayout() {
   }, [isSignedIn]);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     const received = onNotificationReceived(() => undefined);
     const response = onNotificationResponse(() => {
       router.push('/(tabs)');
@@ -118,7 +119,7 @@ function InitialLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.flex}>
+    <GestureHandlerRootView style={[styles.flex, Platform.OS === 'web' && styles.webShell]}>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -169,5 +170,13 @@ const styles = StyleSheet.create({
   },
   overlay: {
     zIndex: 999,
+  },
+  webShell: {
+    maxWidth: 430,
+    width: '100%',
+    alignSelf: 'center',
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: Theme.color.border,
   },
 });

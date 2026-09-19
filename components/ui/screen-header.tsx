@@ -1,6 +1,6 @@
 import { Theme } from '@/constants/theme';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 export function ScreenHeader({
   title,
@@ -45,11 +45,11 @@ const styles = StyleSheet.create({
     fontSize: Theme.type.screenTitle,
     fontWeight: '700',
     color: Theme.color.text,
-    letterSpacing: -0.6,
+    letterSpacing: Platform.OS === 'web' ? 0 : -0.6,
   },
   largeTitle: {
     fontSize: Theme.type.todayTitle,
-    letterSpacing: -0.8,
+    letterSpacing: Platform.OS === 'web' ? 0 : -0.8,
   },
   subtitle: {
     marginTop: 6,

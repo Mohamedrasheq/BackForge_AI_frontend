@@ -21,6 +21,7 @@ import * as WebBrowser from 'expo-web-browser';
 
 export const useWarmUpBrowser = () => {
   React.useEffect(() => {
+    if (Platform.OS === 'web') return;
     void WebBrowser.warmUpAsync();
     return () => {
       void WebBrowser.coolDownAsync();
@@ -355,7 +356,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: Theme.color.text,
-    letterSpacing: -0.5,
+    letterSpacing: Platform.OS === 'web' ? 0 : -0.5,
     textAlign: 'center',
   },
   subtitle: {
