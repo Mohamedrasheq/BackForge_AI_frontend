@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>BackForge AI</string>
+    <string>Today</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -54,13 +54,13 @@
       <true/>
     </dict>
     <key>NSMicrophoneUsageDescription</key>
-    <string>BackForge uses the microphone so you can talk items in.</string>
+    <string>The microphone is used so you can talk items in.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>BackForge turns what you say into a to-do or reminder.</string>
+    <string>What you say is turned into a to-do or reminder.</string>
     <key>NSUserNotificationsUsageDescription</key>
-    <string>BackForge sends reminders for items that need you.</string>
+    <string>Reminders are sent for items that need you.</string>
     <key>NSFaceIDUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
+    <string>Allow this app to use Face ID.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

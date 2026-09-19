@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "BackForge AI",
+    "name": "Today",
     "slug": "back-forgeai",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,9 +14,9 @@
       "bundleIdentifier": "com.rasheq462003.backforge.ai",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSMicrophoneUsageDescription": "BackForge uses the microphone so you can talk items in.",
-        "NSSpeechRecognitionUsageDescription": "BackForge turns what you say into a to-do or reminder.",
-        "NSUserNotificationsUsageDescription": "BackForge sends reminders for items that need you."
+        "NSMicrophoneUsageDescription": "The microphone is used so you can talk items in.",
+        "NSSpeechRecognitionUsageDescription": "What you say is turned into a to-do or reminder.",
+        "NSUserNotificationsUsageDescription": "Reminders are sent for items that need you."
       },
       "appleTeamId": "KDU25W2MCD"
     },
@@ -74,8 +74,8 @@
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "BackForge uses the microphone so you can talk items in.",
-          "speechRecognitionPermission": "BackForge turns what you say into a to-do or reminder."
+          "microphonePermission": "The microphone is used so you can talk items in.",
+          "speechRecognitionPermission": "What you say is turned into a to-do or reminder."
         }
       ]
     ],

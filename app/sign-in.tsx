@@ -7,7 +7,6 @@ import * as Linking from 'expo-linking';
 import React, { useCallback, useState } from 'react';
 import {
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -202,11 +201,6 @@ export default function SignInScreen() {
         >
           <View style={styles.content}>
             <View style={styles.header}>
-              <Image
-                source={require('@/assets/images/brand_logo_cropped.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
               <Text style={styles.title}>
                 {pendingVerification ? 'Check your email' : 'Welcome back'}
               </Text>
@@ -346,11 +340,6 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: Theme.space.xl,
-  },
-  logo: {
-    width: 160,
-    height: 36,
-    marginBottom: Theme.space.lg,
   },
   title: {
     fontSize: 28,
