@@ -79,7 +79,7 @@ export default function AccountScreen() {
           <Text style={styles.signOutText}>{signingOut ? 'Signing out…' : 'Sign out'}</Text>
         </Pressable>
 
-        <Text style={styles.version}>BackForge {version}</Text>
+        <Text style={styles.version}>{version}</Text>
       </View>
     </Screen>
   );
