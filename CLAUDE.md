@@ -64,7 +64,7 @@ EXPO_PUBLIC_API_URL=https://back-forge-ai.vercel.app/api
 Tokens live in `constants/theme.ts`.
 
 - Background `#F7F8FA`, white cards
-- Accent `#2563EB`, pressed `#1D4ED8`
+- Accent `#0F766E`, pressed `#115E59`
 - Near-black text, slate secondary
 - Large Today titles, generous spacing
 - Capture tab + FAB on Today
