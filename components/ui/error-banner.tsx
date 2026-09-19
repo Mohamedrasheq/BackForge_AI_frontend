@@ -23,9 +23,9 @@ const styles = StyleSheet.create({
     marginBottom: Theme.space.sm,
     padding: Theme.space.md,
     borderRadius: Theme.radius.md,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: Theme.color.dangerSoft,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: Theme.color.dangerBorder,
     gap: 4,
   },
   text: {

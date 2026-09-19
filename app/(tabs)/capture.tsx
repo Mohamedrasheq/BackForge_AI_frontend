@@ -86,6 +86,8 @@ export default function CaptureScreen() {
                 onChangeText={setText}
                 placeholder="What's on your mind?"
                 placeholderTextColor={Theme.color.textTertiary}
+                selectionColor={Theme.color.accent}
+                cursorColor={Theme.color.accent}
                 style={styles.input}
                 multiline
                 textAlignVertical="top"
