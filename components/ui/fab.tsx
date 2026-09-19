@@ -14,7 +14,7 @@ export function CaptureFab() {
       accessibilityLabel="Capture"
       onPress={() => {
         haptics.medium();
-        router.push('/(tabs)/capture');
+        router.navigate('/(tabs)/capture');
       }}
       style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
     >

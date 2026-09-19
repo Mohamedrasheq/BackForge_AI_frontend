@@ -7,14 +7,16 @@ import { useSpeechCapture } from '@/hooks/use-speech-capture';
 import { haptics } from '@/lib/haptics';
 import { captureItem } from '@/services/api';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 
@@ -30,6 +32,16 @@ export default function CaptureScreen() {
 
   const canSubmit = text.trim().length > 0 && !submitting;
 
+  const goToToday = useCallback(() => {
+    Keyboard.dismiss();
+    router.navigate('/(tabs)');
+  }, [router]);
+
+  const leaveCapture = useCallback(() => {
+    haptics.light();
+    goToToday();
+  }, [goToToday]);
+
   const onSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
@@ -38,7 +50,7 @@ export default function CaptureScreen() {
       await captureItem(text.trim());
       haptics.success();
       setText('');
-      router.replace('/(tabs)');
+      goToToday();
     } catch (err) {
       haptics.error();
       setError(err instanceof Error ? err.message : 'Could not capture that');
@@ -52,60 +64,74 @@ export default function CaptureScreen() {
       <ScreenHeader
         title="Capture"
         subtitle="Type or talk anything in. One thought is enough."
+        right={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close capture and go to Today"
+            onPress={leaveCapture}
+            style={({ pressed }) => [styles.close, pressed && styles.closePressed]}
+          >
+            <IconSymbol name="xmark" size={16} color={Theme.color.accent} />
+          </Pressable>
+        }
       />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.body}>
-          <View style={[styles.composer, listening && styles.composerListening]}>
-            <TextInput
-              value={text}
-              onChangeText={setText}
-              placeholder="Remind me to call Alex tomorrow at 3…"
-              placeholderTextColor={Theme.color.textTertiary}
-              style={styles.input}
-              multiline
-              textAlignVertical="top"
-              autoFocus
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={listening ? 'Stop listening' : 'Talk'}
-              onPress={() => {
-                haptics.medium();
-                if (listening) stop();
-                else void start();
-              }}
-              style={({ pressed }) => [
-                styles.mic,
-                listening && styles.micActive,
-                pressed && styles.micPressed,
-              ]}
-            >
-              <IconSymbol
-                name="mic.fill"
-                size={22}
-                color={listening ? Theme.color.white : Theme.color.accent}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.flex}>
+            <View style={styles.body}>
+              <View style={[styles.composer, listening && styles.composerListening]}>
+                <TextInput
+                  value={text}
+                  onChangeText={setText}
+                  placeholder="Remind me to call Alex tomorrow at 3…"
+                  placeholderTextColor={Theme.color.textTertiary}
+                  style={styles.input}
+                  multiline
+                  textAlignVertical="top"
+                  autoFocus
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={listening ? 'Stop listening' : 'Talk'}
+                  onPress={() => {
+                    haptics.medium();
+                    if (listening) stop();
+                    else void start();
+                  }}
+                  style={({ pressed }) => [
+                    styles.mic,
+                    listening && styles.micActive,
+                    pressed && styles.micPressed,
+                  ]}
+                >
+                  <IconSymbol
+                    name="mic.fill"
+                    size={22}
+                    color={listening ? Theme.color.white : Theme.color.accent}
+                  />
+                </Pressable>
+              </View>
+
+              <Text style={styles.hint}>
+                {listening ? 'Listening… tap the mic when you’re done.' : 'Talk or type. Then add it.'}
+              </Text>
+
+              {error || speechError ? (
+                <Text style={styles.error}>{error || speechError}</Text>
+              ) : null}
+
+              <PrimaryButton
+                label="Add"
+                onPress={() => void onSubmit()}
+                loading={submitting}
+                disabled={!canSubmit}
               />
-            </Pressable>
+            </View>
           </View>
-
-          <Text style={styles.hint}>
-            {listening ? 'Listening… tap the mic when you’re done.' : 'Talk or type. Then add it.'}
-          </Text>
-
-          {error || speechError ? (
-            <Text style={styles.error}>{error || speechError}</Text>
-          ) : null}
-
-          <PrimaryButton
-            label="Add"
-            onPress={() => void onSubmit()}
-            loading={submitting}
-            disabled={!canSubmit}
-          />
-        </View>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -114,6 +140,18 @@ export default function CaptureScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  close: {
+    marginTop: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Theme.color.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closePressed: {
+    opacity: 0.7,
   },
   body: {
     flex: 1,
