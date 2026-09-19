@@ -11,13 +11,14 @@
     "backgroundColor": "#F8FAFC",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.devmr.backforge.ai",
+      "bundleIdentifier": "com.rasheq462003.backforge.ai",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "BackForge uses the microphone so you can talk items in.",
         "NSSpeechRecognitionUsageDescription": "BackForge turns what you say into a to-do or reminder.",
         "NSUserNotificationsUsageDescription": "BackForge sends reminders for items that need you."
-      }
+      },
+      "appleTeamId": "KDU25W2MCD"
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
@@ -42,7 +43,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.devmr.backforge.ai"
+      "package": "com.rasheq462003.backforge.ai"
     },
     "web": {
       "output": "static",
