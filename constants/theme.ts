@@ -1,6 +1,6 @@
 /**
  * Light-first Knowledge app theme — calm, polished, premium SaaS.
- * Warm paper, sapphire accent, no loud neon.
+ * Warm paper, refined teal accent, no loud neon.
  */
 
 import { Platform } from 'react-native';
@@ -12,9 +12,9 @@ export const Theme = {
     text: '#0F172A',
     textSecondary: '#64748B',
     textTertiary: '#94A3B8',
-    accent: '#2563EB',
-    accentPressed: '#1D4ED8',
-    accentSoft: '#EFF6FF',
+    accent: '#0F766E',
+    accentPressed: '#115E59',
+    accentSoft: '#F0FDFA',
     border: '#E6E8EE',
     danger: '#DC2626',
     dangerSoft: '#FEF2F2',
@@ -62,7 +62,7 @@ export const Theme = {
     }),
     fab: Platform.select({
       ios: {
-        shadowColor: '#2563EB',
+        shadowColor: '#0F766E',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.22,
         shadowRadius: 16,
@@ -71,7 +71,7 @@ export const Theme = {
         elevation: 6,
       },
       default: {
-        boxShadow: '0 8px 16px rgba(37, 99, 235, 0.22)',
+        boxShadow: '0 8px 16px rgba(15, 118, 110, 0.22)',
       },
     }),
   },
