@@ -63,7 +63,6 @@ export default function CaptureScreen() {
     <Screen>
       <ScreenHeader
         title="Capture"
-        subtitle="Type or talk anything in. One thought is enough."
         right={
           <Pressable
             accessibilityRole="button"
@@ -80,56 +79,53 @@ export default function CaptureScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={styles.flex}>
-            <View style={styles.body}>
-              <View style={[styles.composer, listening && styles.composerListening]}>
-                <TextInput
-                  value={text}
-                  onChangeText={setText}
-                  placeholder="Remind me to call Alex tomorrow at 3…"
-                  placeholderTextColor={Theme.color.textTertiary}
-                  style={styles.input}
-                  multiline
-                  textAlignVertical="top"
-                  autoFocus
-                />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={listening ? 'Stop listening' : 'Talk'}
-                  onPress={() => {
-                    haptics.medium();
-                    if (listening) stop();
-                    else void start();
-                  }}
-                  style={({ pressed }) => [
-                    styles.mic,
-                    listening && styles.micActive,
-                    pressed && styles.micPressed,
-                  ]}
-                >
-                  <IconSymbol
-                    name="mic.fill"
-                    size={22}
-                    color={listening ? Theme.color.white : Theme.color.accent}
-                  />
-                </Pressable>
-              </View>
-
-              <Text style={styles.hint}>
-                {listening ? 'Listening… tap the mic when you’re done.' : 'Talk or type. Then add it.'}
-              </Text>
-
-              {error || speechError ? (
-                <Text style={styles.error}>{error || speechError}</Text>
-              ) : null}
-
-              <PrimaryButton
-                label="Add"
-                onPress={() => void onSubmit()}
-                loading={submitting}
-                disabled={!canSubmit}
+          <View style={styles.body}>
+            <View style={[styles.composer, listening && styles.composerListening]}>
+              <TextInput
+                value={text}
+                onChangeText={setText}
+                placeholder="What's on your mind?"
+                placeholderTextColor={Theme.color.textTertiary}
+                style={styles.input}
+                multiline
+                textAlignVertical="top"
+                autoFocus
               />
             </View>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={listening ? 'Stop listening' : 'Talk'}
+              onPress={() => {
+                haptics.medium();
+                if (listening) stop();
+                else void start();
+              }}
+              style={({ pressed }) => [
+                styles.mic,
+                listening && styles.micActive,
+                pressed && styles.micPressed,
+              ]}
+            >
+              <IconSymbol
+                name="mic.fill"
+                size={26}
+                color={listening ? Theme.color.white : Theme.color.accent}
+              />
+            </Pressable>
+
+            <Text style={styles.hint}>{listening ? 'Listening…' : ' '}</Text>
+
+            {error || speechError ? (
+              <Text style={styles.error}>{error || speechError}</Text>
+            ) : null}
+
+            <PrimaryButton
+              label="Add"
+              onPress={() => void onSubmit()}
+              loading={submitting}
+              disabled={!canSubmit}
+            />
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
@@ -159,12 +155,13 @@ const styles = StyleSheet.create({
     paddingBottom: Theme.space.lg,
   },
   composer: {
+    flex: 1,
     minHeight: 180,
     backgroundColor: Theme.color.card,
     borderRadius: Theme.radius.lg,
     borderWidth: 1,
     borderColor: Theme.color.border,
-    padding: Theme.space.md,
+    padding: Theme.space.lg,
     ...Theme.shadow.card,
   },
   composerListening: {
@@ -172,17 +169,17 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: 120,
-    fontSize: 20,
-    lineHeight: 28,
+    fontSize: 22,
+    lineHeight: 32,
     color: Theme.color.text,
     fontWeight: '500',
   },
   mic: {
-    alignSelf: 'flex-end',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    alignSelf: 'center',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    marginTop: Theme.space.lg,
     backgroundColor: Theme.color.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -194,13 +191,16 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   hint: {
-    marginTop: Theme.space.md,
-    marginBottom: Theme.space.lg,
+    marginTop: Theme.space.sm,
+    marginBottom: Theme.space.md,
+    minHeight: 20,
+    textAlign: 'center',
     color: Theme.color.textSecondary,
-    fontSize: 15,
+    fontSize: 14,
   },
   error: {
     marginBottom: Theme.space.md,
+    textAlign: 'center',
     color: Theme.color.danger,
     fontSize: 14,
   },
