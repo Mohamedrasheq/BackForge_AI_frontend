@@ -6,29 +6,37 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "backforgeai",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "backgroundColor": "#ffffff",
+    "backgroundColor": "#F8FAFC",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.devmr.backforge.ai",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "BackForge uses the microphone so you can talk items in.",
+        "NSSpeechRecognitionUsageDescription": "BackForge turns what you say into a to-do or reminder.",
+        "NSUserNotificationsUsageDescription": "BackForge sends reminders for items that need you."
       }
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "googleServicesFile": "./google-services.json",
-      "backgroundColor": "#ffffff",
+      "backgroundColor": "#F8FAFC",
+      "permissions": [
+        "RECORD_AUDIO",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ],
       "splash": {
         "resizeMode": "contain",
-        "backgroundColor": "#ffffff",
+        "backgroundColor": "#F8FAFC",
         "dark": {
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#F8FAFC"
         }
       },
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
+        "backgroundColor": "#F8FAFC",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -48,13 +56,27 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#F8FAFC",
           "dark": {
-            "backgroundColor": "#ffffff"
+            "backgroundColor": "#F8FAFC"
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#4F46E5"
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "BackForge uses the microphone so you can talk items in.",
+          "speechRecognitionPermission": "BackForge turns what you say into a to-do or reminder."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -53,6 +53,12 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>BackForge uses the microphone so you can talk items in.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>BackForge turns what you say into a to-do or reminder.</string>
+    <key>NSUserNotificationsUsageDescription</key>
+    <string>BackForge sends reminders for items that need you.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
     <key>NSUserActivityTypes</key>
