@@ -8,7 +8,7 @@
     "scheme": "backforgeai",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "backgroundColor": "#F8FAFC",
+    "backgroundColor": "#F7F8FA",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.rasheq462003.backforge.ai",
@@ -23,7 +23,7 @@
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "googleServicesFile": "./google-services.json",
-      "backgroundColor": "#F8FAFC",
+      "backgroundColor": "#F7F8FA",
       "permissions": [
         "RECORD_AUDIO",
         "POST_NOTIFICATIONS",
@@ -31,13 +31,13 @@
       ],
       "splash": {
         "resizeMode": "contain",
-        "backgroundColor": "#F8FAFC",
+        "backgroundColor": "#F7F8FA",
         "dark": {
-          "backgroundColor": "#F8FAFC"
+          "backgroundColor": "#F7F8FA"
         }
       },
       "adaptiveIcon": {
-        "backgroundColor": "#F8FAFC",
+        "backgroundColor": "#F7F8FA",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -57,9 +57,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#F8FAFC",
+          "backgroundColor": "#F7F8FA",
           "dark": {
-            "backgroundColor": "#F8FAFC"
+            "backgroundColor": "#F7F8FA"
           }
         }
       ],
@@ -68,7 +68,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/notification-icon.png",
-          "color": "#4F46E5"
+          "color": "#2563EB"
         }
       ],
       [

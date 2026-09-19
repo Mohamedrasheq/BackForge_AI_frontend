@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   signOutPressed: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: Theme.color.dangerSoft,
   },
   signOutText: {
     color: Theme.color.danger,

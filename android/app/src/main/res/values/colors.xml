@@ -1,7 +1,7 @@
 <resources>
-  <color name="splashscreen_background">#ffffff</color>
+  <color name="splashscreen_background">#F7F8FA</color>
   <color name="iconBackground">#FFFFFF</color>
-  <color name="colorPrimary">#023c69</color>
-  <color name="colorPrimaryDark">#ffffff</color>
-  <color name="activityBackground">#ffffff</color>
+  <color name="colorPrimary">#2563EB</color>
+  <color name="colorPrimaryDark">#F7F8FA</color>
+  <color name="activityBackground">#F7F8FA</color>
 </resources>

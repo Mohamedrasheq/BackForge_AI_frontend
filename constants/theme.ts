@@ -1,22 +1,24 @@
 /**
- * BackForge v1 theme — calm, quiet focus.
- * Light base, soft indigo accent, generous type.
+ * Light-first Knowledge app theme — calm, polished, premium SaaS.
+ * Warm paper, sapphire accent, no loud neon.
  */
 
 import { Platform } from 'react-native';
 
 export const Theme = {
   color: {
-    background: '#F8FAFC',
+    background: '#F7F8FA',
     card: '#FFFFFF',
     text: '#0F172A',
     textSecondary: '#64748B',
     textTertiary: '#94A3B8',
-    accent: '#4F46E5',
-    accentPressed: '#4338CA',
-    accentSoft: '#EEF2FF',
-    border: '#E2E8F0',
+    accent: '#2563EB',
+    accentPressed: '#1D4ED8',
+    accentSoft: '#EFF6FF',
+    border: '#E6E8EE',
     danger: '#DC2626',
+    dangerSoft: '#FEF2F2',
+    dangerBorder: '#FECACA',
     success: '#059669',
     white: '#FFFFFF',
     overlay: 'rgba(15, 23, 42, 0.4)',
@@ -60,16 +62,16 @@ export const Theme = {
     }),
     fab: Platform.select({
       ios: {
-        shadowColor: '#4F46E5',
+        shadowColor: '#2563EB',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.28,
+        shadowOpacity: 0.22,
         shadowRadius: 16,
       },
       android: {
         elevation: 6,
       },
       default: {
-        boxShadow: '0 8px 16px rgba(79, 70, 229, 0.28)',
+        boxShadow: '0 8px 16px rgba(37, 99, 235, 0.22)',
       },
     }),
   },

@@ -238,6 +238,8 @@ export default function SignInScreen() {
                       style={styles.input}
                       placeholder="name@example.com"
                       placeholderTextColor={Theme.color.textTertiary}
+                      selectionColor={Theme.color.accent}
+                      cursorColor={Theme.color.accent}
                       value={email}
                       onChangeText={setEmail}
                       autoCapitalize="none"
@@ -263,6 +265,8 @@ export default function SignInScreen() {
                             onChangeText={setFirstName}
                             placeholder="First"
                             placeholderTextColor={Theme.color.textTertiary}
+                            selectionColor={Theme.color.accent}
+                            cursorColor={Theme.color.accent}
                           />
                         </View>
                         <View style={styles.flex}>
@@ -273,6 +277,8 @@ export default function SignInScreen() {
                             onChangeText={setLastName}
                             placeholder="Last"
                             placeholderTextColor={Theme.color.textTertiary}
+                            selectionColor={Theme.color.accent}
+                            cursorColor={Theme.color.accent}
                           />
                         </View>
                       </View>
@@ -286,6 +292,8 @@ export default function SignInScreen() {
                           onChangeText={setPassword}
                           placeholder="••••••••"
                           placeholderTextColor={Theme.color.textTertiary}
+                          selectionColor={Theme.color.accent}
+                          cursorColor={Theme.color.accent}
                           secureTextEntry
                         />
                       </>
@@ -295,6 +303,8 @@ export default function SignInScreen() {
                       style={[styles.input, styles.codeInput]}
                       placeholder="000000"
                       placeholderTextColor={Theme.color.textTertiary}
+                      selectionColor={Theme.color.accent}
+                      cursorColor={Theme.color.accent}
                       value={code}
                       onChangeText={setCode}
                       keyboardType="number-pad"

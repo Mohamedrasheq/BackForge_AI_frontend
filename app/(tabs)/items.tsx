@@ -37,6 +37,8 @@ export default function AllItemsScreen() {
           onChangeText={setInput}
           placeholder="Search"
           placeholderTextColor={Theme.color.textTertiary}
+          selectionColor={Theme.color.accent}
+          cursorColor={Theme.color.accent}
           style={styles.search}
           autoCorrect={false}
           autoCapitalize="none"
