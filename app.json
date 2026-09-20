@@ -15,7 +15,6 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "The microphone is used so you can talk items in.",
-        "NSSpeechRecognitionUsageDescription": "What you say is turned into a to-do or reminder.",
         "NSUserNotificationsUsageDescription": "Reminders are sent for items that need you."
       },
       "appleTeamId": "KDU25W2MCD"
@@ -72,10 +71,9 @@
         }
       ],
       [
-        "expo-speech-recognition",
+        "expo-av",
         {
-          "microphonePermission": "The microphone is used so you can talk items in.",
-          "speechRecognitionPermission": "What you say is turned into a to-do or reminder."
+          "microphonePermission": "The microphone is used so you can talk items in."
         }
       ],
       "@react-native-community/datetimepicker"

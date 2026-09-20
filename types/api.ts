@@ -23,6 +23,10 @@ export interface CaptureResponse {
   item: Item | null;
 }
 
+export interface TranscribeResponse {
+  text: string;
+}
+
 export interface BulkCreateItem {
   text: string;
   due_at: string | null;
