@@ -27,8 +27,9 @@ export interface TranscribeResponse {
   text: string;
 }
 
+/** POST /items/bulk item — server requires `body`, not the UI's `text`. */
 export interface BulkCreateItem {
-  text: string;
+  body: string;
   due_at: string | null;
 }
 

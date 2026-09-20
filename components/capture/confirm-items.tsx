@@ -5,7 +5,7 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { Theme } from '@/constants/theme';
 import { haptics } from '@/lib/haptics';
 import type { ProposedItem } from '@/types/api';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -23,12 +23,24 @@ export type DraftItem = {
   dueAt: string | null;
 };
 
+let draftKeySeq = 0;
+
 export function createDraftItem(item?: { text?: string; dueAt?: string | null }): DraftItem {
+  draftKeySeq += 1;
   return {
-    key: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    // Monotonic counter — Date.now() alone collides when mapping a parse result.
+    key: `draft-${draftKeySeq}`,
     text: item?.text ?? '',
     dueAt: item?.dueAt ?? null,
   };
+}
+
+export function patchDraftByKey(
+  items: DraftItem[],
+  key: string,
+  patch: Partial<Pick<DraftItem, 'text' | 'dueAt'>>
+): DraftItem[] {
+  return items.map((item) => (item.key === key ? { ...item, ...patch } : item));
 }
 
 export function saveableDraftItems(items: DraftItem[]): ProposedItem[] {
@@ -48,7 +60,7 @@ export function ConfirmItems({
   error,
 }: {
   items: DraftItem[];
-  onChange: (items: DraftItem[]) => void;
+  onChange: React.Dispatch<React.SetStateAction<DraftItem[]>>;
   onConfirm: () => void;
   onBack: () => void;
   confirming: boolean;
@@ -56,19 +68,22 @@ export function ConfirmItems({
 }) {
   const saveable = saveableDraftItems(items);
   const canConfirm = saveable.length > 0 && !confirming;
+  // One native DateTimePicker at a time — multiple instances share events on iOS/Android.
+  const [activeDueKey, setActiveDueKey] = useState<string | null>(null);
 
   const updateAt = (key: string, patch: Partial<Pick<DraftItem, 'text' | 'dueAt'>>) => {
-    onChange(items.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+    onChange((prev) => patchDraftByKey(prev, key, patch));
   };
 
   const removeAt = (key: string) => {
     haptics.light();
-    onChange(items.filter((item) => item.key !== key));
+    setActiveDueKey((current) => (current === key ? null : current));
+    onChange((prev) => prev.filter((item) => item.key !== key));
   };
 
   const addRow = () => {
     haptics.light();
-    onChange([...items, createDraftItem()]);
+    onChange((prev) => [...prev, createDraftItem()]);
   };
 
   return (
@@ -118,7 +133,15 @@ export function ConfirmItems({
               multiline
               textAlignVertical="top"
             />
-            <DueField value={item.dueAt} onChange={(dueAt) => updateAt(item.key, { dueAt })} />
+            <DueField
+              value={item.dueAt}
+              pickerOpen={activeDueKey === item.key}
+              onOpenPicker={() => setActiveDueKey(item.key)}
+              onClosePicker={() =>
+                setActiveDueKey((current) => (current === item.key ? null : current))
+              }
+              onChange={(dueAt) => updateAt(item.key, { dueAt })}
+            />
           </View>
         ))}
 
