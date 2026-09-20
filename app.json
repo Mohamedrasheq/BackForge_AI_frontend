@@ -77,7 +77,8 @@
           "microphonePermission": "The microphone is used so you can talk items in.",
           "speechRecognitionPermission": "What you say is turned into a to-do or reminder."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
