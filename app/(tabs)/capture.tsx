@@ -146,8 +146,25 @@ export default function CaptureScreen() {
                     style={styles.input}
                     multiline
                     textAlignVertical="top"
-                    autoFocus
+                    autoFocus={false}
+                    showSoftInputOnFocus={!listening}
+                    editable={!listening}
                   />
+                  {text.trim().length > 0 ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Clear capture text"
+                      onPress={() => {
+                        haptics.light();
+                        if (listening) stop();
+                        setText('');
+                        setError(null);
+                      }}
+                      style={({ pressed }) => [styles.clearBtn, pressed && styles.clearPressed]}
+                    >
+                      <Text style={styles.clearLabel}>Clear</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
 
                 <Pressable
@@ -171,7 +188,7 @@ export default function CaptureScreen() {
                   />
                 </Pressable>
 
-                <Text style={styles.hint}>{listening ? 'Listening…' : ' '}</Text>
+                <Text style={styles.hint}>{listening ? 'Listening… tap mic to stop, then edit' : text.trim() ? 'Tap mic off to edit' : ' '}</Text>
 
                 {error || speechError ? (
                   <Text style={[styles.error, error === EMPTY_PARSE_MESSAGE && styles.gentle]}>
@@ -267,5 +284,20 @@ const styles = StyleSheet.create({
   },
   gentle: {
     color: Theme.color.textSecondary,
+  },
+
+  clearBtn: {
+    alignSelf: 'flex-end',
+    marginTop: Theme.space.sm,
+    paddingHorizontal: Theme.space.sm,
+    paddingVertical: 6,
+  },
+  clearPressed: {
+    opacity: 0.7,
+  },
+  clearLabel: {
+    color: Theme.color.accent,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
