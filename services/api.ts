@@ -4,6 +4,7 @@
  */
 
 import { getApiToken } from '@/lib/api-auth';
+import { audioPartFromUri, readTranscriptPayload } from '@/lib/transcribe-audio';
 import type { Item } from '@/types/api';
 import { Platform } from 'react-native';
 
@@ -155,24 +156,13 @@ export async function registerDevice(pushToken: string): Promise<void> {
   });
 }
 
-export function audioPartFromUri(uri: string): { name: string; type: string } {
-  const path = uri.split('?')[0].toLowerCase();
-  if (path.endsWith('.webm') || (Platform.OS === 'web' && (path.startsWith('blob:') || path.startsWith('data:')))) {
-    return { name: 'capture.webm', type: 'audio/webm' };
-  }
-  if (path.endsWith('.wav')) return { name: 'capture.wav', type: 'audio/wav' };
-  if (path.endsWith('.caf')) return { name: 'capture.caf', type: 'audio/x-caf' };
-  if (path.endsWith('.mp4')) return { name: 'capture.m4a', type: 'audio/mp4' };
-  return { name: 'capture.m4a', type: 'audio/m4a' };
-}
-
 /**
  * Upload a recorded clip to Whisper. Replaces on-device speech recognition.
  * Field name is `file` (multipart). Do not set Content-Type so the boundary is set for us.
  */
 export async function transcribeCaptureAudio(uri: string): Promise<string> {
   const token = await getApiToken();
-  const { name, type } = audioPartFromUri(uri);
+  const { name, type } = audioPartFromUri(uri, Platform.OS);
   const form = new FormData();
 
   if (Platform.OS === 'web') {
@@ -211,7 +201,7 @@ export async function transcribeCaptureAudio(uri: string): Promise<string> {
     throw new ApiError('Could not transcribe that. Try again or type it in.', response.status);
   }
 
-  const transcript = isRecord(payload) ? readString(payload.text, payload.transcript) : null;
+  const transcript = readTranscriptPayload(payload);
   if (!transcript) {
     throw new ApiError('Could not hear that. Try again or type it in.', response.status);
   }

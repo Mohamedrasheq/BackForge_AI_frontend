@@ -29,7 +29,8 @@ export default function CaptureScreen() {
   const [error, setError] = useState<string | null>(null);
   const [allowAutoFocus, setAllowAutoFocus] = useState(true);
 
-  const { recording, transcribing, error: speechError, start, stop } = useCaptureRecording();
+  const { recording, transcribing, error: speechError, start, stop, clearError: clearSpeechError } =
+    useCaptureRecording();
   const lockInput = recording || transcribing;
   const canSubmit = text.trim().length > 0 && !submitting && !lockInput;
   const canClear = text.length > 0 && !submitting && !lockInput;
@@ -48,7 +49,8 @@ export default function CaptureScreen() {
     haptics.light();
     setText('');
     setError(null);
-  }, []);
+    clearSpeechError();
+  }, [clearSpeechError]);
 
   const onMicPress = async () => {
     if (transcribing) return;
@@ -117,7 +119,11 @@ export default function CaptureScreen() {
               <TextInput
                 ref={inputRef}
                 value={text}
-                onChangeText={setText}
+                onChangeText={(next) => {
+                  setText(next);
+                  setError(null);
+                  clearSpeechError();
+                }}
                 placeholder="What's on your mind?"
                 placeholderTextColor={Theme.color.textTertiary}
                 selectionColor={Theme.color.accent}

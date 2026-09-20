@@ -70,6 +70,7 @@ export function useCaptureRecording() {
 
   const stop = useCallback(async (): Promise<string | null> => {
     const active = recordingRef.current;
+    recordingRef.current = null;
     if (!active) {
       setRecording(false);
       return null;
@@ -80,8 +81,11 @@ export function useCaptureRecording() {
     setError(null);
 
     try {
-      await active.stopAndUnloadAsync();
-      recordingRef.current = null;
+      try {
+        await active.stopAndUnloadAsync();
+      } catch {
+        // Recorder may already be unloaded; still try to read the file.
+      }
       try {
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
@@ -112,5 +116,7 @@ export function useCaptureRecording() {
     }
   }, []);
 
-  return { recording, transcribing, error, start, stop };
+  const clearError = useCallback(() => setError(null), []);
+
+  return { recording, transcribing, error, start, stop, clearError };
 }
