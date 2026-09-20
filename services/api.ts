@@ -5,6 +5,7 @@
 
 import { getApiToken } from '@/lib/api-auth';
 import type { Item } from '@/types/api';
+import { Platform } from 'react-native';
 
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
 export const API_BASE = (ENV_API_URL || 'https://back-forge-ai.vercel.app/api').replace(/\/$/, '');
@@ -152,4 +153,68 @@ export async function registerDevice(pushToken: string): Promise<void> {
     method: 'POST',
     body: JSON.stringify({ push_token: pushToken }),
   });
+}
+
+export function audioPartFromUri(uri: string): { name: string; type: string } {
+  const path = uri.split('?')[0].toLowerCase();
+  if (path.endsWith('.webm') || (Platform.OS === 'web' && (path.startsWith('blob:') || path.startsWith('data:')))) {
+    return { name: 'capture.webm', type: 'audio/webm' };
+  }
+  if (path.endsWith('.wav')) return { name: 'capture.wav', type: 'audio/wav' };
+  if (path.endsWith('.caf')) return { name: 'capture.caf', type: 'audio/x-caf' };
+  if (path.endsWith('.mp4')) return { name: 'capture.m4a', type: 'audio/mp4' };
+  return { name: 'capture.m4a', type: 'audio/m4a' };
+}
+
+/**
+ * Upload a recorded clip to Whisper. Replaces on-device speech recognition.
+ * Field name is `file` (multipart). Do not set Content-Type so the boundary is set for us.
+ */
+export async function transcribeCaptureAudio(uri: string): Promise<string> {
+  const token = await getApiToken();
+  const { name, type } = audioPartFromUri(uri);
+  const form = new FormData();
+
+  if (Platform.OS === 'web') {
+    const blob = await fetch(uri).then((response) => response.blob());
+    form.append('file', blob, name);
+  } else {
+    form.append('file', { uri, name, type } as unknown as Blob);
+  }
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE}/capture/transcribe`, {
+    method: 'POST',
+    headers,
+    body: form,
+  });
+
+  if (!response.ok) {
+    throw new ApiError(await readError(response), response.status);
+  }
+
+  const body = await response.text();
+  if (!body) {
+    throw new ApiError('Could not transcribe that. Try again or type it in.', response.status);
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    throw new ApiError('Could not transcribe that. Try again or type it in.', response.status);
+  }
+
+  const transcript = isRecord(payload) ? readString(payload.text, payload.transcript) : null;
+  if (!transcript) {
+    throw new ApiError('Could not hear that. Try again or type it in.', response.status);
+  }
+
+  return transcript;
 }

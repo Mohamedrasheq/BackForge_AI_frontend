@@ -3,12 +3,13 @@ import { PrimaryButton } from '@/components/ui/primary-button';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Theme } from '@/constants/theme';
-import { useSpeechCapture } from '@/hooks/use-speech-capture';
+import { useCaptureRecording } from '@/hooks/use-capture-recording';
 import { haptics } from '@/lib/haptics';
 import { captureItem } from '@/services/api';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -22,15 +23,16 @@ import {
 
 export default function CaptureScreen() {
   const router = useRouter();
+  const inputRef = useRef<TextInput>(null);
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [allowAutoFocus, setAllowAutoFocus] = useState(true);
 
-  const { listening, error: speechError, start, stop } = useSpeechCapture((transcript) => {
-    setText(transcript);
-  });
-
-  const canSubmit = text.trim().length > 0 && !submitting;
+  const { recording, transcribing, error: speechError, start, stop } = useCaptureRecording();
+  const lockInput = recording || transcribing;
+  const canSubmit = text.trim().length > 0 && !submitting && !lockInput;
+  const canClear = text.length > 0 && !submitting && !lockInput;
 
   const goToToday = useCallback(() => {
     Keyboard.dismiss();
@@ -41,6 +43,31 @@ export default function CaptureScreen() {
     haptics.light();
     goToToday();
   }, [goToToday]);
+
+  const onClear = useCallback(() => {
+    haptics.light();
+    setText('');
+    setError(null);
+  }, []);
+
+  const onMicPress = async () => {
+    if (transcribing) return;
+    haptics.medium();
+    setError(null);
+
+    if (recording) {
+      const transcript = await stop();
+      if (transcript) {
+        setText(transcript);
+      }
+      return;
+    }
+
+    setAllowAutoFocus(false);
+    Keyboard.dismiss();
+    inputRef.current?.blur();
+    await start();
+  };
 
   const onSubmit = async () => {
     if (!canSubmit) return;
@@ -58,6 +85,12 @@ export default function CaptureScreen() {
       setSubmitting(false);
     }
   };
+
+  const hint = recording
+    ? 'Recording… tap the mic to stop.'
+    : transcribing
+      ? 'Transcribing…'
+      : 'Tap the mic to talk. It stays on until you stop.';
 
   return (
     <Screen>
@@ -80,8 +113,9 @@ export default function CaptureScreen() {
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={styles.body}>
-            <View style={[styles.composer, listening && styles.composerListening]}>
+            <View style={[styles.composer, recording && styles.composerListening]}>
               <TextInput
+                ref={inputRef}
                 value={text}
                 onChangeText={setText}
                 placeholder="What's on your mind?"
@@ -91,35 +125,51 @@ export default function CaptureScreen() {
                 style={styles.input}
                 multiline
                 textAlignVertical="top"
-                autoFocus
+                autoFocus={allowAutoFocus}
+                editable={!lockInput}
+                showSoftInputOnFocus={!lockInput}
               />
             </View>
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={listening ? 'Stop listening' : 'Talk'}
-              onPress={() => {
-                haptics.medium();
-                if (listening) stop();
-                else void start();
-              }}
+              accessibilityLabel={
+                recording ? 'Stop recording' : transcribing ? 'Transcribing' : 'Talk'
+              }
+              disabled={transcribing}
+              onPress={() => void onMicPress()}
               style={({ pressed }) => [
                 styles.mic,
-                listening && styles.micActive,
-                pressed && styles.micPressed,
+                recording && styles.micActive,
+                (pressed || transcribing) && styles.micPressed,
               ]}
             >
-              <IconSymbol
-                name="mic.fill"
-                size={26}
-                color={listening ? Theme.color.white : Theme.color.accent}
-              />
+              {transcribing ? (
+                <ActivityIndicator color={Theme.color.accent} />
+              ) : (
+                <IconSymbol
+                  name="mic.fill"
+                  size={26}
+                  color={recording ? Theme.color.white : Theme.color.accent}
+                />
+              )}
             </Pressable>
 
-            <Text style={styles.hint}>{listening ? 'Listening…' : ' '}</Text>
+            <Text style={styles.hint}>{hint}</Text>
 
             {error || speechError ? (
               <Text style={styles.error}>{error || speechError}</Text>
+            ) : null}
+
+            {canClear ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear"
+                onPress={onClear}
+                style={({ pressed }) => [styles.clear, pressed && styles.clearPressed]}
+              >
+                <Text style={styles.clearLabel}>Clear</Text>
+              </Pressable>
             ) : null}
 
             <PrimaryButton
@@ -205,5 +255,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: Theme.color.danger,
     fontSize: 14,
+  },
+  clear: {
+    alignSelf: 'center',
+    paddingVertical: Theme.space.sm,
+    paddingHorizontal: Theme.space.md,
+    marginBottom: Theme.space.md,
+  },
+  clearPressed: {
+    opacity: 0.7,
+  },
+  clearLabel: {
+    color: Theme.color.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

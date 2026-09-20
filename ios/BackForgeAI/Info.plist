@@ -55,8 +55,6 @@
     </dict>
     <key>NSMicrophoneUsageDescription</key>
     <string>The microphone is used so you can talk items in.</string>
-    <key>NSSpeechRecognitionUsageDescription</key>
-    <string>What you say is turned into a to-do or reminder.</string>
     <key>NSUserNotificationsUsageDescription</key>
     <string>Reminders are sent for items that need you.</string>
     <key>NSFaceIDUsageDescription</key>

@@ -11,7 +11,7 @@
 - **Language**: TypeScript 5.9
 - **Auth**: Clerk (`@clerk/clerk-expo`) — Bearer token on every API call
 - **Notifications**: Expo Notifications
-- **Speech**: `expo-speech-recognition` on Capture
+- **Speech**: `expo-av` records on Capture until stop, then `POST /capture/transcribe` (Whisper)
 
 ## Commands
 
@@ -49,6 +49,7 @@ All requests send `Authorization: Bearer <Clerk getToken()>`. Never send `userId
 - `GET /items?q=`
 - `POST /items/:id/done`
 - `POST /devices` `{ push_token }`
+- `POST /capture/transcribe` multipart `file` (m4a/caf/wav/webm) → `{ text }`
 
 Client: `services/api.ts`. Types: `types/api.ts`.
 

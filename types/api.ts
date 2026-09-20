@@ -17,6 +17,10 @@ export interface CaptureResponse {
   item: Item | null;
 }
 
+export interface TranscribeResponse {
+  text: string;
+}
+
 export interface DeviceRegisterResponse {
   success: boolean;
 }
