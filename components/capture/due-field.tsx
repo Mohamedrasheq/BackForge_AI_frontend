@@ -3,17 +3,32 @@ import { Theme } from '@/constants/theme';
 import { formatDue, fromDateTimeLocalValue, toDateTimeLocalValue } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export function DueField({
   value,
   onChange,
+  pickerOpen = false,
+  onOpenPicker,
+  onClosePicker,
 }: {
   value: string | null;
   onChange: (next: string | null) => void;
+  /** Parent mounts at most one native picker so a change cannot write every row. */
+  pickerOpen?: boolean;
+  onOpenPicker?: () => void;
+  onClosePicker?: () => void;
 }) {
   const [picking, setPicking] = useState<'date' | 'time' | null>(null);
+
+  useEffect(() => {
+    if (pickerOpen) {
+      setPicking((current) => current ?? 'date');
+    } else {
+      setPicking(null);
+    }
+  }, [pickerOpen]);
 
   const parsed = value ? new Date(value) : null;
   const validDate = parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
@@ -23,13 +38,18 @@ export function DueField({
     onChange(next.toISOString());
   };
 
+  const closePicker = () => {
+    setPicking(null);
+    onClosePicker?.();
+  };
+
   const onNativeChange = (event: DateTimePickerEvent, date?: Date) => {
     if (event.type === 'dismissed') {
-      setPicking(null);
+      closePicker();
       return;
     }
     if (!date) {
-      setPicking(null);
+      closePicker();
       return;
     }
 
@@ -44,7 +64,7 @@ export function DueField({
       const next = validDate ? new Date(validDate) : new Date();
       next.setHours(date.getHours(), date.getMinutes(), 0, 0);
       commit(next);
-      setPicking(null);
+      closePicker();
       return;
     }
 
@@ -59,11 +79,12 @@ export function DueField({
       commit(new Date());
     }
     setPicking('date');
+    onOpenPicker?.();
   };
 
   const onClear = () => {
     haptics.light();
-    setPicking(null);
+    closePicker();
     onChange(null);
   };
 
@@ -107,7 +128,7 @@ export function DueField({
           </Pressable>
         ) : null}
       </View>
-      {picking ? (
+      {pickerOpen ? (
         <View>
           <DateTimePicker
             value={validDate ?? new Date()}
@@ -119,7 +140,7 @@ export function DueField({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Done editing due date"
-              onPress={() => setPicking(null)}
+              onPress={closePicker}
               style={({ pressed }) => [styles.done, pressed && styles.pressed]}
             >
               <Text style={styles.doneLabel}>Done</Text>

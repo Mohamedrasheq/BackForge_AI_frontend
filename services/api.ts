@@ -114,12 +114,27 @@ export function normalizeItems(payload: unknown): Item[] {
   return single ? [single] : [];
 }
 
+function readErrorMessage(payload: unknown): string | null {
+  if (typeof payload === 'string' && payload.trim()) return payload;
+  if (Array.isArray(payload)) {
+    const joined = payload
+      .map((entry) => readErrorMessage(entry))
+      .filter((entry): entry is string => Boolean(entry))
+      .join(' ');
+    return joined || null;
+  }
+  if (!isRecord(payload)) return null;
+  return (
+    readString(payload.error, payload.message, payload.details, payload.detail) ||
+    readErrorMessage(payload.errors) ||
+    readErrorMessage(payload.issues)
+  );
+}
+
 async function readError(response: Response): Promise<string> {
   try {
     const body = await response.json();
-    if (isRecord(body)) {
-      return readString(body.error, body.message) || `Request failed (${response.status})`;
-    }
+    return readErrorMessage(body) || `Request failed (${response.status})`;
   } catch {
     // ignore parse failure
   }
@@ -176,16 +191,18 @@ export async function parseItems(text: string): Promise<ProposedItem[]> {
   return normalizeProposedItems(payload);
 }
 
+/** Map UI drafts (`text` / `dueAt`) onto the /items/bulk contract. */
+export function toBulkCreateItems(items: ProposedItem[]): BulkCreateItem[] {
+  return items.map((item) => ({
+    body: item.text,
+    due_at: item.dueAt,
+  }));
+}
+
 export async function bulkCreateItems(items: ProposedItem[]): Promise<Item[]> {
-  const body: { items: BulkCreateItem[] } = {
-    items: items.map((item) => ({
-      text: item.text,
-      due_at: item.dueAt,
-    })),
-  };
   const payload = await apiFetch<unknown>('/items/bulk', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify({ items: toBulkCreateItems(items) }),
   });
   return normalizeItems(payload);
 }
