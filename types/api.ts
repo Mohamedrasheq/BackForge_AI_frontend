@@ -13,12 +13,23 @@ export interface Item {
   createdAt: string | null;
 }
 
+/** Proposed item from POST /items/parse — no server id until bulk save. */
+export interface ProposedItem {
+  text: string;
+  dueAt: string | null;
+}
+
 export interface CaptureResponse {
   item: Item | null;
 }
 
 export interface TranscribeResponse {
   text: string;
+}
+
+export interface BulkCreateItem {
+  text: string;
+  due_at: string | null;
 }
 
 export interface DeviceRegisterResponse {

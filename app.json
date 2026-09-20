@@ -75,7 +75,8 @@
         {
           "microphonePermission": "The microphone is used so you can talk items in."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

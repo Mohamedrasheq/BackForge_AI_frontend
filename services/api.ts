@@ -5,7 +5,7 @@
 
 import { getApiToken } from '@/lib/api-auth';
 import { audioPartFromUri, readTranscriptPayload } from '@/lib/transcribe-audio';
-import type { Item } from '@/types/api';
+import type { BulkCreateItem, Item, ProposedItem } from '@/types/api';
 import { Platform } from 'react-native';
 
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -48,9 +48,54 @@ export function normalizeItem(raw: unknown): Item | null {
     id,
     text,
     status: isDoneStatus(raw.status ?? raw.done ?? raw.completed) ? 'done' : 'open',
-    dueAt: readString(raw.due_at, raw.dueAt, raw.remind_at, raw.reminder_at, raw.when, raw.scheduled_at),
+    dueAt: readDueAt(raw),
     createdAt: readString(raw.created_at, raw.createdAt),
   };
+}
+
+function readDueAt(raw: Record<string, unknown>): string | null {
+  const value = readString(
+    raw.due_at,
+    raw.dueAt,
+    raw.due,
+    raw.remind_at,
+    raw.reminder_at,
+    raw.when,
+    raw.scheduled_at
+  );
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+export function normalizeProposedItem(raw: unknown): ProposedItem | null {
+  if (!isRecord(raw)) return null;
+  const text = readString(raw.text, raw.title, raw.body, raw.content, raw.source_text);
+  if (!text) return null;
+  return { text, dueAt: readDueAt(raw) };
+}
+
+export function normalizeProposedItems(payload: unknown): ProposedItem[] {
+  if (Array.isArray(payload)) {
+    return payload.map(normalizeProposedItem).filter((item): item is ProposedItem => item !== null);
+  }
+
+  if (!isRecord(payload)) return [];
+
+  const list =
+    payload.items ??
+    payload.data ??
+    payload.proposed ??
+    payload.parsed ??
+    payload.proposals ??
+    payload.results;
+  if (Array.isArray(list)) {
+    return list.map(normalizeProposedItem).filter((item): item is ProposedItem => item !== null);
+  }
+
+  const single = normalizeProposedItem(payload.item ?? payload);
+  return single ? [single] : [];
 }
 
 export function normalizeItems(payload: unknown): Item[] {
@@ -121,6 +166,28 @@ export async function captureItem(text: string): Promise<Item | null> {
     return normalizeItem(payload.item ?? payload);
   }
   return normalizeItem(payload);
+}
+
+export async function parseItems(text: string): Promise<ProposedItem[]> {
+  const payload = await apiFetch<unknown>('/items/parse', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+  return normalizeProposedItems(payload);
+}
+
+export async function bulkCreateItems(items: ProposedItem[]): Promise<Item[]> {
+  const body: { items: BulkCreateItem[] } = {
+    items: items.map((item) => ({
+      text: item.text,
+      due_at: item.dueAt,
+    })),
+  };
+  const payload = await apiFetch<unknown>('/items/bulk', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  return normalizeItems(payload);
 }
 
 export async function getTodayItems(): Promise<Item[]> {
