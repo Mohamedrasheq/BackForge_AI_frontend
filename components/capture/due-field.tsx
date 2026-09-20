@@ -13,7 +13,7 @@ export function DueField({
   value: string | null;
   onChange: (next: string | null) => void;
 }) {
-  const [picking, setPicking] = useState<'date' | 'time' | null>(null);
+  const [picking, setPicking] = useState<'date' | 'time' | 'web' | null>(null);
 
   const parsed = value ? new Date(value) : null;
   const validDate = parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
@@ -68,23 +68,35 @@ export function DueField({
   };
 
   if (Platform.OS === 'web') {
+    const showPicker = Boolean(value) || picking === 'web';
     return (
       <View style={styles.row}>
         <IconSymbol name="calendar" size={16} color={Theme.color.textSecondary} />
-        <input
-          aria-label="Due date"
-          type="datetime-local"
-          value={toDateTimeLocalValue(value)}
-          onChange={(event) => onChange(fromDateTimeLocalValue(event.target.value))}
-          style={webInputStyle}
-        />
+        {showPicker ? (
+          <input
+            aria-label="Due date"
+            type="datetime-local"
+            value={toDateTimeLocalValue(value)}
+            onChange={(event) => onChange(fromDateTimeLocalValue(event.target.value))}
+            style={webInputStyle}
+          />
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add due date"
+            onPress={() => {
+              haptics.light();
+              setPicking('web');
+            }}
+          >
+            <Text style={styles.hint}>No date</Text>
+          </Pressable>
+        )}
         {value ? (
           <Pressable accessibilityRole="button" accessibilityLabel="Clear due date" onPress={onClear} hitSlop={8}>
             <Text style={styles.clear}>Clear</Text>
           </Pressable>
-        ) : (
-          <Text style={styles.hint}>No date</Text>
-        )}
+        ) : null}
       </View>
     );
   }
