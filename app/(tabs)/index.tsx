@@ -9,12 +9,14 @@ import { Theme } from '@/constants/theme';
 import { formatTodaySubtitle } from '@/lib/format';
 import { useTodayItems } from '@/hooks/use-items';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 export default function TodayScreen() {
   const router = useRouter();
-  const { items, loading, refreshing, error, reload, markDone } = useTodayItems();
+  const { items, loading, refreshing, error, reload, markDone, reschedule, movingId } =
+    useTodayItems();
+  const [datePickerId, setDatePickerId] = useState<string | null>(null);
   const openCount = items.length;
 
   return (
@@ -38,6 +40,7 @@ export default function TodayScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           ItemSeparatorComponent={() => <View style={styles.sep} />}
+          extraData={`${datePickerId ?? ''}:${movingId ?? ''}`}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -53,7 +56,20 @@ export default function TodayScreen() {
             />
           }
           renderItem={({ item }) => (
-            <ItemRow item={item} onDone={(next) => void markDone(next.id)} />
+            <ItemRow
+              item={item}
+              onDone={(next) => void markDone(next.id)}
+              onReschedule={(next, dueAt) => {
+                setDatePickerId(null);
+                void reschedule(next.id, dueAt);
+              }}
+              rescheduling={movingId === item.id}
+              datePickerOpen={datePickerId === item.id}
+              onOpenDatePicker={() => setDatePickerId(item.id)}
+              onCloseDatePicker={() =>
+                setDatePickerId((current) => (current === item.id ? null : current))
+              }
+            />
           )}
         />
       )}
