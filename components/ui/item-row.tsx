@@ -1,29 +1,83 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { cardSurface, Theme } from '@/constants/theme';
+import { dueTomorrow, localDayFromDateInput, moveDueToLocalDay, toLocalDateInputValue } from '@/lib/due';
 import { formatDue } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
 import type { Item } from '@/types/api';
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import React, { useEffect, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export function ItemRow({
   item,
   onDone,
+  onReschedule,
+  rescheduling = false,
+  datePickerOpen = false,
+  onOpenDatePicker,
+  onCloseDatePicker,
 }: {
   item: Item;
   onDone?: (item: Item) => void;
+  /** Incomplete items only. Parent should omit this on done rows. */
+  onReschedule?: (item: Item, dueAt: string) => void;
+  rescheduling?: boolean;
+  datePickerOpen?: boolean;
+  onOpenDatePicker?: () => void;
+  onCloseDatePicker?: () => void;
 }) {
   const done = item.status === 'done';
   const due = formatDue(item.dueAt);
+  const canMove = !done && Boolean(onReschedule);
+  const [draft, setDraft] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (!datePickerOpen) {
+      setDraft(null);
+      return;
+    }
+    const parsed = item.dueAt ? new Date(item.dueAt) : new Date();
+    setDraft(Number.isNaN(parsed.getTime()) ? new Date() : parsed);
+  }, [datePickerOpen, item.dueAt]);
+
+  const commitDay = (day: Date) => {
+    if (!onReschedule || rescheduling) return;
+    const next = moveDueToLocalDay(item.dueAt, day);
+    onCloseDatePicker?.();
+    if (item.dueAt && new Date(item.dueAt).getTime() === new Date(next).getTime()) return;
+    haptics.light();
+    onReschedule(item, next);
+  };
+
+  const onTomorrow = () => {
+    if (!onReschedule || rescheduling) return;
+    const next = dueTomorrow(item.dueAt);
+    onCloseDatePicker?.();
+    if (item.dueAt && new Date(item.dueAt).getTime() === new Date(next).getTime()) return;
+    haptics.light();
+    onReschedule(item, next);
+  };
+
+  const onNativeChange = (event: DateTimePickerEvent, date?: Date) => {
+    if (event.type === 'dismissed' || !date) {
+      onCloseDatePicker?.();
+      return;
+    }
+    if (Platform.OS === 'android') {
+      commitDay(date);
+      return;
+    }
+    setDraft(date);
+  };
 
   return (
     <View style={styles.row}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={done ? 'Completed' : 'Mark done'}
-        disabled={done || !onDone}
+        disabled={done || !onDone || rescheduling}
         onPress={() => {
-          if (done || !onDone) return;
+          if (done || !onDone || rescheduling) return;
           haptics.success();
           onDone(item);
         }}
@@ -39,10 +93,95 @@ export function ItemRow({
       <View style={styles.body}>
         <Text style={[styles.title, done && styles.titleDone]}>{item.text}</Text>
         {due ? <Text style={styles.due}>{due}</Text> : null}
+        {canMove ? (
+          <View style={styles.actions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Move to tomorrow"
+              disabled={rescheduling}
+              onPress={onTomorrow}
+              style={({ pressed }) => [
+                styles.tomorrow,
+                rescheduling && styles.disabled,
+                pressed && !rescheduling && styles.pressed,
+              ]}
+            >
+              <Text style={styles.tomorrowLabel}>Tomorrow</Text>
+            </Pressable>
+            {Platform.OS === 'web' ? (
+              <View style={[styles.dateChip, rescheduling && styles.disabled]}>
+                <IconSymbol name="calendar" size={16} color={Theme.color.textSecondary} />
+                <input
+                  aria-label="Choose date"
+                  type="date"
+                  disabled={rescheduling}
+                  value={item.dueAt ? toLocalDateInputValue(item.dueAt) : ''}
+                  onChange={(event) => {
+                    const day = localDayFromDateInput(event.target.value);
+                    if (day) commitDay(day);
+                  }}
+                  style={webDateStyle}
+                />
+              </View>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Choose date"
+                disabled={rescheduling}
+                onPress={() => {
+                  if (rescheduling) return;
+                  haptics.light();
+                  onOpenDatePicker?.();
+                }}
+                style={({ pressed }) => [
+                  styles.dateChip,
+                  rescheduling && styles.disabled,
+                  pressed && !rescheduling && styles.pressed,
+                ]}
+              >
+                <IconSymbol name="calendar" size={16} color={Theme.color.textSecondary} />
+                <Text style={styles.dateLabel}>Date</Text>
+              </Pressable>
+            )}
+          </View>
+        ) : null}
+        {canMove && datePickerOpen && Platform.OS !== 'web' ? (
+          <View style={styles.picker}>
+            <DateTimePicker
+              value={draft ?? new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={onNativeChange}
+            />
+            {Platform.OS === 'ios' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Done choosing date"
+                onPress={() => {
+                  const selected = draft ?? (item.dueAt ? new Date(item.dueAt) : new Date());
+                  commitDay(Number.isNaN(selected.getTime()) ? new Date() : selected);
+                }}
+                style={({ pressed }) => [styles.done, pressed && styles.pressed]}
+              >
+                <Text style={styles.doneLabel}>Done</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
       </View>
     </View>
   );
 }
+
+const webDateStyle: React.CSSProperties = {
+  border: 'none',
+  outline: 'none',
+  background: 'transparent',
+  color: Theme.color.textSecondary,
+  fontSize: 13,
+  fontWeight: '600',
+  fontFamily: 'inherit',
+};
 
 const styles = StyleSheet.create({
   row: {
@@ -79,5 +218,55 @@ const styles = StyleSheet.create({
     fontSize: Theme.type.caption,
     lineHeight: 18,
     color: Theme.color.textSecondary,
+  },
+  actions: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tomorrow: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: Theme.radius.full,
+    backgroundColor: Theme.color.accentSoft,
+  },
+  tomorrowLabel: {
+    fontSize: Theme.type.caption,
+    fontWeight: '600',
+    color: Theme.color.accent,
+  },
+  dateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: Theme.radius.full,
+    borderWidth: 1,
+    borderColor: Theme.color.border,
+    backgroundColor: Theme.color.card,
+  },
+  dateLabel: {
+    fontSize: Theme.type.caption,
+    fontWeight: '600',
+    color: Theme.color.textSecondary,
+  },
+  disabled: {
+    opacity: 0.45,
+  },
+  picker: {
+    marginTop: 8,
+  },
+  done: {
+    alignSelf: 'flex-end',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  doneLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Theme.color.accent,
   },
 });

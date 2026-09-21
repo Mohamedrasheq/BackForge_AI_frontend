@@ -5,7 +5,7 @@
 
 import { getApiToken } from '@/lib/api-auth';
 import { audioPartFromUri, readTranscriptPayload } from '@/lib/transcribe-audio';
-import type { BulkCreateItem, Item, ProposedItem } from '@/types/api';
+import type { BulkCreateItem, Item, ProposedItem, UpdateItemDueRequest } from '@/types/api';
 import { Platform } from 'react-native';
 
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -216,6 +216,22 @@ export async function getItems(query?: string): Promise<Item[]> {
   const trimmed = query?.trim();
   const path = trimmed ? `/items?q=${encodeURIComponent(trimmed)}` : '/items';
   return normalizeItems(await apiFetch<unknown>(path));
+}
+
+/**
+ * Move an item to a new due instant.
+ * Contract: `PATCH /items/:id` `{ due_at }` (same field as bulk create).
+ */
+export async function updateItemDue(id: string, dueAt: string): Promise<Item | null> {
+  const body: UpdateItemDueRequest = { due_at: dueAt };
+  const payload = await apiFetch<unknown>(`/items/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+
+  if (payload == null) return null;
+  if (isRecord(payload)) return normalizeItem(payload.item ?? payload);
+  return normalizeItem(payload);
 }
 
 export async function markItemDone(id: string): Promise<Item | null> {

@@ -1,27 +1,50 @@
-import { getItems, getTodayItems, markItemDone } from '@/services/api';
+import { isAfterLocalToday } from '@/lib/due';
+import { haptics } from '@/lib/haptics';
+import { getItems, getTodayItems, markItemDone, updateItemDue } from '@/services/api';
 import type { Item } from '@/types/api';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+/** Today is dated-for-today plus overdue. A later calendar day leaves this list. */
+function visibleOnToday(item: Item, now = new Date()): boolean {
+  return !isAfterLocalToday(item.dueAt, now);
+}
 
 export function useTodayItems() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
+  const itemsRef = useRef(items);
+  const requestId = useRef(0);
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  const load = useCallback(async (isRefresh = false, silent = false) => {
+    const id = ++requestId.current;
+    if (!silent) {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+    }
 
     try {
-      const next = await getTodayItems();
+      const next = (await getTodayItems()).filter((item) => visibleOnToday(item));
+      if (id !== requestId.current) return;
       setItems(next);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load today');
+      if (id !== requestId.current) return;
+      if (!silent) {
+        setError(err instanceof Error ? err.message : 'Could not load today');
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!silent && id === requestId.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
@@ -42,7 +65,35 @@ export function useTodayItems() {
     }
   }, [items]);
 
-  return { items, loading, refreshing, error, reload: load, markDone };
+  const reschedule = useCallback(async (id: string, dueAt: string) => {
+    // Drop an in-flight today fetch so it cannot put the item back.
+    requestId.current += 1;
+    setRefreshing(false);
+    const previous = itemsRef.current;
+    setMovingId(id);
+    setItems(
+      previous
+        .map((item) => (item.id === id ? { ...item, dueAt } : item))
+        .filter((item) => visibleOnToday(item))
+    );
+    try {
+      await updateItemDue(id, dueAt);
+    } catch (err) {
+      setItems(previous);
+      haptics.error();
+      setError(err instanceof Error ? err.message : 'Could not move that');
+      return;
+    } finally {
+      setMovingId(null);
+    }
+
+    haptics.success();
+    await load(false, true);
+  }, [load]);
+
+  const reload = useCallback((isRefresh?: boolean) => load(Boolean(isRefresh), false), [load]);
+
+  return { items, loading, refreshing, error, reload, markDone, reschedule, movingId };
 }
 
 export function useAllItems(query: string) {
