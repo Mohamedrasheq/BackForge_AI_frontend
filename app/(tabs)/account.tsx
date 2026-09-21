@@ -1,19 +1,17 @@
 import { Card } from '@/components/ui/card';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { TextButton } from '@/components/ui/text-button';
 import { Theme } from '@/constants/theme';
 import { haptics } from '@/lib/haptics';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import Constants from 'expo-constants';
-import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 export default function AccountScreen() {
   const { user } = useUser();
   const { signOut } = useAuth();
-  const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
 
   const name =
@@ -36,7 +34,7 @@ export default function AccountScreen() {
 
   return (
     <Screen>
-      <ScreenHeader title="Account" subtitle="Just the essentials." />
+      <ScreenHeader title="Account" />
 
       <View style={styles.body}>
         <Card style={styles.profile}>
@@ -53,31 +51,12 @@ export default function AccountScreen() {
           </View>
         </Card>
 
-        <Card style={styles.group}>
-          <Pressable
-            onPress={() => {
-              haptics.light();
-              router.push('/(tabs)/alerts');
-            }}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            <View style={styles.rowLeft}>
-              <View style={styles.icon}>
-                <IconSymbol name="bell.fill" size={18} color={Theme.color.accent} />
-              </View>
-              <Text style={styles.rowLabel}>Alerts</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={18} color={Theme.color.textTertiary} />
-          </Pressable>
-        </Card>
-
-        <Pressable
+        <TextButton
+          label={signingOut ? 'Signing out…' : 'Sign out'}
           onPress={() => void onSignOut()}
-          style={({ pressed }) => [styles.signOut, pressed && styles.signOutPressed]}
-        >
-          <IconSymbol name="rectangle.portrait.and.arrow.right" size={18} color={Theme.color.danger} />
-          <Text style={styles.signOutText}>{signingOut ? 'Signing out…' : 'Sign out'}</Text>
-        </Pressable>
+          tone="danger"
+          style={styles.signOut}
+        />
 
         <Text style={styles.version}>{version}</Text>
       </View>
@@ -87,12 +66,14 @@ export default function AccountScreen() {
 
 const styles = StyleSheet.create({
   body: {
-    paddingHorizontal: Theme.space.lg,
+    paddingHorizontal: Theme.space.screenX,
   },
   profile: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Theme.space.md,
+    paddingVertical: 20,
+    paddingHorizontal: Theme.space.md,
   },
   avatar: {
     width: 56,
@@ -103,12 +84,12 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: Theme.color.accent,
+    backgroundColor: Theme.color.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   initial: {
-    color: Theme.color.white,
+    color: Theme.color.accent,
     fontSize: 22,
     fontWeight: '700',
   },
@@ -122,66 +103,16 @@ const styles = StyleSheet.create({
   },
   email: {
     marginTop: 4,
-    fontSize: 15,
+    fontSize: Theme.type.label,
     color: Theme.color.textSecondary,
   },
-  group: {
-    marginTop: Theme.space.md,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  row: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-  },
-  rowPressed: {
-    opacity: 0.7,
-  },
-  rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  icon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Theme.color.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rowLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Theme.color.text,
-  },
   signOut: {
-    marginTop: Theme.space.lg,
-    height: 52,
-    borderRadius: Theme.radius.md,
-    backgroundColor: Theme.color.card,
-    borderWidth: 1,
-    borderColor: Theme.color.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  signOutPressed: {
-    backgroundColor: Theme.color.dangerSoft,
-  },
-  signOutText: {
-    color: Theme.color.danger,
-    fontSize: 16,
-    fontWeight: '600',
+    marginTop: Theme.space.xl,
   },
   version: {
-    marginTop: Theme.space.lg,
+    marginTop: Theme.space.md,
     textAlign: 'center',
     color: Theme.color.textTertiary,
-    fontSize: 13,
+    fontSize: Theme.type.caption,
   },
 });

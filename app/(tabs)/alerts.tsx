@@ -2,9 +2,10 @@ import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { ItemRow } from '@/components/ui/item-row';
-import { PrimaryButton } from '@/components/ui/primary-button';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { SecondaryButton } from '@/components/ui/secondary-button';
+import { TextButton } from '@/components/ui/text-button';
 import { Theme } from '@/constants/theme';
 import { isUpcoming } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
@@ -109,10 +110,7 @@ export default function AlertsScreen() {
 
   return (
     <Screen>
-      <ScreenHeader
-        title="Alerts"
-        subtitle="Reminders land here. Enable notifications so nothing slips."
-      />
+      <ScreenHeader title="Alerts" subtitle="Reminders for what's coming up." />
 
       {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
 
@@ -126,26 +124,26 @@ export default function AlertsScreen() {
           />
         }
       >
-        <Card>
+        <Card style={styles.permissionCard}>
           <Text style={styles.cardTitle}>{permissionLabel}</Text>
           <Text style={styles.cardBody}>
             {permission === 'granted'
               ? 'We’ll nudge you when something is due.'
-              : 'Turn on alerts so today items can reach you on time.'}
+              : 'Turn on alerts so timed items can reach you.'}
           </Text>
           {permission !== 'granted' ? (
-            <PrimaryButton
+            <SecondaryButton
               label="Enable alerts"
               onPress={() => void enableAlerts()}
               loading={registering}
               style={styles.button}
             />
           ) : (
-            <PrimaryButton
-              label={registering ? 'Registering' : 'Refresh device'}
+            <TextButton
+              label={registering ? 'Refreshing…' : 'Refresh this device'}
               onPress={() => void enableAlerts()}
-              loading={registering}
-              style={styles.button}
+              tone="secondary"
+              style={styles.refresh}
             />
           )}
           {registerMessage ? <Text style={styles.message}>{registerMessage}</Text> : null}
@@ -155,11 +153,7 @@ export default function AlertsScreen() {
         {loading && upcoming.length === 0 ? (
           <ActivityIndicator color={Theme.color.accent} style={styles.spinner} />
         ) : upcoming.length === 0 ? (
-          <EmptyState
-            icon="bell.fill"
-            title="No upcoming alerts"
-            description="Items with a time will show up here after you capture them."
-          />
+          <EmptyState description="Nothing upcoming right now." />
         ) : (
           <View style={styles.list}>
             {upcoming.map((item) => (
@@ -178,40 +172,46 @@ export default function AlertsScreen() {
 
 const styles = StyleSheet.create({
   scroll: {
-    paddingHorizontal: Theme.space.lg,
-    paddingBottom: Theme.space.xxl,
+    paddingHorizontal: Theme.space.screenX,
+    paddingBottom: Theme.space.listBottom,
+  },
+  permissionCard: {
+    paddingVertical: Theme.space.md,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: Theme.type.itemTitle,
+    fontWeight: '600',
     color: Theme.color.text,
   },
   cardBody: {
     marginTop: 6,
-    fontSize: 15,
+    fontSize: Theme.type.label,
     lineHeight: 22,
     color: Theme.color.textSecondary,
   },
   button: {
     marginTop: Theme.space.md,
   },
+  refresh: {
+    alignSelf: 'flex-start',
+    marginTop: Theme.space.sm,
+    paddingHorizontal: 0,
+  },
   message: {
     marginTop: Theme.space.sm,
     color: Theme.color.textSecondary,
-    fontSize: 14,
+    fontSize: Theme.type.caption,
     lineHeight: 20,
   },
   section: {
     marginTop: Theme.space.xl,
     marginBottom: Theme.space.md,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: Theme.type.label,
+    fontWeight: '600',
     color: Theme.color.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
   },
   list: {
-    gap: 12,
+    gap: Theme.space.listGap,
   },
   spinner: {
     marginTop: Theme.space.lg,

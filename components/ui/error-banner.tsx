@@ -19,7 +19,7 @@ export function ErrorBanner({
 
 const styles = StyleSheet.create({
   banner: {
-    marginHorizontal: Theme.space.lg,
+    marginHorizontal: Theme.space.screenX,
     marginBottom: Theme.space.sm,
     padding: Theme.space.md,
     borderRadius: Theme.radius.md,
@@ -30,12 +30,12 @@ const styles = StyleSheet.create({
   },
   text: {
     color: Theme.color.danger,
-    fontSize: 14,
+    fontSize: Theme.type.caption,
     lineHeight: 20,
   },
   retry: {
     color: Theme.color.danger,
-    fontSize: 13,
+    fontSize: Theme.type.caption,
     fontWeight: '600',
   },
 });

@@ -23,8 +23,8 @@ export default function TabLayout() {
         tabBarButton: HapticTab,
         tabBarHideOnKeyboard: false,
         tabBarStyle: {
-          height: 60 + insets.bottom,
-          paddingTop: 8,
+          height: 58 + insets.bottom,
+          paddingTop: 6,
           paddingBottom: Math.max(insets.bottom, 8),
           backgroundColor: Theme.color.card,
           borderTopColor: Theme.color.border,
@@ -32,6 +32,9 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
+        },
+        tabBarItemStyle: {
+          paddingVertical: 2,
         },
       }}
     >

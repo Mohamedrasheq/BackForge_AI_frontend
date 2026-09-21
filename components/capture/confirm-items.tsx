@@ -1,4 +1,6 @@
 import { DueField } from '@/components/capture/due-field';
+import { Card } from '@/components/ui/card';
+import { IconButton } from '@/components/ui/icon-button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { ScreenHeader } from '@/components/ui/screen-header';
@@ -92,14 +94,7 @@ export function ConfirmItems({
         title="Confirm"
         subtitle="Edit anything before saving."
         right={
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Back to dump"
-            onPress={onBack}
-            style={({ pressed }) => [styles.back, pressed && styles.pressed]}
-          >
-            <IconSymbol name="xmark" size={16} color={Theme.color.accent} />
-          </Pressable>
+          <IconButton name="xmark" accessibilityLabel="Back to dump" onPress={onBack} />
         }
       />
 
@@ -109,18 +104,18 @@ export function ConfirmItems({
         keyboardShouldPersistTaps="handled"
       >
         {items.map((item, index) => (
-          <View key={item.key} style={styles.card}>
+          <Card key={item.key} style={styles.card}>
             <View style={styles.cardTop}>
-              <Text style={styles.index}>{index + 1}</Text>
-              <Pressable
-                accessibilityRole="button"
+              <View style={styles.indexWrap}>
+                <Text style={styles.index}>{index + 1}</Text>
+              </View>
+              <IconButton
+                name="trash"
+                tone="danger"
+                size={32}
                 accessibilityLabel={`Delete item ${index + 1}`}
                 onPress={() => removeAt(item.key)}
-                hitSlop={8}
-                style={({ pressed }) => [styles.delete, pressed && styles.pressed]}
-              >
-                <IconSymbol name="trash" size={18} color={Theme.color.danger} />
-              </Pressable>
+              />
             </View>
             <TextInput
               value={item.text}
@@ -142,7 +137,7 @@ export function ConfirmItems({
               }
               onChange={(dueAt) => updateAt(item.key, { dueAt })}
             />
-          </View>
+          </Card>
         ))}
 
         <Pressable
@@ -175,53 +170,38 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  back: {
-    marginTop: 6,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Theme.color.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   pressed: {
     opacity: 0.7,
   },
   list: {
-    paddingHorizontal: Theme.space.lg,
+    paddingHorizontal: Theme.space.screenX,
     paddingBottom: Theme.space.md,
-    gap: 12,
+    gap: Theme.space.listGap,
   },
   card: {
-    backgroundColor: Theme.color.card,
-    borderRadius: Theme.radius.lg,
-    borderWidth: 1,
-    borderColor: Theme.color.border,
-    padding: Theme.space.md,
     gap: 10,
-    ...Theme.shadow.card,
   },
   cardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  index: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Theme.color.textTertiary,
-  },
-  delete: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Theme.color.dangerSoft,
+  indexWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Theme.color.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  index: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Theme.color.accent,
+  },
   body: {
     minHeight: 52,
-    fontSize: 16,
+    fontSize: Theme.type.body,
     lineHeight: 24,
     color: Theme.color.text,
     fontWeight: '500',
@@ -240,12 +220,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   addLabel: {
-    fontSize: 15,
+    fontSize: Theme.type.label,
     fontWeight: '600',
     color: Theme.color.accent,
   },
   footer: {
-    paddingHorizontal: Theme.space.lg,
+    paddingHorizontal: Theme.space.screenX,
     paddingBottom: Theme.space.lg,
     paddingTop: Theme.space.sm,
     gap: Theme.space.sm,
@@ -253,7 +233,7 @@ const styles = StyleSheet.create({
   error: {
     textAlign: 'center',
     color: Theme.color.danger,
-    fontSize: 14,
+    fontSize: Theme.type.caption,
   },
   gentle: {
     color: Theme.color.textSecondary,

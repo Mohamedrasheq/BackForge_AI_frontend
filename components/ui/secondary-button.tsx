@@ -10,7 +10,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-export function PrimaryButton({
+export function SecondaryButton({
   label,
   onPress,
   disabled,
@@ -41,7 +41,7 @@ export function PrimaryButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={Theme.color.white} />
+        <ActivityIndicator color={Theme.color.accent} />
       ) : (
         <Text style={styles.label}>{label}</Text>
       )}
@@ -51,21 +51,24 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   button: {
-    height: 52,
+    height: 48,
     borderRadius: Theme.radius.md,
-    backgroundColor: Theme.color.accent,
+    backgroundColor: Theme.color.card,
+    borderWidth: 1,
+    borderColor: Theme.color.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pressed: {
-    backgroundColor: Theme.color.accentPressed,
+    backgroundColor: Theme.color.accentSoft,
+    borderColor: Theme.color.accent,
   },
   disabled: {
     opacity: 0.45,
   },
   label: {
-    color: Theme.color.white,
-    fontSize: Theme.type.body,
+    color: Theme.color.accent,
+    fontSize: Theme.type.label,
     fontWeight: '600',
   },
 });

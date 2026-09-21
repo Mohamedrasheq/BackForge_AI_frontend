@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     marginBottom: Theme.space.xl,
   },
   title: {
-    fontSize: 28,
+    fontSize: Theme.type.screenTitle,
     fontWeight: '700',
     color: Theme.color.text,
     letterSpacing: Platform.OS === 'web' ? 0 : -0.5,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginTop: 8,
-    fontSize: 16,
+    fontSize: Theme.type.body,
     lineHeight: 24,
     color: Theme.color.textSecondary,
     textAlign: 'center',

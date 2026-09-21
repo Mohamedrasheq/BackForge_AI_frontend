@@ -1,6 +1,6 @@
 import { Theme } from '@/constants/theme';
 import React from 'react';
-import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export function Screen({
@@ -8,7 +8,7 @@ export function Screen({
   style,
 }: {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }) {
   const insets = useSafeAreaInsets();
 
