@@ -1,4 +1,5 @@
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
+import { TextButton } from '@/components/ui/text-button';
 import { Theme } from '@/constants/theme';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -7,18 +8,27 @@ export function EmptyState({
   icon,
   title,
   description,
+  actionLabel,
+  onAction,
 }: {
-  icon: IconSymbolName;
-  title: string;
+  icon?: IconSymbolName;
+  title?: string;
   description: string;
+  actionLabel?: string;
+  onAction?: () => void;
 }) {
   return (
     <View style={styles.wrap}>
-      <View style={styles.icon}>
-        <IconSymbol name={icon} size={28} color={Theme.color.accent} />
-      </View>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+      {icon ? (
+        <View style={styles.icon}>
+          <IconSymbol name={icon} size={26} color={Theme.color.accent} />
+        </View>
+      ) : null}
+      {title ? <Text style={styles.title}>{title}</Text> : null}
+      <Text style={[styles.description, !title && styles.descriptionSolo]}>{description}</Text>
+      {actionLabel && onAction ? (
+        <TextButton label={actionLabel} onPress={onAction} style={styles.action} />
+      ) : null}
     </View>
   );
 }
@@ -30,9 +40,9 @@ const styles = StyleSheet.create({
     paddingVertical: Theme.space.xxl,
   },
   icon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: Theme.color.accentSoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -47,9 +57,17 @@ const styles = StyleSheet.create({
   },
   description: {
     marginTop: 8,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: Theme.type.body,
+    lineHeight: 24,
     color: Theme.color.textSecondary,
     textAlign: 'center',
+  },
+  descriptionSolo: {
+    marginTop: 0,
+    fontSize: 17,
+    lineHeight: 26,
+  },
+  action: {
+    marginTop: Theme.space.sm,
   },
 });

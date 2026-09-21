@@ -26,7 +26,7 @@ export function CaptureFab() {
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    right: Theme.space.lg,
+    right: Theme.space.screenX,
     bottom: Theme.space.lg,
     width: 56,
     height: 56,

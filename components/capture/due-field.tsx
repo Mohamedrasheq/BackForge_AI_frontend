@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   chipLabel: {
-    fontSize: 13,
+    fontSize: Theme.type.caption,
     fontWeight: '600',
     color: Theme.color.accent,
   },
@@ -193,12 +193,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   clear: {
-    fontSize: 13,
+    fontSize: Theme.type.caption,
     fontWeight: '600',
     color: Theme.color.textSecondary,
   },
   hint: {
-    fontSize: 13,
+    fontSize: Theme.type.caption,
     color: Theme.color.textTertiary,
   },
   done: {

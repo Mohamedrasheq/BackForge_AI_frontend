@@ -1,5 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Theme } from '@/constants/theme';
+import { cardSurface, Theme } from '@/constants/theme';
 import { formatDue } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
 import type { Item } from '@/types/api';
@@ -32,7 +32,7 @@ export function ItemRow({
       >
         <IconSymbol
           name={done ? 'checkmark.circle.fill' : 'circle'}
-          size={28}
+          size={26}
           color={done ? Theme.color.success : Theme.color.textTertiary}
         />
       </Pressable>
@@ -46,16 +46,12 @@ export function ItemRow({
 
 const styles = StyleSheet.create({
   row: {
+    ...cardSurface,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    backgroundColor: Theme.color.card,
-    borderRadius: Theme.radius.lg,
-    borderWidth: 1,
-    borderColor: Theme.color.border,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    ...Theme.shadow.card,
+    paddingVertical: 18,
+    paddingHorizontal: Theme.space.md,
   },
   checkWrap: {
     paddingTop: 1,
@@ -69,7 +65,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: Theme.type.itemTitle,
-    lineHeight: 26,
+    lineHeight: 24,
     fontWeight: '600',
     color: Theme.color.text,
   },
@@ -79,8 +75,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   due: {
-    marginTop: 4,
+    marginTop: 6,
     fontSize: Theme.type.caption,
+    lineHeight: 18,
     color: Theme.color.textSecondary,
   },
 });

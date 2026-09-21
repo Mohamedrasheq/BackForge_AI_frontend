@@ -6,10 +6,12 @@ import {
   type DraftItem,
 } from '@/components/capture/confirm-items';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconButton } from '@/components/ui/icon-button';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
-import { Theme } from '@/constants/theme';
+import { TextButton } from '@/components/ui/text-button';
+import { cardSurface, Theme } from '@/constants/theme';
 import { useCaptureRecording } from '@/hooks/use-capture-recording';
 import { haptics } from '@/lib/haptics';
 import { bulkCreateItems, parseItems } from '@/services/api';
@@ -66,7 +68,6 @@ export default function CaptureScreen() {
   }, [goToToday, phase]);
 
   const onClear = useCallback(() => {
-    haptics.light();
     setText('');
     setError(null);
     clearSpeechError();
@@ -160,16 +161,12 @@ export default function CaptureScreen() {
         <>
           <ScreenHeader
             title="Capture"
-            subtitle="A thought or a long dump."
             right={
-              <Pressable
-                accessibilityRole="button"
+              <IconButton
+                name="xmark"
                 accessibilityLabel="Close capture and go to Today"
                 onPress={leaveCapture}
-                style={({ pressed }) => [styles.close, pressed && styles.closePressed]}
-              >
-                <IconSymbol name="xmark" size={16} color={Theme.color.accent} />
-              </Pressable>
+              />
             }
           />
           <KeyboardAvoidingView
@@ -218,7 +215,7 @@ export default function CaptureScreen() {
                   ) : (
                     <IconSymbol
                       name="mic.fill"
-                      size={26}
+                      size={28}
                       color={recording ? Theme.color.white : Theme.color.accent}
                     />
                   )}
@@ -232,22 +229,14 @@ export default function CaptureScreen() {
                   </Text>
                 ) : null}
 
-                {canClear ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Clear"
-                    onPress={onClear}
-                    style={({ pressed }) => [styles.clear, pressed && styles.clearPressed]}
-                  >
-                    <Text style={styles.clearLabel}>Clear</Text>
-                  </Pressable>
-                ) : null}
+                {canClear ? <TextButton label="Clear" onPress={onClear} tone="secondary" /> : null}
 
                 <PrimaryButton
                   label="Break down"
                   onPress={() => void onBreakDown()}
                   loading={submitting}
                   disabled={!canSubmit}
+                  style={styles.submit}
                 />
               </View>
             </TouchableWithoutFeedback>
@@ -262,32 +251,17 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  close: {
-    marginTop: 6,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Theme.color.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closePressed: {
-    opacity: 0.7,
-  },
   body: {
     flex: 1,
-    paddingHorizontal: Theme.space.lg,
+    paddingHorizontal: Theme.space.screenX,
     paddingBottom: Theme.space.lg,
   },
   composer: {
+    ...cardSurface,
     flex: 1,
-    minHeight: 180,
-    backgroundColor: Theme.color.card,
-    borderRadius: Theme.radius.lg,
-    borderWidth: 1,
-    borderColor: Theme.color.border,
+    minHeight: 200,
+    borderRadius: Theme.radius.xl,
     padding: Theme.space.lg,
-    ...Theme.shadow.card,
   },
   composerListening: {
     borderColor: Theme.color.accent,
@@ -301,9 +275,9 @@ const styles = StyleSheet.create({
   },
   mic: {
     alignSelf: 'center',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     marginTop: Theme.space.lg,
     backgroundColor: Theme.color.accentSoft,
     alignItems: 'center',
@@ -317,33 +291,22 @@ const styles = StyleSheet.create({
   },
   hint: {
     marginTop: Theme.space.sm,
-    marginBottom: Theme.space.md,
     minHeight: 20,
     textAlign: 'center',
     color: Theme.color.textSecondary,
-    fontSize: 14,
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
   },
   error: {
-    marginBottom: Theme.space.md,
+    marginTop: Theme.space.sm,
     textAlign: 'center',
     color: Theme.color.danger,
-    fontSize: 14,
-  },
-  clear: {
-    alignSelf: 'center',
-    paddingVertical: Theme.space.sm,
-    paddingHorizontal: Theme.space.md,
-    marginBottom: Theme.space.md,
-  },
-  clearPressed: {
-    opacity: 0.7,
-  },
-  clearLabel: {
-    color: Theme.color.textSecondary,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: Theme.type.caption,
   },
   gentle: {
     color: Theme.color.textSecondary,
+  },
+  submit: {
+    marginTop: Theme.space.md,
   },
 });

@@ -30,20 +30,25 @@ export const Theme = {
     lg: 24,
     xl: 32,
     xxl: 48,
+    listGap: 12,
+    screenX: 24,
+    listBottom: 40,
+    listBottomFab: 96,
   },
   radius: {
-    sm: 10,
-    md: 14,
-    lg: 20,
-    xl: 28,
+    sm: 12,
+    md: 16,
+    lg: 18,
+    xl: 20,
     full: 9999,
   },
   type: {
-    todayTitle: 34,
+    todayTitle: 36,
     screenTitle: 28,
-    itemTitle: 18,
+    itemTitle: 17,
     body: 16,
     caption: 13,
+    label: 15,
   },
   shadow: {
     card: Platform.select({
@@ -71,10 +76,18 @@ export const Theme = {
         elevation: 6,
       },
       default: {
-        boxShadow: '0 8px 16px rgba(15, 118, 110, 0.22)',
+        boxShadow: '0 8px 16px rgba(180, 83, 9, 0.22)',
       },
     }),
   },
+} as const;
+
+export const cardSurface = {
+  backgroundColor: Theme.color.card,
+  borderRadius: Theme.radius.lg,
+  borderWidth: 1,
+  borderColor: Theme.color.border,
+  ...Theme.shadow.card,
 } as const;
 
 /** @deprecated Use Theme. Prefer the v1 tokens above. */

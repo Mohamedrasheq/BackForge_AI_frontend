@@ -1,12 +1,14 @@
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorBanner } from '@/components/ui/error-banner';
+import { FilterChips } from '@/components/ui/filter-chips';
 import { ItemRow } from '@/components/ui/item-row';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Theme } from '@/constants/theme';
 import { useAllItems } from '@/hooks/use-items';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import React, { useEffect, useState } from 'react';
+import type { ItemStatus } from '@/types/api';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -16,9 +18,15 @@ import {
   View,
 } from 'react-native';
 
+const STATUS_OPTIONS: { value: ItemStatus; label: string }[] = [
+  { value: 'open', label: 'Open' },
+  { value: 'done', label: 'Done' },
+];
+
 export default function AllItemsScreen() {
   const [input, setInput] = useState('');
   const [query, setQuery] = useState('');
+  const [status, setStatus] = useState<ItemStatus>('open');
   const { items, loading, refreshing, error, reload, markDone } = useAllItems(query);
 
   useEffect(() => {
@@ -26,9 +34,22 @@ export default function AllItemsScreen() {
     return () => clearTimeout(handle);
   }, [input]);
 
+  const visible = useMemo(
+    () => items.filter((item) => item.status === status),
+    [items, status]
+  );
+
+  const emptyDescription = query
+    ? status === 'done'
+      ? 'No done items match that.'
+      : 'No open items match that.'
+    : status === 'done'
+      ? 'Nothing marked done yet.'
+      : 'Nothing open right now.';
+
   return (
     <Screen>
-      <ScreenHeader title="All items" subtitle="Everything you've captured." />
+      <ScreenHeader title="All items" />
 
       <View style={styles.searchWrap}>
         <IconSymbol name="magnifyingglass" size={20} color={Theme.color.textTertiary} />
@@ -46,6 +67,8 @@ export default function AllItemsScreen() {
         />
       </View>
 
+      <FilterChips value={status} options={STATUS_OPTIONS} onChange={setStatus} />
+
       {error ? <ErrorBanner message={error} onRetry={() => void reload()} /> : null}
 
       {loading && items.length === 0 ? (
@@ -54,7 +77,7 @@ export default function AllItemsScreen() {
         </View>
       ) : (
         <FlatList
-          data={items}
+          data={visible}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
@@ -66,17 +89,7 @@ export default function AllItemsScreen() {
               tintColor={Theme.color.accent}
             />
           }
-          ListEmptyComponent={
-            <EmptyState
-              icon="tray"
-              title={query ? 'No matches' : 'No items yet'}
-              description={
-                query
-                  ? 'Try a different search.'
-                  : 'Capture a thought, reminder, or to-do and it will land here.'
-              }
-            />
-          }
+          ListEmptyComponent={<EmptyState description={emptyDescription} />}
           renderItem={({ item }) => (
             <ItemRow
               item={item}
@@ -91,7 +104,7 @@ export default function AllItemsScreen() {
 
 const styles = StyleSheet.create({
   searchWrap: {
-    marginHorizontal: Theme.space.lg,
+    marginHorizontal: Theme.space.screenX,
     marginBottom: Theme.space.md,
     height: 48,
     borderRadius: Theme.radius.md,
@@ -105,16 +118,16 @@ const styles = StyleSheet.create({
   },
   search: {
     flex: 1,
-    fontSize: 16,
+    fontSize: Theme.type.body,
     color: Theme.color.text,
   },
   list: {
-    paddingHorizontal: Theme.space.lg,
-    paddingBottom: Theme.space.xxl,
+    paddingHorizontal: Theme.space.screenX,
+    paddingBottom: Theme.space.listBottom,
     flexGrow: 1,
   },
   sep: {
-    height: 12,
+    height: Theme.space.listGap,
   },
   centered: {
     flex: 1,

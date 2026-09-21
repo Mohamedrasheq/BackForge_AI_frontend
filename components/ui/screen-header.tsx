@@ -14,13 +14,13 @@ export function ScreenHeader({
   right?: React.ReactNode;
 }) {
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, large && styles.wrapLarge]}>
       <View style={styles.row}>
         <View style={styles.text}>
           <Text style={[styles.title, large && styles.largeTitle]}>{title}</Text>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
-        {right}
+        {right ? <View style={[styles.right, large && styles.rightLarge]}>{right}</View> : null}
       </View>
     </View>
   );
@@ -28,9 +28,13 @@ export function ScreenHeader({
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: Theme.space.lg,
+    paddingHorizontal: Theme.space.screenX,
     paddingTop: Theme.space.sm,
     paddingBottom: Theme.space.md,
+  },
+  wrapLarge: {
+    paddingTop: Theme.space.md,
+    paddingBottom: Theme.space.lg,
   },
   row: {
     flexDirection: 'row',
@@ -49,12 +53,18 @@ const styles = StyleSheet.create({
   },
   largeTitle: {
     fontSize: Theme.type.todayTitle,
-    letterSpacing: Platform.OS === 'web' ? 0 : -0.8,
+    letterSpacing: Platform.OS === 'web' ? 0 : -0.9,
   },
   subtitle: {
     marginTop: 6,
     fontSize: Theme.type.body,
     lineHeight: 22,
     color: Theme.color.textSecondary,
+  },
+  right: {
+    marginTop: 4,
+  },
+  rightLarge: {
+    marginTop: 4,
   },
 });
