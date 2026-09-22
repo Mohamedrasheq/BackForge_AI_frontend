@@ -1,7 +1,6 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { cardSurface, Theme } from '@/constants/theme';
 import {
-  dueTomorrow,
   isBeforeLocalToday,
   localDayFromDateInput,
   moveDueToLocalDay,
@@ -56,15 +55,6 @@ export function ItemRow({
     onReschedule(item, next);
   };
 
-  const onTomorrow = () => {
-    if (!onReschedule || rescheduling) return;
-    const next = dueTomorrow(item.dueAt);
-    onCloseDatePicker?.();
-    if (item.dueAt && new Date(item.dueAt).getTime() === new Date(next).getTime()) return;
-    haptics.light();
-    onReschedule(item, next);
-  };
-
   const onNativeChange = (event: DateTimePickerEvent, date?: Date) => {
     if (event.type === 'dismissed' || !date) {
       onCloseDatePicker?.();
@@ -99,27 +89,10 @@ export function ItemRow({
       </Pressable>
       <View style={styles.body}>
         <Text style={[styles.title, done && styles.titleDone]}>{item.text}</Text>
-        {due || overdue ? (
-          <View style={styles.meta}>
-            {due ? <Text style={styles.due}>{due}</Text> : null}
-            {overdue ? <Text style={styles.overdue}>Overdue</Text> : null}
-          </View>
-        ) : null}
+        {due ? <Text style={styles.due}>{due}</Text> : null}
         {canMove ? (
           <View style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Move to tomorrow"
-              disabled={rescheduling}
-              onPress={onTomorrow}
-              style={({ pressed }) => [
-                styles.tomorrow,
-                rescheduling && styles.disabled,
-                pressed && !rescheduling && styles.pressed,
-              ]}
-            >
-              <Text style={styles.tomorrowLabel}>Move to tomorrow</Text>
-            </Pressable>
+            {overdue ? <Text style={styles.overdue}>Overdue</Text> : null}
             {Platform.OS === 'web' ? (
               <View style={[styles.dateChip, rescheduling && styles.disabled]}>
                 <IconSymbol name="calendar" size={16} color={Theme.color.textSecondary} />
@@ -225,17 +198,18 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     fontWeight: '500',
   },
-  meta: {
+  due: {
     marginTop: 6,
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
+    color: Theme.color.textSecondary,
+  },
+  actions: {
+    marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 8,
-  },
-  due: {
-    fontSize: Theme.type.caption,
-    lineHeight: 18,
-    color: Theme.color.textSecondary,
   },
   overdue: {
     overflow: 'hidden',
@@ -247,24 +221,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '700',
     color: Theme.color.danger,
-  },
-  actions: {
-    marginTop: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tomorrow: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: Theme.radius.full,
-    backgroundColor: Theme.color.accentSoft,
-  },
-  tomorrowLabel: {
-    fontSize: Theme.type.caption,
-    fontWeight: '600',
-    color: Theme.color.accent,
   },
   dateChip: {
     flexDirection: 'row',
