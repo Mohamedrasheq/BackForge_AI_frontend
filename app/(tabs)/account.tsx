@@ -1,21 +1,31 @@
 import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { SecondaryButton } from '@/components/ui/secondary-button';
 import { TextButton } from '@/components/ui/text-button';
 import { Theme } from '@/constants/theme';
+import { useNotificationEnable } from '@/hooks/use-notification-enable';
 import { haptics } from '@/lib/haptics';
+import {
+  notificationStatusDetail,
+  notificationStatusLabel,
+} from '@/lib/notifications-enable';
 import { useOnboarding } from '@/lib/onboarding';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import Constants from 'expo-constants';
-import React, { useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
 export default function AccountScreen() {
   const { user } = useUser();
   const { signOut } = useAuth();
   const { resetSeen } = useOnboarding();
+  const { permission, registering, message, refreshPermission, enableAlerts } =
+    useNotificationEnable();
   const [signingOut, setSigningOut] = useState(false);
   const [onboardingReset, setOnboardingReset] = useState(false);
+  const [permissionCheckFailed, setPermissionCheckFailed] = useState(false);
 
   const name =
     user?.fullName ||
@@ -23,6 +33,14 @@ export default function AccountScreen() {
     'Signed in';
   const email = user?.primaryEmailAddress?.emailAddress ?? '';
   const version = Constants.expoConfig?.version ?? '1.0.0';
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshPermission()
+        .then(() => setPermissionCheckFailed(false))
+        .catch(() => setPermissionCheckFailed(true));
+    }, [refreshPermission])
+  );
 
   const onSignOut = async () => {
     if (signingOut) return;
@@ -34,6 +52,12 @@ export default function AccountScreen() {
       setSigningOut(false);
     }
   };
+
+  const statusLabel = permission ? notificationStatusLabel(permission) : null;
+  const statusDetail = permission
+    ? notificationStatusDetail(permission)
+    : 'Push delivery is not live yet.';
+  const showEnable = permission !== 'granted' && (permission !== null || permissionCheckFailed);
 
   return (
     <Screen>
@@ -54,12 +78,46 @@ export default function AccountScreen() {
           </View>
         </Card>
 
-        <TextButton
-          label={signingOut ? 'Signing out…' : 'Sign out'}
-          onPress={() => void onSignOut()}
-          tone="danger"
-          style={styles.signOut}
-        />
+        <Card style={styles.notifications}>
+          <View style={styles.statusRow}>
+            <Text style={styles.cardTitle}>Notifications</Text>
+            {statusLabel ? (
+              <Text
+                style={styles.statusValue}
+                accessibilityLabel={`Notifications ${statusLabel}`}
+              >
+                {statusLabel}
+              </Text>
+            ) : null}
+          </View>
+          <Text style={styles.cardBody}>{statusDetail}</Text>
+          {permission === 'granted' ? (
+            <TextButton
+              label={registering ? 'Refreshing…' : 'Refresh this device'}
+              onPress={() => void enableAlerts()}
+              disabled={registering}
+              tone="secondary"
+              style={styles.refresh}
+            />
+          ) : showEnable ? (
+            <SecondaryButton
+              label="Enable alerts"
+              onPress={() => void enableAlerts()}
+              loading={registering}
+              style={styles.enable}
+            />
+          ) : null}
+          {message ? <Text style={styles.message}>{message}</Text> : null}
+        </Card>
+
+        <View style={styles.signOutRow}>
+          <TextButton
+            label={signingOut ? 'Signing out…' : 'Sign out'}
+            onPress={() => void onSignOut()}
+            tone="danger"
+            style={styles.signOut}
+          />
+        </View>
 
         {__DEV__ ? (
           <View style={styles.dev}>
@@ -129,21 +187,68 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: Theme.color.textSecondary,
   },
-  signOut: {
+  notifications: {
+    marginTop: Theme.space.lg,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Theme.space.md,
+  },
+  cardTitle: {
+    fontSize: Theme.type.label,
+    fontWeight: '600',
+    color: Theme.color.text,
+  },
+  statusValue: {
+    flexShrink: 1,
+    textAlign: 'right',
+    fontSize: Theme.type.label,
+    fontWeight: '600',
+    color: Theme.color.textSecondary,
+  },
+  cardBody: {
+    marginTop: 4,
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
+    color: Theme.color.textSecondary,
+  },
+  enable: {
+    marginTop: Theme.space.sm,
+  },
+  refresh: {
     alignSelf: 'flex-start',
-    marginTop: Theme.space.xl,
+    marginTop: Theme.space.xs,
     paddingHorizontal: 0,
+  },
+  message: {
+    marginTop: Theme.space.sm,
+    color: Theme.color.textSecondary,
+    fontSize: Theme.type.caption,
+    lineHeight: 20,
+  },
+  signOutRow: {
+    marginTop: Theme.space.xl,
+    width: '100%',
+    alignItems: 'center',
+  },
+  signOut: {
+    alignSelf: 'center',
   },
   dev: {
-    marginTop: Theme.space.lg,
-    alignItems: 'flex-start',
+    marginTop: Theme.space.md,
+    width: '100%',
+    alignItems: 'center',
   },
   reset: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 0,
+    alignSelf: 'center',
   },
   devHint: {
     marginTop: Theme.space.xs,
+    textAlign: 'center',
     color: Theme.color.textTertiary,
     fontSize: Theme.type.caption,
     lineHeight: 18,

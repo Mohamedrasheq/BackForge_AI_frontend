@@ -1,27 +1,18 @@
-import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { ItemRow } from '@/components/ui/item-row';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
-import { SecondaryButton } from '@/components/ui/secondary-button';
-import { TextButton } from '@/components/ui/text-button';
 import { Theme } from '@/constants/theme';
+import { useNotificationEnable } from '@/hooks/use-notification-enable';
 import { isUpcoming } from '@/lib/format';
-import { haptics } from '@/lib/haptics';
-import { getItems, markItemDone, registerDevice } from '@/services/api';
-import {
-  getExpoPushToken,
-  getNotificationPermissionStatus,
-  requestNotificationPermission,
-  setupNotificationChannel,
-} from '@/services/notifications';
+import { getItems, markItemDone } from '@/services/api';
 import type { Item } from '@/types/api';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -30,36 +21,35 @@ import {
 } from 'react-native';
 
 export default function AlertsScreen() {
-  const [permission, setPermission] = useState<'granted' | 'denied' | 'undetermined'>(
-    'undetermined'
-  );
-  const [registering, setRegistering] = useState(false);
-  const [registerMessage, setRegisterMessage] = useState<string | null>(null);
+  const router = useRouter();
+  const { permission, refreshPermission } = useNotificationEnable();
   const [upcoming, setUpcoming] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    try {
-      const status = await getNotificationPermissionStatus();
-      setPermission(status);
-      const items = await getItems();
-      setUpcoming(
-        items
-          .filter((item) => item.status === 'open' && isUpcoming(item.dueAt))
-          .sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)))
-      );
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load alerts');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+  const load = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      try {
+        await refreshPermission();
+        const items = await getItems();
+        setUpcoming(
+          items
+            .filter((item) => item.status === 'open' && isUpcoming(item.dueAt))
+            .sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)))
+        );
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not load alerts');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [refreshPermission]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -67,46 +57,7 @@ export default function AlertsScreen() {
     }, [load])
   );
 
-  const enableAlerts = async () => {
-    setRegistering(true);
-    setRegisterMessage(null);
-    try {
-      await setupNotificationChannel();
-      const granted = await requestNotificationPermission();
-      setPermission(granted ? 'granted' : 'denied');
-      if (!granted) {
-        setRegisterMessage('Notifications are off. You can enable them in system settings.');
-        return;
-      }
-
-      if (Platform.OS === 'web') {
-        setRegisterMessage('Permission is on in this browser. Push delivery is not live yet.');
-        return;
-      }
-
-      const token = await getExpoPushToken();
-      if (!token) {
-        setRegisterMessage('A physical device is required to register. Push delivery is not live yet.');
-        return;
-      }
-
-      await registerDevice(token);
-      haptics.success();
-      setRegisterMessage('This device is registered. Push delivery is not live yet.');
-    } catch (err) {
-      haptics.error();
-      setRegisterMessage(err instanceof Error ? err.message : 'Could not register this device');
-    } finally {
-      setRegistering(false);
-    }
-  };
-
-  const permissionLabel =
-    permission === 'granted'
-      ? 'Notifications are on'
-      : permission === 'denied'
-        ? 'Notifications are off'
-        : 'Notifications not enabled yet';
+  const showPermissionTip = permission !== null && permission !== 'granted';
 
   return (
     <Screen>
@@ -124,6 +75,18 @@ export default function AlertsScreen() {
           />
         }
       >
+        {showPermissionTip ? (
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Turn on notifications in Account"
+            onPress={() => router.navigate('/(tabs)/account')}
+            hitSlop={8}
+            style={({ pressed }) => [styles.tip, pressed && styles.tipPressed]}
+          >
+            <Text style={styles.tipText}>Turn on notifications in Account</Text>
+          </Pressable>
+        ) : null}
+
         <Text style={styles.section}>Upcoming</Text>
         {loading && upcoming.length === 0 ? (
           <ActivityIndicator color={Theme.color.accent} style={styles.spinner} />
@@ -144,31 +107,6 @@ export default function AlertsScreen() {
             ))}
           </View>
         )}
-
-        <Card style={styles.permissionCard}>
-          <Text style={styles.cardTitle}>{permissionLabel}</Text>
-          <Text style={styles.cardBody}>
-            {permission === 'granted'
-              ? 'Permission is on for this device. Push delivery is not live yet.'
-              : 'You can allow notifications on this device. Push delivery is not live yet.'}
-          </Text>
-          {permission !== 'granted' ? (
-            <SecondaryButton
-              label="Enable alerts"
-              onPress={() => void enableAlerts()}
-              loading={registering}
-              style={styles.button}
-            />
-          ) : (
-            <TextButton
-              label={registering ? 'Refreshing…' : 'Refresh this device'}
-              onPress={() => void enableAlerts()}
-              tone="secondary"
-              style={styles.refresh}
-            />
-          )}
-          {registerMessage ? <Text style={styles.message}>{registerMessage}</Text> : null}
-        </Card>
       </ScrollView>
     </Screen>
   );
@@ -179,34 +117,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Theme.space.screenX,
     paddingBottom: Theme.space.listBottom,
   },
-  permissionCard: {
-    marginTop: Theme.space.xl,
-    paddingVertical: Theme.space.sm,
-  },
-  cardTitle: {
-    fontSize: Theme.type.label,
-    fontWeight: '600',
-    color: Theme.color.textSecondary,
-  },
-  cardBody: {
-    marginTop: 4,
-    fontSize: Theme.type.caption,
-    lineHeight: 18,
-    color: Theme.color.textSecondary,
-  },
-  button: {
-    marginTop: Theme.space.sm,
-  },
-  refresh: {
+  tip: {
     alignSelf: 'flex-start',
-    marginTop: Theme.space.xs,
-    paddingHorizontal: 0,
+    marginBottom: Theme.space.md,
   },
-  message: {
-    marginTop: Theme.space.sm,
-    color: Theme.color.textSecondary,
-    fontSize: Theme.type.caption,
+  tipPressed: {
+    opacity: 0.7,
+  },
+  tipText: {
+    fontSize: Theme.type.label,
     lineHeight: 20,
+    fontWeight: '600',
+    color: Theme.color.accent,
   },
   section: {
     marginBottom: Theme.space.md,
