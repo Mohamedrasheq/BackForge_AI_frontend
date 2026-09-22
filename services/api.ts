@@ -5,7 +5,7 @@
 
 import { getApiToken } from '@/lib/api-auth';
 import { audioPartFromUri, readTranscriptPayload } from '@/lib/transcribe-audio';
-import type { BulkCreateItem, Item, ProposedItem, UpdateItemDueRequest } from '@/types/api';
+import type { BulkCreateItem, Item, ProposedItem, UpdateItemRequest } from '@/types/api';
 import { Platform } from 'react-native';
 
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -219,11 +219,18 @@ export async function getItems(query?: string): Promise<Item[]> {
 }
 
 /**
- * Move an item to a new due instant.
- * Contract: `PATCH /items/:id` `{ due_at }` (same field as bulk create).
+ * Update a saved item's text and/or due time.
+ * Contract: `PATCH /items/:id` with `body` (same field as bulk create) and/or `due_at`.
+ * `due_at: null` clears the due time. Returns the updated item, or null on 204.
  */
-export async function updateItemDue(id: string, dueAt: string): Promise<Item | null> {
-  const body: UpdateItemDueRequest = { due_at: dueAt };
+export async function updateItem(
+  id: string,
+  patch: { text?: string; dueAt?: string | null }
+): Promise<Item | null> {
+  const body: UpdateItemRequest = {};
+  if (patch.text !== undefined) body.body = patch.text;
+  if (patch.dueAt !== undefined) body.due_at = patch.dueAt;
+
   const payload = await apiFetch<unknown>(`/items/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
@@ -232,6 +239,18 @@ export async function updateItemDue(id: string, dueAt: string): Promise<Item | n
   if (payload == null) return null;
   if (isRecord(payload)) return normalizeItem(payload.item ?? payload);
   return normalizeItem(payload);
+}
+
+/** Move an item to a new due instant. Same PATCH as `updateItem`, due only. */
+export async function updateItemDue(id: string, dueAt: string): Promise<Item | null> {
+  return updateItem(id, { dueAt });
+}
+
+/** Remove a saved item. Contract: `DELETE /items/:id`. */
+export async function deleteItem(id: string): Promise<void> {
+  await apiFetch<void>(`/items/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
 }
 
 export async function markItemDone(id: string): Promise<Item | null> {

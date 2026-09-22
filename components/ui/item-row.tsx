@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/ui/icon-button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { cardSurface, Theme } from '@/constants/theme';
 import {
@@ -21,6 +22,8 @@ export function ItemRow({
   datePickerOpen = false,
   onOpenDatePicker,
   onCloseDatePicker,
+  onEdit,
+  onDelete,
 }: {
   item: Item;
   onDone?: (item: Item) => void;
@@ -30,6 +33,9 @@ export function ItemRow({
   datePickerOpen?: boolean;
   onOpenDatePicker?: () => void;
   onCloseDatePicker?: () => void;
+  /** Saved-item edit. Omitted on Today so those rows stay as they are. */
+  onEdit?: (item: Item) => void;
+  onDelete?: (item: Item) => void;
 }) {
   const done = item.status === 'done';
   const due = formatDue(item.dueAt);
@@ -154,6 +160,27 @@ export function ItemRow({
           </View>
         ) : null}
       </View>
+      {onEdit || onDelete ? (
+        <View style={styles.side}>
+          {onEdit ? (
+            <IconButton
+              name="square.and.pencil"
+              size={32}
+              accessibilityLabel={`Edit ${item.text}`}
+              onPress={() => onEdit(item)}
+            />
+          ) : null}
+          {onDelete ? (
+            <IconButton
+              name="trash"
+              tone="danger"
+              size={32}
+              accessibilityLabel={`Delete ${item.text}`}
+              onPress={() => onDelete(item)}
+            />
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -186,6 +213,11 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     minWidth: 0,
+  },
+  side: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   title: {
     fontSize: Theme.type.itemTitle,
