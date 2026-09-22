@@ -1,6 +1,7 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { cardSurface, Theme } from '@/constants/theme';
 import {
+  dueTomorrow,
   isBeforeLocalToday,
   localDayFromDateInput,
   moveDueToLocalDay,
@@ -55,6 +56,15 @@ export function ItemRow({
     onReschedule(item, next);
   };
 
+  const onTomorrow = () => {
+    if (!onReschedule || rescheduling) return;
+    const next = dueTomorrow(item.dueAt);
+    onCloseDatePicker?.();
+    if (item.dueAt && new Date(item.dueAt).getTime() === new Date(next).getTime()) return;
+    haptics.light();
+    onReschedule(item, next);
+  };
+
   const onNativeChange = (event: DateTimePickerEvent, date?: Date) => {
     if (event.type === 'dismissed' || !date) {
       onCloseDatePicker?.();
@@ -89,13 +99,30 @@ export function ItemRow({
       </Pressable>
       <View style={styles.body}>
         <Text style={[styles.title, done && styles.titleDone]}>{item.text}</Text>
-        {due ? <Text style={styles.due}>{due}</Text> : null}
+        {due || (canMove && overdue) ? (
+          <View style={styles.meta}>
+            {due ? <Text style={styles.due}>{due}</Text> : null}
+            {canMove && overdue ? <Text style={styles.overdue}>Overdue</Text> : null}
+          </View>
+        ) : null}
         {canMove ? (
           <View style={styles.actions}>
-            {overdue ? <Text style={styles.overdue}>Overdue</Text> : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Move to tomorrow"
+              disabled={rescheduling}
+              onPress={onTomorrow}
+              style={({ pressed }) => [
+                styles.tomorrow,
+                rescheduling && styles.disabled,
+                pressed && !rescheduling && styles.pressed,
+              ]}
+            >
+              <Text style={styles.tomorrowLabel}>Tomorrow</Text>
+            </Pressable>
             {Platform.OS === 'web' ? (
               <View style={[styles.dateChip, rescheduling && styles.disabled]}>
-                <IconSymbol name="calendar" size={16} color={Theme.color.textSecondary} />
+                <IconSymbol name="calendar" size={14} color={Theme.color.textTertiary} />
                 <input
                   aria-label="Choose date"
                   type="date"
@@ -124,7 +151,7 @@ export function ItemRow({
                   pressed && !rescheduling && styles.pressed,
                 ]}
               >
-                <IconSymbol name="calendar" size={16} color={Theme.color.textSecondary} />
+                <IconSymbol name="calendar" size={14} color={Theme.color.textTertiary} />
                 <Text style={styles.dateLabel}>Date</Text>
               </Pressable>
             )}
@@ -164,7 +191,7 @@ const webDateStyle: React.CSSProperties = {
   background: 'transparent',
   color: Theme.color.textSecondary,
   fontSize: 13,
-  fontWeight: '600',
+  fontWeight: '500',
   fontFamily: 'inherit',
 };
 
@@ -191,6 +218,7 @@ const styles = StyleSheet.create({
     fontSize: Theme.type.itemTitle,
     lineHeight: 24,
     fontWeight: '600',
+    letterSpacing: -0.2,
     color: Theme.color.text,
   },
   titleDone: {
@@ -198,44 +226,64 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     fontWeight: '500',
   },
-  due: {
-    marginTop: 6,
-    fontSize: Theme.type.caption,
-    lineHeight: 18,
-    color: Theme.color.textSecondary,
-  },
-  actions: {
-    marginTop: 12,
+  meta: {
+    marginTop: 4,
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 8,
   },
+  due: {
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
+    fontWeight: '400',
+    color: Theme.color.textSecondary,
+  },
+  actions: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
   overdue: {
     overflow: 'hidden',
-    paddingVertical: 2,
+    paddingVertical: 1,
     paddingHorizontal: 8,
     borderRadius: Theme.radius.full,
     backgroundColor: Theme.color.dangerSoft,
     fontSize: Theme.type.caption,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Theme.color.danger,
+  },
+  tomorrow: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: Theme.radius.full,
+    borderWidth: 1,
+    borderColor: Theme.color.border,
+    backgroundColor: 'transparent',
+  },
+  tomorrowLabel: {
+    fontSize: Theme.type.caption,
+    fontWeight: '500',
+    color: Theme.color.textSecondary,
   },
   dateChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     borderRadius: Theme.radius.full,
     borderWidth: 1,
     borderColor: Theme.color.border,
-    backgroundColor: Theme.color.card,
+    backgroundColor: 'transparent',
   },
   dateLabel: {
     fontSize: Theme.type.caption,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Theme.color.textSecondary,
   },
   disabled: {

@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     height: 36,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     borderRadius: Theme.radius.full,
     borderWidth: 1,
     alignItems: 'center',
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   },
   chipActive: {
     backgroundColor: Theme.color.accentSoft,
-    borderColor: Theme.color.accentSoft,
+    borderColor: Theme.color.accent,
   },
   chipIdle: {
     backgroundColor: Theme.color.card,

@@ -210,18 +210,19 @@ export default function CaptureScreen() {
                     (pressed || transcribing) && styles.micPressed,
                   ]}
                 >
-                  {transcribing ? (
-                    <ActivityIndicator color={Theme.color.accent} />
-                  ) : (
-                    <IconSymbol
-                      name="mic.fill"
-                      size={28}
-                      color={recording ? Theme.color.white : Theme.color.accent}
-                    />
-                  )}
+                  <View style={[styles.micIcon, recording && styles.micIconActive]}>
+                    {transcribing ? (
+                      <ActivityIndicator color={Theme.color.accent} />
+                    ) : (
+                      <IconSymbol
+                        name="mic.fill"
+                        size={20}
+                        color={recording ? Theme.color.white : Theme.color.accent}
+                      />
+                    )}
+                  </View>
+                  <Text style={[styles.hint, recording && styles.hintActive]}>{hint}</Text>
                 </Pressable>
-
-                <Text style={styles.hint}>{hint}</Text>
 
                 {error || speechError ? (
                   <Text style={[styles.error, error === EMPTY_PARSE_MESSAGE && styles.gentle]}>
@@ -259,7 +260,7 @@ const styles = StyleSheet.create({
   composer: {
     ...cardSurface,
     flex: 1,
-    minHeight: 200,
+    minHeight: 220,
     borderRadius: Theme.radius.xl,
     padding: Theme.space.lg,
   },
@@ -268,34 +269,51 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 22,
-    lineHeight: 32,
+    fontSize: 24,
+    lineHeight: 34,
     color: Theme.color.text,
     fontWeight: '500',
   },
   mic: {
-    alignSelf: 'center',
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    marginTop: Theme.space.lg,
-    backgroundColor: Theme.color.accentSoft,
+    marginTop: Theme.space.md,
+    minHeight: 52,
+    borderRadius: Theme.radius.md,
+    borderWidth: 1,
+    borderColor: Theme.color.border,
+    backgroundColor: Theme.color.card,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: Theme.space.md,
+    paddingVertical: Theme.space.sm,
+    gap: 12,
   },
   micActive: {
-    backgroundColor: Theme.color.accent,
+    borderColor: Theme.color.accent,
+    backgroundColor: Theme.color.accentSoft,
   },
   micPressed: {
     opacity: 0.8,
   },
+  micIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Theme.color.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micIconActive: {
+    backgroundColor: Theme.color.accent,
+  },
   hint: {
-    marginTop: Theme.space.sm,
-    minHeight: 20,
-    textAlign: 'center',
-    color: Theme.color.textSecondary,
-    fontSize: Theme.type.caption,
-    lineHeight: 18,
+    flex: 1,
+    color: Theme.color.text,
+    fontSize: Theme.type.label,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  hintActive: {
+    color: Theme.color.accentPressed,
   },
   error: {
     marginTop: Theme.space.sm,
@@ -307,6 +325,6 @@ const styles = StyleSheet.create({
     color: Theme.color.textSecondary,
   },
   submit: {
-    marginTop: Theme.space.md,
+    marginTop: Theme.space.sm,
   },
 });

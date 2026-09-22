@@ -6,7 +6,7 @@ import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Theme } from '@/constants/theme';
 import { useAllItems } from '@/hooks/use-items';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import type { ItemStatus } from '@/types/api';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -22,6 +22,31 @@ const STATUS_OPTIONS: { value: ItemStatus; label: string }[] = [
   { value: 'open', label: 'Open' },
   { value: 'done', label: 'Done' },
 ];
+
+function emptyCopy(
+  query: string,
+  status: ItemStatus
+): { icon: IconSymbolName; title: string; description: string } {
+  if (query) {
+    return {
+      icon: 'magnifyingglass',
+      title: 'No matches',
+      description: status === 'done' ? 'No done items match that.' : 'No open items match that.',
+    };
+  }
+  if (status === 'done') {
+    return {
+      icon: 'checkmark',
+      title: 'Nothing done',
+      description: 'Nothing marked done yet.',
+    };
+  }
+  return {
+    icon: 'tray',
+    title: 'Nothing open',
+    description: 'Nothing open right now.',
+  };
+}
 
 export default function AllItemsScreen() {
   const [input, setInput] = useState('');
@@ -39,20 +64,14 @@ export default function AllItemsScreen() {
     [items, status]
   );
 
-  const emptyDescription = query
-    ? status === 'done'
-      ? 'No done items match that.'
-      : 'No open items match that.'
-    : status === 'done'
-      ? 'Nothing marked done yet.'
-      : 'Nothing open right now.';
+  const empty = emptyCopy(query, status);
 
   return (
     <Screen>
       <ScreenHeader title="All items" />
 
       <View style={styles.searchWrap}>
-        <IconSymbol name="magnifyingglass" size={20} color={Theme.color.textTertiary} />
+        <IconSymbol name="magnifyingglass" size={18} color={Theme.color.textSecondary} />
         <TextInput
           value={input}
           onChangeText={setInput}
@@ -89,7 +108,9 @@ export default function AllItemsScreen() {
               tintColor={Theme.color.accent}
             />
           }
-          ListEmptyComponent={<EmptyState description={emptyDescription} />}
+          ListEmptyComponent={
+            <EmptyState icon={empty.icon} title={empty.title} description={empty.description} />
+          }
           renderItem={({ item }) => (
             <ItemRow
               item={item}
@@ -105,8 +126,8 @@ export default function AllItemsScreen() {
 const styles = StyleSheet.create({
   searchWrap: {
     marginHorizontal: Theme.space.screenX,
-    marginBottom: Theme.space.md,
-    height: 48,
+    marginBottom: Theme.space.sm,
+    height: 44,
     borderRadius: Theme.radius.md,
     borderWidth: 1,
     borderColor: Theme.color.border,
@@ -114,12 +135,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Theme.space.md,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   search: {
     flex: 1,
     fontSize: Theme.type.body,
+    lineHeight: 22,
     color: Theme.color.text,
+    paddingVertical: 0,
   },
   list: {
     paddingHorizontal: Theme.space.screenX,
