@@ -4,6 +4,7 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { TextButton } from '@/components/ui/text-button';
 import { Theme } from '@/constants/theme';
 import { haptics } from '@/lib/haptics';
+import { useOnboarding } from '@/lib/onboarding';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import Constants from 'expo-constants';
 import React, { useState } from 'react';
@@ -12,7 +13,9 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 export default function AccountScreen() {
   const { user } = useUser();
   const { signOut } = useAuth();
+  const { resetSeen } = useOnboarding();
   const [signingOut, setSigningOut] = useState(false);
+  const [onboardingReset, setOnboardingReset] = useState(false);
 
   const name =
     user?.fullName ||
@@ -57,6 +60,23 @@ export default function AccountScreen() {
           tone="danger"
           style={styles.signOut}
         />
+
+        {__DEV__ ? (
+          <View style={styles.dev}>
+            <TextButton
+              label="Reset onboarding"
+              tone="secondary"
+              onPress={() => {
+                resetSeen();
+                setOnboardingReset(true);
+              }}
+              style={styles.reset}
+            />
+            {onboardingReset ? (
+              <Text style={styles.devHint}>Cleared. Sign out to see onboarding again.</Text>
+            ) : null}
+          </View>
+        ) : null}
 
         <Text style={styles.version}>{version}</Text>
       </View>
@@ -113,6 +133,20 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: Theme.space.xl,
     paddingHorizontal: 0,
+  },
+  dev: {
+    marginTop: Theme.space.lg,
+    alignItems: 'flex-start',
+  },
+  reset: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 0,
+  },
+  devHint: {
+    marginTop: Theme.space.xs,
+    color: Theme.color.textTertiary,
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
   },
   version: {
     marginTop: Theme.space.xxl,
