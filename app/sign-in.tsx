@@ -202,7 +202,7 @@ export default function SignInScreen() {
           <View style={styles.content}>
             <View style={styles.header}>
               <Text style={styles.title}>
-                {pendingVerification ? 'Check your email' : 'Welcome back'}
+                {pendingVerification ? 'Check your email' : 'Get started'}
               </Text>
               <Text style={styles.subtitle}>
                 {pendingVerification
