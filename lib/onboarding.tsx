@@ -1,12 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
+/** Device-local. Sign-out does not remove this; __DEV__ Account reset does. */
 const STORAGE_KEY = 'hasSeenOnboarding';
 
 type OnboardingState = {
   /** null while the device flag is still loading. */
   seen: boolean | null;
   markSeen: () => void;
+  resetSeen: () => void;
 };
 
 const OnboardingContext = createContext<OnboardingState | null>(null);
@@ -35,8 +37,17 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     });
   }, []);
 
+  const resetSeen = useCallback(() => {
+    setSeen(false);
+    void AsyncStorage.removeItem(STORAGE_KEY).catch(() => {
+      // In-memory flag still treats onboarding as unseen this session.
+    });
+  }, []);
+
   return (
-    <OnboardingContext.Provider value={{ seen, markSeen }}>{children}</OnboardingContext.Provider>
+    <OnboardingContext.Provider value={{ seen, markSeen, resetSeen }}>
+      {children}
+    </OnboardingContext.Provider>
   );
 }
 
