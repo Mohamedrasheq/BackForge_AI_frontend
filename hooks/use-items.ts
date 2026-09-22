@@ -1,6 +1,6 @@
 import { isAfterLocalToday } from '@/lib/due';
 import { haptics } from '@/lib/haptics';
-import { getItems, getTodayItems, markItemDone, updateItemDue } from '@/services/api';
+import { deleteItem, getItems, getTodayItems, markItemDone, updateItem, updateItemDue } from '@/services/api';
 import type { Item } from '@/types/api';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -143,5 +143,51 @@ export function useAllItems(query: string) {
     }
   }, [items]);
 
-  return { items, loading, refreshing, error, reload: load, markDone };
+  const saveItem = useCallback(async (id: string, patch: { text: string; dueAt: string | null }) => {
+    const previous = items;
+    setError(null);
+    setItems((current) =>
+      current.map((item) =>
+        item.id === id ? { ...item, text: patch.text, dueAt: patch.dueAt } : item
+      )
+    );
+    try {
+      const saved = await updateItem(id, patch);
+      if (saved) {
+        setItems((current) =>
+          current.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  text: saved.text || patch.text,
+                  dueAt: saved.dueAt ?? patch.dueAt,
+                  status: item.status,
+                }
+              : item
+          )
+        );
+      }
+    } catch (err) {
+      setItems(previous);
+      const message = err instanceof Error ? err.message : 'Could not save that';
+      setError(message);
+      throw err;
+    }
+  }, [items]);
+
+  const removeItem = useCallback(async (id: string) => {
+    const previous = items;
+    setError(null);
+    setItems((current) => current.filter((item) => item.id !== id));
+    try {
+      await deleteItem(id);
+    } catch (err) {
+      setItems(previous);
+      const message = err instanceof Error ? err.message : 'Could not delete that';
+      setError(message);
+      throw err;
+    }
+  }, [items]);
+
+  return { items, loading, refreshing, error, reload: load, markDone, saveItem, removeItem };
 }

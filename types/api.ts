@@ -33,9 +33,13 @@ export interface BulkCreateItem {
   due_at: string | null;
 }
 
-/** PATCH /items/:id — partial due update. Server field is `due_at`. */
-export interface UpdateItemDueRequest {
-  due_at: string;
+/**
+ * PATCH /items/:id — partial update.
+ * `body` matches bulk create. `due_at` is set or cleared (`null`).
+ */
+export interface UpdateItemRequest {
+  body?: string;
+  due_at?: string | null;
 }
 
 export interface DeviceRegisterResponse {

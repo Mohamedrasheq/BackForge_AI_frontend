@@ -1,4 +1,4 @@
-import { DueField } from '@/components/capture/due-field';
+import { EditableItemFields } from '@/components/items/editable-item-fields';
 import { Card } from '@/components/ui/card';
 import { IconButton } from '@/components/ui/icon-button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -15,7 +15,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
@@ -117,25 +116,16 @@ export function ConfirmItems({
                 onPress={() => removeAt(item.key)}
               />
             </View>
-            <TextInput
-              value={item.text}
+            <EditableItemFields
+              text={item.text}
               onChangeText={(text) => updateAt(item.key, { text })}
-              placeholder="Item"
-              placeholderTextColor={Theme.color.textTertiary}
-              selectionColor={Theme.color.accent}
-              cursorColor={Theme.color.accent}
-              style={styles.body}
-              multiline
-              textAlignVertical="top"
-            />
-            <DueField
-              value={item.dueAt}
+              dueAt={item.dueAt}
+              onChangeDue={(dueAt) => updateAt(item.key, { dueAt })}
               pickerOpen={activeDueKey === item.key}
               onOpenPicker={() => setActiveDueKey(item.key)}
               onClosePicker={() =>
                 setActiveDueKey((current) => (current === item.key ? null : current))
               }
-              onChange={(dueAt) => updateAt(item.key, { dueAt })}
             />
           </Card>
         ))}
@@ -200,15 +190,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: Theme.color.textSecondary,
-  },
-  body: {
-    minHeight: 72,
-    fontSize: 18,
-    lineHeight: 26,
-    color: Theme.color.text,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-    padding: 0,
   },
   add: {
     minHeight: 48,
