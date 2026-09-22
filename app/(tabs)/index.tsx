@@ -50,7 +50,9 @@ export default function TodayScreen() {
           }
           ListEmptyComponent={
             <EmptyState
-              description="Nothing needs you right now."
+              icon="calendar"
+              title="Nothing needs you right now."
+              description="Capture it when something comes up."
               actionLabel="Capture"
               onAction={() => router.navigate('/(tabs)/capture')}
             />

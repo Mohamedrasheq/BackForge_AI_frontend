@@ -80,19 +80,19 @@ export default function AlertsScreen() {
       }
 
       if (Platform.OS === 'web') {
-        setRegisterMessage('Alerts are ready in this browser. Push registration is for the mobile app.');
+        setRegisterMessage('Permission is on in this browser. Push delivery is not live yet.');
         return;
       }
 
       const token = await getExpoPushToken();
       if (!token) {
-        setRegisterMessage('Use a physical device to receive push alerts.');
+        setRegisterMessage('A physical device is required to register. Push delivery is not live yet.');
         return;
       }
 
       await registerDevice(token);
       haptics.success();
-      setRegisterMessage('This device will receive upcoming reminders.');
+      setRegisterMessage('This device is registered. Push delivery is not live yet.');
     } catch (err) {
       haptics.error();
       setRegisterMessage(err instanceof Error ? err.message : 'Could not register this device');
@@ -110,7 +110,7 @@ export default function AlertsScreen() {
 
   return (
     <Screen>
-      <ScreenHeader title="Alerts" subtitle="Reminders for what's coming up." />
+      <ScreenHeader title="Alerts" subtitle="What's coming up. Push delivery is not live yet." />
 
       {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
 
@@ -124,12 +124,33 @@ export default function AlertsScreen() {
           />
         }
       >
+        <Text style={styles.section}>Upcoming</Text>
+        {loading && upcoming.length === 0 ? (
+          <ActivityIndicator color={Theme.color.accent} style={styles.spinner} />
+        ) : upcoming.length === 0 ? (
+          <EmptyState
+            icon="bell.fill"
+            title="Nothing upcoming"
+            description="Nothing upcoming right now."
+          />
+        ) : (
+          <View style={styles.list}>
+            {upcoming.map((item) => (
+              <ItemRow
+                key={item.id}
+                item={item}
+                onDone={(next) => void markItemDone(next.id).then(() => load())}
+              />
+            ))}
+          </View>
+        )}
+
         <Card style={styles.permissionCard}>
           <Text style={styles.cardTitle}>{permissionLabel}</Text>
           <Text style={styles.cardBody}>
             {permission === 'granted'
-              ? 'We’ll nudge you when something is due.'
-              : 'Turn on alerts so timed items can reach you.'}
+              ? 'Permission is on for this device. Push delivery is not live yet.'
+              : 'You can allow notifications on this device. Push delivery is not live yet.'}
           </Text>
           {permission !== 'granted' ? (
             <SecondaryButton
@@ -148,23 +169,6 @@ export default function AlertsScreen() {
           )}
           {registerMessage ? <Text style={styles.message}>{registerMessage}</Text> : null}
         </Card>
-
-        <Text style={styles.section}>Upcoming</Text>
-        {loading && upcoming.length === 0 ? (
-          <ActivityIndicator color={Theme.color.accent} style={styles.spinner} />
-        ) : upcoming.length === 0 ? (
-          <EmptyState description="Nothing upcoming right now." />
-        ) : (
-          <View style={styles.list}>
-            {upcoming.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                onDone={(next) => void markItemDone(next.id).then(() => load())}
-              />
-            ))}
-          </View>
-        )}
       </ScrollView>
     </Screen>
   );
@@ -176,25 +180,26 @@ const styles = StyleSheet.create({
     paddingBottom: Theme.space.listBottom,
   },
   permissionCard: {
-    paddingVertical: Theme.space.md,
+    marginTop: Theme.space.xl,
+    paddingVertical: Theme.space.sm,
   },
   cardTitle: {
-    fontSize: Theme.type.itemTitle,
+    fontSize: Theme.type.label,
     fontWeight: '600',
-    color: Theme.color.text,
+    color: Theme.color.textSecondary,
   },
   cardBody: {
-    marginTop: 6,
-    fontSize: Theme.type.label,
-    lineHeight: 22,
+    marginTop: 4,
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
     color: Theme.color.textSecondary,
   },
   button: {
-    marginTop: Theme.space.md,
+    marginTop: Theme.space.sm,
   },
   refresh: {
     alignSelf: 'flex-start',
-    marginTop: Theme.space.sm,
+    marginTop: Theme.space.xs,
     paddingHorizontal: 0,
   },
   message: {
@@ -204,11 +209,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   section: {
-    marginTop: Theme.space.xl,
     marginBottom: Theme.space.md,
-    fontSize: Theme.type.label,
-    fontWeight: '600',
-    color: Theme.color.textSecondary,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+    color: Theme.color.text,
   },
   list: {
     gap: Theme.space.listGap,

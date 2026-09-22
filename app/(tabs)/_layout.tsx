@@ -4,6 +4,7 @@ import { Theme } from '@/constants/theme';
 import { useAuth } from '@clerk/clerk-expo';
 import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
+import { Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
@@ -19,19 +20,20 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Theme.color.accent,
-        tabBarInactiveTintColor: Theme.color.textTertiary,
+        tabBarInactiveTintColor: Theme.color.textSecondary,
         tabBarButton: HapticTab,
         tabBarHideOnKeyboard: false,
+        tabBarLabel: ({ focused, color, children }) => (
+          <Text style={{ color, fontSize: 11, lineHeight: 14, fontWeight: focused ? '700' : '500' }}>
+            {children}
+          </Text>
+        ),
         tabBarStyle: {
           height: 58 + insets.bottom,
           paddingTop: 6,
           paddingBottom: Math.max(insets.bottom, 8),
           backgroundColor: Theme.color.card,
           borderTopColor: Theme.color.border,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
         },
         tabBarItemStyle: {
           paddingVertical: 2,

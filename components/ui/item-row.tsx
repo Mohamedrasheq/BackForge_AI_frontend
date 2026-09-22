@@ -95,7 +95,7 @@ export function ItemRow({
             {overdue ? <Text style={styles.overdue}>Overdue</Text> : null}
             {Platform.OS === 'web' ? (
               <View style={[styles.dateChip, rescheduling && styles.disabled]}>
-                <IconSymbol name="calendar" size={16} color={Theme.color.textSecondary} />
+                <IconSymbol name="calendar" size={14} color={Theme.color.textTertiary} />
                 <input
                   aria-label="Choose date"
                   type="date"
@@ -124,7 +124,7 @@ export function ItemRow({
                   pressed && !rescheduling && styles.pressed,
                 ]}
               >
-                <IconSymbol name="calendar" size={16} color={Theme.color.textSecondary} />
+                <IconSymbol name="calendar" size={14} color={Theme.color.textTertiary} />
                 <Text style={styles.dateLabel}>Date</Text>
               </Pressable>
             )}
@@ -164,7 +164,7 @@ const webDateStyle: React.CSSProperties = {
   background: 'transparent',
   color: Theme.color.textSecondary,
   fontSize: 13,
-  fontWeight: '600',
+  fontWeight: '500',
   fontFamily: 'inherit',
 };
 
@@ -191,6 +191,7 @@ const styles = StyleSheet.create({
     fontSize: Theme.type.itemTitle,
     lineHeight: 24,
     fontWeight: '600',
+    letterSpacing: -0.2,
     color: Theme.color.text,
   },
   titleDone: {
@@ -199,17 +200,18 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   due: {
-    marginTop: 6,
+    marginTop: 4,
     fontSize: Theme.type.caption,
     lineHeight: 18,
+    fontWeight: '400',
     color: Theme.color.textSecondary,
   },
   actions: {
-    marginTop: 12,
+    marginTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   overdue: {
     overflow: 'hidden',
@@ -219,23 +221,23 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.color.dangerSoft,
     fontSize: Theme.type.caption,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Theme.color.danger,
   },
   dateChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     borderRadius: Theme.radius.full,
     borderWidth: 1,
     borderColor: Theme.color.border,
-    backgroundColor: Theme.color.card,
+    backgroundColor: 'transparent',
   },
   dateLabel: {
     fontSize: Theme.type.caption,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Theme.color.textSecondary,
   },
   disabled: {
