@@ -55,3 +55,14 @@ export function isAfterLocalToday(dueAt: string | null, now = new Date()): boole
   const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   return date.getTime() >= startOfTomorrow.getTime();
 }
+
+/**
+ * True when `dueAt` falls before the start of the local calendar day of `now`.
+ * Same-day times stay "today" (see `isAfterLocalToday`); only earlier days are overdue.
+ */
+export function isBeforeLocalToday(dueAt: string | null, now = new Date()): boolean {
+  const date = validDate(dueAt);
+  if (!date) return false;
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return date.getTime() < startOfToday.getTime();
+}
