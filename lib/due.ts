@@ -42,12 +42,6 @@ export function moveDueToLocalDay(dueAt: string | null, day: Date, now = new Dat
   return next.toISOString();
 }
 
-/** Shift the due instant onto the next local calendar day, keeping the time of day. */
-export function dueTomorrow(dueAt: string | null, now = new Date()): string {
-  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  return moveDueToLocalDay(dueAt, tomorrow, now);
-}
-
 /** True when the due instant falls on a later local calendar day than `now`. */
 export function isAfterLocalToday(dueAt: string | null, now = new Date()): boolean {
   const date = validDate(dueAt);
