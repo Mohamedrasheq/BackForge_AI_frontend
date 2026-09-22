@@ -1,5 +1,6 @@
 import { Theme } from '@/constants/theme';
 import { setApiTokenGetter } from '@/lib/api-auth';
+import { OnboardingProvider, useOnboarding } from '@/lib/onboarding';
 import { registerDevice } from '@/services/api';
 import {
   getExpoPushToken,
@@ -36,6 +37,7 @@ const tokenCache = {
 
 function InitialLayout() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { seen: hasSeenOnboarding } = useOnboarding();
   const segments = useSegments();
   const router = useRouter();
   const [ready, setReady] = useState(false);
@@ -79,37 +81,43 @@ function InitialLayout() {
   }, [router]);
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || hasSeenOnboarding === null) return;
 
-    const onSignIn = segments[0] === 'sign-in';
-    const inTabs = segments[0] === '(tabs)';
+    const route = segments[0];
+    const onSignIn = route === 'sign-in';
+    const onOnboarding = route === 'onboarding';
+    const inTabs = route === '(tabs)';
 
-    if (!isSignedIn) {
-      if (!onSignIn) {
+    if (isSignedIn) {
+      if (!inTabs) {
         setReady(false);
-        router.replace('/sign-in');
+        router.replace('/(tabs)');
         return;
       }
       setReady(true);
       return;
     }
 
-    if (!inTabs && !onSignIn) {
-      setReady(false);
-      router.replace('/(tabs)');
+    if (!hasSeenOnboarding) {
+      if (!onOnboarding) {
+        setReady(false);
+        router.replace('/onboarding');
+        return;
+      }
+      setReady(true);
       return;
     }
 
-    if (onSignIn) {
+    if (!onSignIn) {
       setReady(false);
-      router.replace('/(tabs)');
+      router.replace('/sign-in');
       return;
     }
 
     setReady(true);
-  }, [isLoaded, isSignedIn, segments, router]);
+  }, [isLoaded, isSignedIn, hasSeenOnboarding, segments, router]);
 
-  if (!isLoaded) {
+  if (!isLoaded || hasSeenOnboarding === null) {
     return (
       <View style={styles.boot}>
         <ActivityIndicator size="small" color={Theme.color.accent} />
@@ -127,6 +135,7 @@ function InitialLayout() {
         }}
       >
         <Stack.Screen name="index" />
+        <Stack.Screen name="onboarding" />
         <Stack.Screen name="sign-in" />
         <Stack.Screen name="(tabs)" />
       </Stack>
@@ -151,9 +160,11 @@ export default function RootLayout() {
 
   return (
     <ClerkProvider tokenCache={tokenCache} publishableKey={publishableKey}>
-      <ClerkLoaded>
-        <InitialLayout />
-      </ClerkLoaded>
+      <OnboardingProvider>
+        <ClerkLoaded>
+          <InitialLayout />
+        </ClerkLoaded>
+      </OnboardingProvider>
     </ClerkProvider>
   );
 }
