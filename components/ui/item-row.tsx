@@ -1,6 +1,12 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { cardSurface, Theme } from '@/constants/theme';
-import { dueTomorrow, localDayFromDateInput, moveDueToLocalDay, toLocalDateInputValue } from '@/lib/due';
+import {
+  dueTomorrow,
+  isBeforeLocalToday,
+  localDayFromDateInput,
+  moveDueToLocalDay,
+  toLocalDateInputValue,
+} from '@/lib/due';
 import { formatDue } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
 import type { Item } from '@/types/api';
@@ -28,6 +34,7 @@ export function ItemRow({
 }) {
   const done = item.status === 'done';
   const due = formatDue(item.dueAt);
+  const overdue = item.status === 'open' && isBeforeLocalToday(item.dueAt);
   const canMove = !done && Boolean(onReschedule);
   const [draft, setDraft] = useState<Date | null>(null);
 
@@ -92,7 +99,12 @@ export function ItemRow({
       </Pressable>
       <View style={styles.body}>
         <Text style={[styles.title, done && styles.titleDone]}>{item.text}</Text>
-        {due ? <Text style={styles.due}>{due}</Text> : null}
+        {due || overdue ? (
+          <View style={styles.meta}>
+            {due ? <Text style={styles.due}>{due}</Text> : null}
+            {overdue ? <Text style={styles.overdue}>Overdue</Text> : null}
+          </View>
+        ) : null}
         {canMove ? (
           <View style={styles.actions}>
             <Pressable
@@ -106,7 +118,7 @@ export function ItemRow({
                 pressed && !rescheduling && styles.pressed,
               ]}
             >
-              <Text style={styles.tomorrowLabel}>Tomorrow</Text>
+              <Text style={styles.tomorrowLabel}>Move to tomorrow</Text>
             </Pressable>
             {Platform.OS === 'web' ? (
               <View style={[styles.dateChip, rescheduling && styles.disabled]}>
@@ -213,11 +225,28 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     fontWeight: '500',
   },
-  due: {
+  meta: {
     marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  due: {
     fontSize: Theme.type.caption,
     lineHeight: 18,
     color: Theme.color.textSecondary,
+  },
+  overdue: {
+    overflow: 'hidden',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: Theme.radius.full,
+    backgroundColor: Theme.color.dangerSoft,
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: Theme.color.danger,
   },
   actions: {
     marginTop: 12,
