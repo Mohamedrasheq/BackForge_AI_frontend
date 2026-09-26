@@ -15,20 +15,12 @@ export function useTodayItems() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [movingId, setMovingId] = useState<string | null>(null);
-  const itemsRef = useRef(items);
   const requestId = useRef(0);
 
-  useEffect(() => {
-    itemsRef.current = items;
-  }, [items]);
-
-  const load = useCallback(async (isRefresh = false, silent = false) => {
+  const load = useCallback(async (isRefresh = false) => {
     const id = ++requestId.current;
-    if (!silent) {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-    }
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
 
     try {
       const next = (await getTodayItems()).filter((item) => visibleOnToday(item));
@@ -37,11 +29,9 @@ export function useTodayItems() {
       setError(null);
     } catch (err) {
       if (id !== requestId.current) return;
-      if (!silent) {
-        setError(err instanceof Error ? err.message : 'Could not load today');
-      }
+      setError(err instanceof Error ? err.message : 'Could not load today');
     } finally {
-      if (!silent && id === requestId.current) {
+      if (id === requestId.current) {
         setLoading(false);
         setRefreshing(false);
       }
@@ -65,35 +55,9 @@ export function useTodayItems() {
     }
   }, [items]);
 
-  const reschedule = useCallback(async (id: string, dueAt: string) => {
-    // Drop an in-flight today fetch so it cannot put the item back.
-    requestId.current += 1;
-    setRefreshing(false);
-    const previous = itemsRef.current;
-    setMovingId(id);
-    setItems(
-      previous
-        .map((item) => (item.id === id ? { ...item, dueAt } : item))
-        .filter((item) => visibleOnToday(item))
-    );
-    try {
-      await updateItemDue(id, dueAt);
-    } catch (err) {
-      setItems(previous);
-      haptics.error();
-      setError(err instanceof Error ? err.message : 'Could not move that');
-      return;
-    } finally {
-      setMovingId(null);
-    }
+  const reload = useCallback((isRefresh?: boolean) => load(Boolean(isRefresh)), [load]);
 
-    haptics.success();
-    await load(false, true);
-  }, [load]);
-
-  const reload = useCallback((isRefresh?: boolean) => load(Boolean(isRefresh), false), [load]);
-
-  return { items, loading, refreshing, error, reload, markDone, reschedule, movingId };
+  return { items, loading, refreshing, error, reload, markDone };
 }
 
 export function useAllItems(query: string) {
@@ -101,12 +65,20 @@ export function useAllItems(query: string) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
+  const itemsRef = useRef(items);
   const requestId = useRef(0);
 
-  const load = useCallback(async (isRefresh = false) => {
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  const load = useCallback(async (isRefresh = false, silent = false) => {
     const id = ++requestId.current;
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+    if (!silent) {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+    }
 
     try {
       const next = await getItems(query);
@@ -115,9 +87,11 @@ export function useAllItems(query: string) {
       setError(null);
     } catch (err) {
       if (id !== requestId.current) return;
-      setError(err instanceof Error ? err.message : 'Could not load items');
+      if (!silent) {
+        setError(err instanceof Error ? err.message : 'Could not load items');
+      }
     } finally {
-      if (id === requestId.current) {
+      if (!silent && id === requestId.current) {
         setLoading(false);
         setRefreshing(false);
       }
@@ -189,5 +163,46 @@ export function useAllItems(query: string) {
     }
   }, [items]);
 
-  return { items, loading, refreshing, error, reload: load, markDone, saveItem, removeItem };
+  const reschedule = useCallback(async (id: string, dueAt: string) => {
+    // Drop an in-flight list fetch so it cannot overwrite the new due time.
+    requestId.current += 1;
+    setLoading(false);
+    setRefreshing(false);
+    const previous = itemsRef.current;
+    setMovingId(id);
+    setItems(previous.map((item) => (item.id === id ? { ...item, dueAt } : item)));
+    try {
+      const saved = await updateItemDue(id, dueAt);
+      if (saved) {
+        setItems((current) =>
+          current.map((item) =>
+            item.id === id ? { ...item, dueAt: saved.dueAt ?? dueAt } : item
+          )
+        );
+      }
+    } catch (err) {
+      setItems(previous);
+      haptics.error();
+      setError(err instanceof Error ? err.message : 'Could not move that');
+      return;
+    } finally {
+      setMovingId(null);
+    }
+
+    haptics.success();
+    await load(false, true);
+  }, [load]);
+
+  return {
+    items,
+    loading,
+    refreshing,
+    error,
+    reload: load,
+    markDone,
+    saveItem,
+    removeItem,
+    reschedule,
+    movingId,
+  };
 }
