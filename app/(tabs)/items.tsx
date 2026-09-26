@@ -8,7 +8,9 @@ import { ItemRow } from '@/components/ui/item-row';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Theme } from '@/constants/theme';
+import { useCategories } from '@/hooks/use-categories';
 import { useAllItems } from '@/hooks/use-items';
+import { categoryLabelForItem, groupItemsByCategory } from '@/lib/categories';
 import { haptics } from '@/lib/haptics';
 import type { Item, ItemStatus } from '@/types/api';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -18,7 +20,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
+  SectionList,
   StyleSheet,
+  Text,
   TextInput,
   View,
 } from 'react-native';
@@ -59,6 +63,12 @@ export default function AllItemsScreen() {
   const [status, setStatus] = useState<ItemStatus>('open');
   const { items, loading, refreshing, error, reload, markDone, saveItem, removeItem, reschedule, movingId } =
     useAllItems(query);
+  const {
+    categories,
+    loading: categoriesLoading,
+    error: categoriesError,
+    reload: reloadCategories,
+  } = useCategories();
   const [datePickerId, setDatePickerId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -74,6 +84,11 @@ export default function AllItemsScreen() {
     () => items.filter((item) => item.status === status),
     [items, status]
   );
+  const doneSections = useMemo(
+    () => (status === 'done' ? groupItemsByCategory(visible, categories) : []),
+    [status, visible, categories]
+  );
+  const categoriesSettled = !categoriesLoading || Boolean(categoriesError);
 
   const empty = emptyCopy(query, status);
 
@@ -135,6 +150,7 @@ export default function AllItemsScreen() {
     return (
       <ItemRow
         item={item}
+        categoryLabel={open ? categoryLabelForItem(item, categories) : null}
         onDone={open ? (next) => void markDone(next.id) : undefined}
         onReschedule={
           open
@@ -207,6 +223,45 @@ export default function AllItemsScreen() {
           <View style={styles.centered}>
             <ActivityIndicator color={Theme.color.accent} />
           </View>
+        ) : status === 'done' && !categoriesSettled && visible.length > 0 ? (
+          <View style={styles.centered}>
+            <ActivityIndicator color={Theme.color.accent} />
+          </View>
+        ) : status === 'done' ? (
+          <SectionList
+            sections={doneSections}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.list}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
+            stickySectionHeadersEnabled={false}
+            extraData={`${editingId ?? ''}:${pendingDeleteId ?? ''}:${saving}:${datePickerId ?? ''}:${movingId ?? ''}:${categories.map((category) => category.id).join(',')}`}
+            ItemSeparatorComponent={() => <View style={styles.sep} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => {
+                  void reload(true);
+                  void reloadCategories();
+                }}
+                tintColor={Theme.color.accent}
+              />
+            }
+            ListEmptyComponent={
+              <EmptyState icon={empty.icon} title={empty.title} description={empty.description} />
+            }
+            renderSectionHeader={({ section }) => (
+              <Text
+                style={[
+                  styles.sectionHeader,
+                  section === doneSections[0] && styles.sectionHeaderFirst,
+                ]}
+              >
+                {section.title}
+              </Text>
+            )}
+            renderItem={renderItem}
+          />
         ) : (
           <FlatList
             data={visible}
@@ -214,12 +269,15 @@ export default function AllItemsScreen() {
             contentContainerStyle={styles.list}
             keyboardShouldPersistTaps="handled"
             automaticallyAdjustKeyboardInsets
-            extraData={`${editingId ?? ''}:${pendingDeleteId ?? ''}:${saving}:${datePickerId ?? ''}:${movingId ?? ''}`}
+            extraData={`${editingId ?? ''}:${pendingDeleteId ?? ''}:${saving}:${datePickerId ?? ''}:${movingId ?? ''}:${categories.map((category) => category.id).join(',')}`}
             ItemSeparatorComponent={() => <View style={styles.sep} />}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
-                onRefresh={() => void reload(true)}
+                onRefresh={() => {
+                  void reload(true);
+                  void reloadCategories();
+                }}
                 tintColor={Theme.color.accent}
               />
             }
@@ -276,6 +334,17 @@ const styles = StyleSheet.create({
   },
   sep: {
     height: Theme.space.listGap,
+  },
+  sectionHeader: {
+    marginTop: Theme.space.lg,
+    marginBottom: Theme.space.sm,
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: Theme.color.textSecondary,
+  },
+  sectionHeaderFirst: {
+    marginTop: 0,
   },
   centered: {
     flex: 1,

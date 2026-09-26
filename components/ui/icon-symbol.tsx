@@ -17,6 +17,8 @@ const MAPPING = {
   'arrow.up.circle.fill': 'arrow-circle-up',
   'chevron.left': 'chevron-left',
   'chevron.right': 'chevron-right',
+  'chevron.down': 'expand-more',
+  tag: 'label',
   xmark: 'close',
   trash: 'delete',
   'square.and.pencil': 'edit',
