@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export function CategoryPickerSheet({
   categories,
   selectedId,
+  pendingName,
   listError,
   onRetry,
   onSelect,
@@ -30,6 +31,8 @@ export function CategoryPickerSheet({
 }: {
   categories: Category[];
   selectedId: string | null;
+  /** Invented name shown on the chip. Unfiled stays unselected until the user picks it. */
+  pendingName?: string | null;
   listError: string | null;
   onRetry?: () => void;
   onSelect: (folderId: string | null, name: string | null) => void;
@@ -42,6 +45,13 @@ export function CategoryPickerSheet({
   const [createError, setCreateError] = useState<string | null>(null);
   const trimmed = draft.trim();
   const canAdd = trimmed.length > 0 && !creating;
+  const pendingLabel = pendingName?.trim() ?? '';
+  const pendingKey = pendingLabel.toLowerCase();
+  const pendingExisting = pendingKey
+    ? categories.find((category) => category.name.trim().toLowerCase() === pendingKey)
+    : undefined;
+  const inventing = Boolean(pendingLabel) && !pendingExisting && selectedId === null;
+  const unfiledSelected = selectedId === null && !inventing && !pendingExisting;
 
   const close = () => {
     if (creating) return;
@@ -111,14 +121,25 @@ export function CategoryPickerSheet({
             >
               <CategoryOption
                 label={UNFILED_LABEL}
-                selected={selectedId === null}
+                selected={unfiledSelected}
                 onPress={() => choose(null, null)}
               />
+              {inventing ? (
+                <CategoryOption
+                  label={pendingLabel}
+                  hint="New"
+                  selected
+                  onPress={() => choose(null, pendingLabel)}
+                />
+              ) : null}
               {categories.map((category) => (
                 <CategoryOption
                   key={category.id}
                   label={category.name}
-                  selected={category.id === selectedId}
+                  selected={
+                    category.id === selectedId ||
+                    (selectedId === null && pendingExisting?.id === category.id)
+                  }
                   onPress={() => choose(category.id, category.name)}
                 />
               ))}
@@ -167,10 +188,12 @@ export function CategoryPickerSheet({
 
 function CategoryOption({
   label,
+  hint,
   selected,
   onPress,
 }: {
   label: string;
+  hint?: string;
   selected: boolean;
   onPress: () => void;
 }) {
@@ -178,13 +201,16 @@ function CategoryOption({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      accessibilityLabel={label}
+      accessibilityLabel={hint ? `${label}, ${hint}` : label}
       onPress={onPress}
       style={({ pressed }) => [styles.option, selected && styles.optionSelected, pressed && styles.pressed]}
     >
-      <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]} numberOfLines={1}>
-        {label}
-      </Text>
+      <View style={styles.optionLabelRow}>
+        <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]} numberOfLines={1}>
+          {label}
+        </Text>
+        {hint ? <Text style={styles.optionHint}>{hint}</Text> : null}
+      </View>
       {selected ? <IconSymbol name="checkmark" size={18} color={Theme.color.accent} /> : null}
     </Pressable>
   );
@@ -252,12 +278,26 @@ const styles = StyleSheet.create({
   optionSelected: {
     backgroundColor: Theme.color.accentSoft,
   },
-  optionLabel: {
+  optionLabelRow: {
     flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  optionLabel: {
+    flexShrink: 1,
     fontSize: Theme.type.body,
     lineHeight: 22,
     fontWeight: '500',
     color: Theme.color.text,
+  },
+  optionHint: {
+    flexShrink: 0,
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: Theme.color.accent,
   },
   optionLabelSelected: {
     fontWeight: '600',

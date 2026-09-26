@@ -13,11 +13,21 @@ export const API_BASE = (ENV_API_URL || 'https://back-forge-ai.vercel.app/api').
 
 export class ApiError extends Error {
   status: number;
+  code: string | null;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code: string | null = null) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.code = code;
+  }
+}
+
+/** POST /categories rejected the name because the user already has it. */
+export class DuplicateCategoryError extends ApiError {
+  constructor(message: string, status: number) {
+    super(message, status, 'duplicate_category');
+    this.name = 'DuplicateCategoryError';
   }
 }
 
@@ -82,6 +92,17 @@ function readSuggestedCategory(raw: Record<string, unknown>): string | null {
   return null;
 }
 
+function readSuggestedIsNew(raw: Record<string, unknown>): boolean {
+  const value = raw.suggested_is_new ?? raw.suggestedIsNew;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === 'true' || normalized === '1';
+  }
+  return false;
+}
+
 export function normalizeCategory(raw: unknown): Category | null {
   if (!isRecord(raw)) return null;
   const id =
@@ -140,10 +161,11 @@ export function normalizeProposedItem(raw: unknown): ProposedItem | null {
   return {
     text,
     dueAt: readDueAt(raw),
-    // Assignment happens in the confirm UI, only after a suggestion matches an existing category.
+    // Confirm applies a match, or holds an invented name until the user saves.
     folderId: null,
     suggestedFolderId: readSuggestedFolderId(raw),
     suggestedCategory: readSuggestedCategory(raw),
+    suggestedIsNew: readSuggestedIsNew(raw),
   };
 }
 
@@ -202,14 +224,45 @@ function readErrorMessage(payload: unknown): string | null {
   );
 }
 
-async function readError(response: Response): Promise<string> {
+function readFailureCode(payload: unknown): string | null {
+  if (!isRecord(payload)) return null;
+  const explicit = readString(payload.code, payload.error_code, payload.errorCode);
+  if (explicit) return explicit;
+  if (typeof payload.error === 'string' && /^[A-Za-z0-9_:-]+$/.test(payload.error.trim())) {
+    return payload.error.trim();
+  }
+  return null;
+}
+
+async function readFailure(response: Response): Promise<{ message: string; code: string | null }> {
   try {
     const body = await response.json();
-    return readErrorMessage(body) || `Request failed (${response.status})`;
+    return {
+      message: readErrorMessage(body) || `Request failed (${response.status})`,
+      code: readFailureCode(body),
+    };
   } catch {
     // ignore parse failure
   }
-  return `Request failed (${response.status})`;
+  return { message: `Request failed (${response.status})`, code: null };
+}
+
+async function readError(response: Response): Promise<string> {
+  return (await readFailure(response)).message;
+}
+
+function isDuplicateCategoryFailure(status: number, message: string, code: string | null): boolean {
+  if (status === 409) return true;
+  const haystack = `${code ?? ''} ${message}`.toLowerCase();
+  return (
+    haystack.includes('duplicate_category') ||
+    haystack.includes('duplicate category') ||
+    haystack.includes('already exists') ||
+    haystack.includes('category already') ||
+    haystack.includes('category_exists') ||
+    haystack.includes('name_taken') ||
+    haystack.includes('name already')
+  );
 }
 
 async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -230,7 +283,8 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new ApiError(await readError(response), response.status);
+    const failure = await readFailure(response);
+    throw new ApiError(failure.message, response.status, failure.code);
   }
 
   if (response.status === 204) {
@@ -344,19 +398,30 @@ export async function listCategories(): Promise<Category[]> {
   return normalizeCategories(await apiFetch<unknown>('/categories'));
 }
 
-/** Create a category the user named. Callers must not use this for parse suggestions. */
+/**
+ * Create a category. Invented parse names are sent here only after Confirm.
+ * A name the user already has throws `DuplicateCategoryError` so the caller can reuse it.
+ */
 export async function createCategory(name: string): Promise<Category> {
-  const payload = await apiFetch<unknown>('/categories', {
-    method: 'POST',
-    body: JSON.stringify({ name: name.trim() }),
-  });
-  const category = isRecord(payload)
-    ? normalizeCategory(payload.category ?? payload.folder ?? payload)
-    : normalizeCategory(payload);
-  if (!category) {
-    throw new Error('Could not add that category');
+  try {
+    const payload = await apiFetch<unknown>('/categories', {
+      method: 'POST',
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    const category = isRecord(payload)
+      ? normalizeCategory(payload.category ?? payload.folder ?? payload)
+      : normalizeCategory(payload);
+    if (!category) {
+      throw new Error('Could not add that category');
+    }
+    return category;
+  } catch (err) {
+    if (err instanceof DuplicateCategoryError) throw err;
+    if (err instanceof ApiError && isDuplicateCategoryFailure(err.status, err.message, err.code)) {
+      throw new DuplicateCategoryError(err.message, err.status);
+    }
+    throw err;
   }
-  return category;
 }
 
 export async function updateCategory(id: string, name: string): Promise<Category | null> {

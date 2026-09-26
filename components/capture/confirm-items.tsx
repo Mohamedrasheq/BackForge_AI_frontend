@@ -7,7 +7,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Theme } from '@/constants/theme';
-import { matchSuggestedCategory, UNFILED_LABEL } from '@/lib/categories';
+import { resolveCategorySuggestion, UNFILED_LABEL } from '@/lib/categories';
 import { haptics } from '@/lib/haptics';
 import type { Category, ProposedItem } from '@/types/api';
 import React, { useEffect, useState } from 'react';
@@ -27,8 +27,11 @@ export type DraftItem = {
   dueAt: string | null;
   folderId: string | null;
   categoryName: string | null;
+  /** Invented name on the chip. Confirm creates it. Folder id stays null until then. */
+  pendingNew: boolean;
   suggestedFolderId: string | null;
   suggestedCategory: string | null;
+  suggestedIsNew: boolean;
   /** True after the user picks a category or Unfiled, so a late suggestion cannot overwrite it. */
   categoryChosen: boolean;
 };
@@ -41,8 +44,10 @@ export function createDraftItem(
     dueAt?: string | null;
     folderId?: string | null;
     categoryName?: string | null;
+    pendingNew?: boolean;
     suggestedFolderId?: string | null;
     suggestedCategory?: string | null;
+    suggestedIsNew?: boolean;
     categoryChosen?: boolean;
   },
   categories: Category[] = []
@@ -50,20 +55,26 @@ export function createDraftItem(
   draftKeySeq += 1;
   const suggestedFolderId = item?.suggestedFolderId ?? null;
   const suggestedCategory = item?.suggestedCategory ?? null;
+  const suggestedIsNew = item?.suggestedIsNew ?? false;
   const categoryChosen = item?.categoryChosen ?? false;
-  const matched = categoryChosen
+  const resolved = categoryChosen
     ? null
-    : matchSuggestedCategory({ suggestedFolderId, suggestedCategory }, categories);
+    : resolveCategorySuggestion(
+        { suggestedFolderId, suggestedCategory, suggestedIsNew },
+        categories
+      );
 
   return {
     // Monotonic counter — Date.now() alone collides when mapping a parse result.
     key: `draft-${draftKeySeq}`,
     text: item?.text ?? '',
     dueAt: item?.dueAt ?? null,
-    folderId: categoryChosen ? (item?.folderId ?? null) : (matched?.id ?? null),
-    categoryName: categoryChosen ? (item?.categoryName ?? null) : (matched?.name ?? null),
+    folderId: categoryChosen ? (item?.folderId ?? null) : (resolved?.folderId ?? null),
+    categoryName: categoryChosen ? (item?.categoryName ?? null) : (resolved?.categoryName ?? null),
+    pendingNew: categoryChosen ? (item?.pendingNew ?? false) : (resolved?.pendingNew ?? false),
     suggestedFolderId,
     suggestedCategory,
+    suggestedIsNew,
     categoryChosen,
   };
 }
@@ -71,22 +82,28 @@ export function createDraftItem(
 export function patchDraftByKey(
   items: DraftItem[],
   key: string,
-  patch: Partial<Pick<DraftItem, 'text' | 'dueAt' | 'folderId' | 'categoryName' | 'categoryChosen'>>
+  patch: Partial<
+    Pick<DraftItem, 'text' | 'dueAt' | 'folderId' | 'categoryName' | 'pendingNew' | 'categoryChosen'>
+  >
 ): DraftItem[] {
   return items.map((item) => (item.key === key ? { ...item, ...patch } : item));
 }
 
-/** Fill chips from suggestions that match a category the user already has. Never creates one. */
+/** Fill chips from a matching category, or from an invented name. Never creates one. */
 export function applyCategorySuggestions(items: DraftItem[], categories: Category[]): DraftItem[] {
   let changed = false;
   const next = items.map((item) => {
     if (item.categoryChosen) return item;
-    const matched = matchSuggestedCategory(item, categories);
-    const folderId = matched?.id ?? null;
-    const categoryName = matched?.name ?? null;
-    if (folderId === item.folderId && categoryName === item.categoryName) return item;
+    const resolved = resolveCategorySuggestion(item, categories);
+    if (
+      resolved.folderId === item.folderId &&
+      resolved.categoryName === item.categoryName &&
+      resolved.pendingNew === item.pendingNew
+    ) {
+      return item;
+    }
     changed = true;
-    return { ...item, folderId, categoryName };
+    return { ...item, ...resolved };
   });
   return changed ? next : items;
 }
@@ -99,6 +116,7 @@ export function saveableDraftItems(items: DraftItem[]): ProposedItem[] {
       folderId: item.folderId,
       suggestedFolderId: null,
       suggestedCategory: null,
+      suggestedIsNew: false,
     }))
     .filter((item) => item.text.length > 0);
 }
@@ -141,7 +159,9 @@ export function ConfirmItems({
 
   const updateAt = (
     key: string,
-    patch: Partial<Pick<DraftItem, 'text' | 'dueAt' | 'folderId' | 'categoryName' | 'categoryChosen'>>
+    patch: Partial<
+      Pick<DraftItem, 'text' | 'dueAt' | 'folderId' | 'categoryName' | 'pendingNew' | 'categoryChosen'>
+    >
   ) => {
     onChange((prev) => patchDraftByKey(prev, key, patch));
   };
@@ -203,7 +223,8 @@ export function ConfirmItems({
             />
             <CategoryChip
               label={item.categoryName ?? UNFILED_LABEL}
-              assigned={Boolean(item.folderId)}
+              assigned={Boolean(item.folderId) || item.pendingNew}
+              hint={item.pendingNew ? 'New' : undefined}
               onPress={() => {
                 setActiveDueKey((current) => (current === item.key ? null : current));
                 setActiveCategoryKey(item.key);
@@ -239,14 +260,17 @@ export function ConfirmItems({
         <CategoryPickerSheet
           categories={categories}
           selectedId={activeCategory.folderId}
+          pendingName={activeCategory.pendingNew ? activeCategory.categoryName : null}
           listError={categories.length === 0 ? categoriesError : null}
           onRetry={onReloadCategories}
           onCreate={onCreateCategory}
           onSelect={(folderId, name) => {
+            const trimmed = name?.trim() ?? '';
             updateAt(activeCategory.key, {
               folderId,
-              categoryName: name,
+              categoryName: trimmed || null,
               categoryChosen: true,
+              pendingNew: !folderId && trimmed.length > 0,
             });
             setActiveCategoryKey(null);
           }}
