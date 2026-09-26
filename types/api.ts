@@ -23,7 +23,9 @@ export interface Category {
 
 /**
  * Proposed item from POST /items/parse — no server id until bulk save.
- * Suggestions are hints only. They are applied when they match an existing category.
+ * A suggestion that matches an existing category is prefilled.
+ * `suggestedIsNew` with a name is shown on the chip and created on Confirm.
+ * Parse itself never creates a category.
  */
 export interface ProposedItem {
   text: string;
@@ -31,6 +33,8 @@ export interface ProposedItem {
   folderId: string | null;
   suggestedFolderId: string | null;
   suggestedCategory: string | null;
+  /** True when the model invented a category the user does not have yet. */
+  suggestedIsNew: boolean;
 }
 
 export interface CaptureResponse {

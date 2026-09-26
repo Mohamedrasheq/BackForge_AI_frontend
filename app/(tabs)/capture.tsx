@@ -14,8 +14,14 @@ import { TextButton } from '@/components/ui/text-button';
 import { cardSurface, Theme } from '@/constants/theme';
 import { useCaptureRecording } from '@/hooks/use-capture-recording';
 import { useCategories } from '@/hooks/use-categories';
+import {
+  applyCreatedCategories,
+  categoryNameKey,
+  collectPendingCategoryNames,
+  createPendingCategoryNames,
+} from '@/lib/categories';
 import { haptics } from '@/lib/haptics';
-import { bulkCreateItems, parseItems } from '@/services/api';
+import { bulkCreateItems, listCategories, parseItems } from '@/services/api';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import {
@@ -38,7 +44,13 @@ export default function CaptureScreen() {
   const inputRef = useRef<TextInput>(null);
   const [text, setText] = useState('');
   const [phase, setPhase] = useState<'compose' | 'confirm'>('compose');
-  const [rows, setRows] = useState<DraftItem[]>([]);
+  const [rows, setRowsState] = useState<DraftItem[]>([]);
+  const rowsRef = useRef(rows);
+  const setRows = useCallback((update: React.SetStateAction<DraftItem[]>) => {
+    const next = typeof update === 'function' ? update(rowsRef.current) : update;
+    rowsRef.current = next;
+    setRowsState(next);
+  }, []);
   const [submitting, setSubmitting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -121,7 +133,7 @@ export default function CaptureScreen() {
   };
 
   const onConfirm = async () => {
-    const items = saveableDraftItems(rows);
+    const items = saveableDraftItems(rowsRef.current);
     if (items.length === 0) {
       setError(EMPTY_PARSE_MESSAGE);
       return;
@@ -129,7 +141,31 @@ export default function CaptureScreen() {
     setConfirming(true);
     setError(null);
     try {
-      await bulkCreateItems(items);
+      const names = collectPendingCategoryNames(rowsRef.current);
+      if (names.length > 0) {
+        try {
+          await createPendingCategoryNames(names, {
+            known: categories,
+            create: createCategory,
+            list: listCategories,
+            onCreated: (key, category) => {
+              setRows((current) => applyCreatedCategories(current, new Map([[key, category]])));
+            },
+            stillPending: (key) =>
+              collectPendingCategoryNames(rowsRef.current).some(
+                (name) => categoryNameKey(name) === key
+              ),
+          });
+        } finally {
+          void reloadCategories();
+        }
+      }
+      const ready = saveableDraftItems(rowsRef.current);
+      if (ready.length === 0) {
+        setError(EMPTY_PARSE_MESSAGE);
+        return;
+      }
+      await bulkCreateItems(ready);
       haptics.success();
       setText('');
       setRows([]);

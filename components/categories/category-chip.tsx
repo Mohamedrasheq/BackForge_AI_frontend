@@ -7,15 +7,19 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 export function CategoryChip({
   label,
   assigned = true,
+  hint,
   onPress,
 }: {
   label: string;
   /** False when the row is Unfiled and the chip is there so it can be changed. */
   assigned?: boolean;
+  /** Short suffix such as "New" for a category that will be created on confirm. */
+  hint?: string;
   onPress?: () => void;
 }) {
   const quiet = !assigned;
   const color = quiet ? Theme.color.textSecondary : Theme.color.accent;
+  const accessibleName = hint ? `Category ${label}, ${hint}` : `Category ${label}`;
 
   const content = (
     <>
@@ -23,13 +27,14 @@ export function CategoryChip({
       <Text style={[styles.label, quiet ? styles.labelQuiet : styles.labelSet]} numberOfLines={1}>
         {label}
       </Text>
+      {hint ? <Text style={[styles.hint, quiet ? styles.hintQuiet : styles.hintSet]}>{hint}</Text> : null}
       {onPress ? <IconSymbol name="chevron.down" size={14} color={color} /> : null}
     </>
   );
 
   if (!onPress) {
     return (
-      <View accessible accessibilityLabel={`Category ${label}`} style={[styles.chip, styles.chipSet]}>
+      <View accessible accessibilityLabel={accessibleName} style={[styles.chip, styles.chipSet]}>
         {content}
       </View>
     );
@@ -38,7 +43,7 @@ export function CategoryChip({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Category ${label}. Change category`}
+      accessibilityLabel={`${accessibleName}. Change category`}
       onPress={() => {
         haptics.light();
         onPress();
@@ -89,5 +94,18 @@ const styles = StyleSheet.create({
   labelQuiet: {
     color: Theme.color.textSecondary,
     fontWeight: '500',
+  },
+  hint: {
+    flexShrink: 0,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  hintSet: {
+    color: Theme.color.accent,
+  },
+  hintQuiet: {
+    color: Theme.color.textSecondary,
+    fontWeight: '600',
   },
 });
