@@ -16,7 +16,6 @@ import type { Item, ItemStatus } from '@/types/api';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
@@ -84,9 +83,9 @@ export default function AllItemsScreen() {
     () => items.filter((item) => item.status === status),
     [items, status]
   );
-  const doneSections = useMemo(
-    () => (status === 'done' ? groupItemsByCategory(visible, categories) : []),
-    [status, visible, categories]
+  const sections = useMemo(
+    () => groupItemsByCategory(visible, categories),
+    [visible, categories]
   );
   const categoriesSettled = !categoriesLoading || Boolean(categoriesError);
 
@@ -223,13 +222,14 @@ export default function AllItemsScreen() {
           <View style={styles.centered}>
             <ActivityIndicator color={Theme.color.accent} />
           </View>
-        ) : status === 'done' && !categoriesSettled && visible.length > 0 ? (
+        ) : !categoriesSettled && visible.length > 0 ? (
           <View style={styles.centered}>
             <ActivityIndicator color={Theme.color.accent} />
           </View>
-        ) : status === 'done' ? (
+        ) : (
           <SectionList
-            sections={doneSections}
+            key={status}
+            sections={sections}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
             keyboardShouldPersistTaps="handled"
@@ -254,36 +254,12 @@ export default function AllItemsScreen() {
               <Text
                 style={[
                   styles.sectionHeader,
-                  section === doneSections[0] && styles.sectionHeaderFirst,
+                  section === sections[0] && styles.sectionHeaderFirst,
                 ]}
               >
                 {section.title}
               </Text>
             )}
-            renderItem={renderItem}
-          />
-        ) : (
-          <FlatList
-            data={visible}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.list}
-            keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets
-            extraData={`${editingId ?? ''}:${pendingDeleteId ?? ''}:${saving}:${datePickerId ?? ''}:${movingId ?? ''}:${categories.map((category) => category.id).join(',')}`}
-            ItemSeparatorComponent={() => <View style={styles.sep} />}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => {
-                  void reload(true);
-                  void reloadCategories();
-                }}
-                tintColor={Theme.color.accent}
-              />
-            }
-            ListEmptyComponent={
-              <EmptyState icon={empty.icon} title={empty.title} description={empty.description} />
-            }
             renderItem={renderItem}
           />
         )}
