@@ -194,7 +194,7 @@ export type CategorySection = {
   data: Item[];
 };
 
-/** Done list sections. Null folder_id, and ids we cannot name, are Unfiled. Unfiled is last. */
+/** All-items sections (Open and Done). Null folder_id, and ids we cannot name, are Unfiled. Unfiled is last. */
 export function groupItemsByCategory(items: Item[], categories: Category[]): CategorySection[] {
   const nameById = new Map(categories.map((category) => [category.id, category.name]));
   const groups = new Map<string, Item[]>();
