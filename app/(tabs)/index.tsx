@@ -6,7 +6,9 @@ import { ItemRow } from '@/components/ui/item-row';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Theme } from '@/constants/theme';
+import { useCategories } from '@/hooks/use-categories';
 import { formatTodaySubtitle } from '@/lib/format';
+import { categoryLabelForItem } from '@/lib/categories';
 import { useTodayItems } from '@/hooks/use-items';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -15,6 +17,7 @@ import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'r
 export default function TodayScreen() {
   const router = useRouter();
   const { items, loading, refreshing, error, reload, markDone } = useTodayItems();
+  const { categories, reload: reloadCategories } = useCategories();
   const openCount = items.length;
 
   return (
@@ -37,11 +40,15 @@ export default function TodayScreen() {
           data={items}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          extraData={categories}
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => void reload(true)}
+              onRefresh={() => {
+              void reload(true);
+              void reloadCategories();
+            }}
               tintColor={Theme.color.accent}
             />
           }
@@ -55,7 +62,11 @@ export default function TodayScreen() {
             />
           }
           renderItem={({ item }) => (
-            <ItemRow item={item} onDone={(next) => void markDone(next.id)} />
+            <ItemRow
+              item={item}
+              categoryLabel={categoryLabelForItem(item, categories)}
+              onDone={(next) => void markDone(next.id)}
+            />
           )}
         />
       )}

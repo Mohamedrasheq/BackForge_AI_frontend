@@ -5,7 +5,7 @@
 
 import { getApiToken } from '@/lib/api-auth';
 import { audioPartFromUri, readTranscriptPayload } from '@/lib/transcribe-audio';
-import type { BulkCreateItem, Item, ProposedItem, UpdateItemRequest } from '@/types/api';
+import type { BulkCreateItem, Category, Item, ProposedItem, UpdateItemRequest } from '@/types/api';
 import { Platform } from 'react-native';
 
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -50,7 +50,71 @@ export function normalizeItem(raw: unknown): Item | null {
     status: isDoneStatus(raw.status ?? raw.done ?? raw.completed) ? 'done' : 'open',
     dueAt: readDueAt(raw),
     createdAt: readString(raw.created_at, raw.createdAt),
+    folderId: readFolderId(raw),
   };
+}
+
+function readId(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return null;
+}
+
+/** Item category. Null (or a missing field) is Unfiled. */
+function readFolderId(raw: Record<string, unknown>): string | null {
+  const direct = raw.folder_id ?? raw.folderId;
+  const fromDirect = readId(direct);
+  if (fromDirect) return fromDirect;
+  if (isRecord(direct)) {
+    return readId(direct.id) ?? readId(direct.folder_id) ?? readId(direct.folderId);
+  }
+  return null;
+}
+
+function readSuggestedFolderId(raw: Record<string, unknown>): string | null {
+  return readId(raw.suggested_folder_id) ?? readId(raw.suggestedFolderId);
+}
+
+function readSuggestedCategory(raw: Record<string, unknown>): string | null {
+  const value = raw.suggested_category ?? raw.suggestedCategory;
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (isRecord(value)) return readString(value.name, value.title, value.label);
+  return null;
+}
+
+export function normalizeCategory(raw: unknown): Category | null {
+  if (!isRecord(raw)) return null;
+  const id =
+    readId(raw.id) ??
+    readId(raw.category_id) ??
+    readId(raw.categoryId) ??
+    readId(raw.folder_id) ??
+    readId(raw.folderId);
+  const name = readString(raw.name, raw.title, raw.label);
+  if (!id || !name) return null;
+  return { id, name };
+}
+
+export function normalizeCategories(payload: unknown): Category[] {
+  let list: unknown[] = [];
+  if (Array.isArray(payload)) {
+    list = payload;
+  } else if (isRecord(payload)) {
+    const nested = payload.categories ?? payload.folders ?? payload.data ?? payload.results;
+    if (Array.isArray(nested)) list = nested;
+    else if (payload.category || payload.folder) list = [payload.category ?? payload.folder];
+    else list = [payload];
+  }
+
+  const seen = new Set<string>();
+  const categories: Category[] = [];
+  for (const entry of list) {
+    const category = normalizeCategory(entry);
+    if (!category || seen.has(category.id)) continue;
+    seen.add(category.id);
+    categories.push(category);
+  }
+  return categories;
 }
 
 function readDueAt(raw: Record<string, unknown>): string | null {
@@ -73,7 +137,14 @@ export function normalizeProposedItem(raw: unknown): ProposedItem | null {
   if (!isRecord(raw)) return null;
   const text = readString(raw.text, raw.title, raw.body, raw.content, raw.source_text);
   if (!text) return null;
-  return { text, dueAt: readDueAt(raw) };
+  return {
+    text,
+    dueAt: readDueAt(raw),
+    // Assignment happens in the confirm UI, only after a suggestion matches an existing category.
+    folderId: null,
+    suggestedFolderId: readSuggestedFolderId(raw),
+    suggestedCategory: readSuggestedCategory(raw),
+  };
 }
 
 export function normalizeProposedItems(payload: unknown): ProposedItem[] {
@@ -196,6 +267,7 @@ export function toBulkCreateItems(items: ProposedItem[]): BulkCreateItem[] {
   return items.map((item) => ({
     body: item.text,
     due_at: item.dueAt,
+    folder_id: item.folderId ?? null,
   }));
 }
 
@@ -259,13 +331,48 @@ export async function markItemDone(id: string): Promise<Item | null> {
   });
 
   if (payload == null) {
-    return { id, text: '', status: 'done', dueAt: null, createdAt: null };
+    return { id, text: '', status: 'done', dueAt: null, createdAt: null, folderId: null };
   }
 
   if (isRecord(payload)) {
     return normalizeItem(payload.item ?? payload);
   }
   return normalizeItem(payload);
+}
+
+export async function listCategories(): Promise<Category[]> {
+  return normalizeCategories(await apiFetch<unknown>('/categories'));
+}
+
+/** Create a category the user named. Callers must not use this for parse suggestions. */
+export async function createCategory(name: string): Promise<Category> {
+  const payload = await apiFetch<unknown>('/categories', {
+    method: 'POST',
+    body: JSON.stringify({ name: name.trim() }),
+  });
+  const category = isRecord(payload)
+    ? normalizeCategory(payload.category ?? payload.folder ?? payload)
+    : normalizeCategory(payload);
+  if (!category) {
+    throw new Error('Could not add that category');
+  }
+  return category;
+}
+
+export async function updateCategory(id: string, name: string): Promise<Category | null> {
+  const payload = await apiFetch<unknown>(`/categories/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name: name.trim() }),
+  });
+  if (payload == null) return null;
+  if (isRecord(payload)) return normalizeCategory(payload.category ?? payload.folder ?? payload);
+  return normalizeCategory(payload);
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  await apiFetch<void>(`/categories/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
 }
 
 export async function registerDevice(pushToken: string): Promise<void> {

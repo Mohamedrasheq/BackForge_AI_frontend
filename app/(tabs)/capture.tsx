@@ -13,6 +13,7 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { TextButton } from '@/components/ui/text-button';
 import { cardSurface, Theme } from '@/constants/theme';
 import { useCaptureRecording } from '@/hooks/use-capture-recording';
+import { useCategories } from '@/hooks/use-categories';
 import { haptics } from '@/lib/haptics';
 import { bulkCreateItems, parseItems } from '@/services/api';
 import { useRouter } from 'expo-router';
@@ -32,6 +33,8 @@ import {
 
 export default function CaptureScreen() {
   const router = useRouter();
+  const { categories, error: categoriesError, reload: reloadCategories, create: createCategory } =
+    useCategories();
   const inputRef = useRef<TextInput>(null);
   const [text, setText] = useState('');
   const [phase, setPhase] = useState<'compose' | 'confirm'>('compose');
@@ -107,7 +110,7 @@ export default function CaptureScreen() {
         return;
       }
       haptics.success();
-      setRows(proposed.map((item) => createDraftItem(item)));
+      setRows(proposed.map((item) => createDraftItem(item, categories)));
       setPhase('confirm');
     } catch (err) {
       haptics.error();
@@ -151,6 +154,10 @@ export default function CaptureScreen() {
       {phase === 'confirm' ? (
         <ConfirmItems
           items={rows}
+          categories={categories}
+          categoriesError={categoriesError}
+          onReloadCategories={() => void reloadCategories()}
+          onCreateCategory={createCategory}
           onChange={setRows}
           onConfirm={() => void onConfirm()}
           onBack={leaveCapture}

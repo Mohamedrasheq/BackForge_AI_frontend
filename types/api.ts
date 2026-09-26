@@ -11,12 +11,26 @@ export interface Item {
   status: ItemStatus;
   dueAt: string | null;
   createdAt: string | null;
+  /** Category id. Null is Unfiled. Wire field is `folder_id`. */
+  folderId: string | null;
 }
 
-/** Proposed item from POST /items/parse — no server id until bulk save. */
+/** A category. The API collection is `/categories`; items point at it with `folder_id`. */
+export interface Category {
+  id: string;
+  name: string;
+}
+
+/**
+ * Proposed item from POST /items/parse — no server id until bulk save.
+ * Suggestions are hints only. They are applied when they match an existing category.
+ */
 export interface ProposedItem {
   text: string;
   dueAt: string | null;
+  folderId: string | null;
+  suggestedFolderId: string | null;
+  suggestedCategory: string | null;
 }
 
 export interface CaptureResponse {
@@ -31,6 +45,8 @@ export interface TranscribeResponse {
 export interface BulkCreateItem {
   body: string;
   due_at: string | null;
+  /** Null is Unfiled. Server also accepts `folderId`. */
+  folder_id: string | null;
 }
 
 /**

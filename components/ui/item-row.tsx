@@ -1,3 +1,4 @@
+import { CategoryChip } from '@/components/categories/category-chip';
 import { IconButton } from '@/components/ui/icon-button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { cardSurface, Theme } from '@/constants/theme';
@@ -24,8 +25,11 @@ export function ItemRow({
   onCloseDatePicker,
   onEdit,
   onDelete,
+  categoryLabel,
 }: {
   item: Item;
+  /** Read-only category name. Omitted when the item is Unfiled. */
+  categoryLabel?: string | null;
   onDone?: (item: Item) => void;
   /** Incomplete items only. Parent should omit this on done rows. */
   onReschedule?: (item: Item, dueAt: string) => void;
@@ -95,6 +99,11 @@ export function ItemRow({
       </Pressable>
       <View style={styles.body}>
         <Text style={[styles.title, done && styles.titleDone]}>{item.text}</Text>
+        {categoryLabel ? (
+          <View style={styles.category}>
+            <CategoryChip label={categoryLabel} />
+          </View>
+        ) : null}
         {due ? <Text style={styles.due}>{due}</Text> : null}
         {canMove ? (
           <View style={styles.actions}>
@@ -230,6 +239,9 @@ const styles = StyleSheet.create({
     color: Theme.color.textTertiary,
     textDecorationLine: 'line-through',
     fontWeight: '500',
+  },
+  category: {
+    marginTop: 8,
   },
   due: {
     marginTop: 4,

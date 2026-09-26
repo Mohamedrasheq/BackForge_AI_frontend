@@ -1,3 +1,5 @@
+import { CategoryChip } from '@/components/categories/category-chip';
+import { CategoryPickerSheet } from '@/components/categories/category-picker-sheet';
 import { EditableItemFields } from '@/components/items/editable-item-fields';
 import { Card } from '@/components/ui/card';
 import { IconButton } from '@/components/ui/icon-button';
@@ -5,9 +7,10 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Theme } from '@/constants/theme';
+import { matchSuggestedCategory, UNFILED_LABEL } from '@/lib/categories';
 import { haptics } from '@/lib/haptics';
-import type { ProposedItem } from '@/types/api';
-import React, { useState } from 'react';
+import type { Category, ProposedItem } from '@/types/api';
+import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -22,31 +25,81 @@ export type DraftItem = {
   key: string;
   text: string;
   dueAt: string | null;
+  folderId: string | null;
+  categoryName: string | null;
+  suggestedFolderId: string | null;
+  suggestedCategory: string | null;
+  /** True after the user picks a category or Unfiled, so a late suggestion cannot overwrite it. */
+  categoryChosen: boolean;
 };
 
 let draftKeySeq = 0;
 
-export function createDraftItem(item?: { text?: string; dueAt?: string | null }): DraftItem {
+export function createDraftItem(
+  item?: {
+    text?: string;
+    dueAt?: string | null;
+    folderId?: string | null;
+    categoryName?: string | null;
+    suggestedFolderId?: string | null;
+    suggestedCategory?: string | null;
+    categoryChosen?: boolean;
+  },
+  categories: Category[] = []
+): DraftItem {
   draftKeySeq += 1;
+  const suggestedFolderId = item?.suggestedFolderId ?? null;
+  const suggestedCategory = item?.suggestedCategory ?? null;
+  const categoryChosen = item?.categoryChosen ?? false;
+  const matched = categoryChosen
+    ? null
+    : matchSuggestedCategory({ suggestedFolderId, suggestedCategory }, categories);
+
   return {
     // Monotonic counter — Date.now() alone collides when mapping a parse result.
     key: `draft-${draftKeySeq}`,
     text: item?.text ?? '',
     dueAt: item?.dueAt ?? null,
+    folderId: categoryChosen ? (item?.folderId ?? null) : (matched?.id ?? null),
+    categoryName: categoryChosen ? (item?.categoryName ?? null) : (matched?.name ?? null),
+    suggestedFolderId,
+    suggestedCategory,
+    categoryChosen,
   };
 }
 
 export function patchDraftByKey(
   items: DraftItem[],
   key: string,
-  patch: Partial<Pick<DraftItem, 'text' | 'dueAt'>>
+  patch: Partial<Pick<DraftItem, 'text' | 'dueAt' | 'folderId' | 'categoryName' | 'categoryChosen'>>
 ): DraftItem[] {
   return items.map((item) => (item.key === key ? { ...item, ...patch } : item));
 }
 
+/** Fill chips from suggestions that match a category the user already has. Never creates one. */
+export function applyCategorySuggestions(items: DraftItem[], categories: Category[]): DraftItem[] {
+  let changed = false;
+  const next = items.map((item) => {
+    if (item.categoryChosen) return item;
+    const matched = matchSuggestedCategory(item, categories);
+    const folderId = matched?.id ?? null;
+    const categoryName = matched?.name ?? null;
+    if (folderId === item.folderId && categoryName === item.categoryName) return item;
+    changed = true;
+    return { ...item, folderId, categoryName };
+  });
+  return changed ? next : items;
+}
+
 export function saveableDraftItems(items: DraftItem[]): ProposedItem[] {
   return items
-    .map((item) => ({ text: item.text.trim(), dueAt: item.dueAt }))
+    .map((item) => ({
+      text: item.text.trim(),
+      dueAt: item.dueAt,
+      folderId: item.folderId,
+      suggestedFolderId: null,
+      suggestedCategory: null,
+    }))
     .filter((item) => item.text.length > 0);
 }
 
@@ -54,6 +107,10 @@ export const EMPTY_PARSE_MESSAGE = 'Nothing to save from that. Try adding a bit 
 
 export function ConfirmItems({
   items,
+  categories,
+  categoriesError,
+  onReloadCategories,
+  onCreateCategory,
   onChange,
   onConfirm,
   onBack,
@@ -61,6 +118,10 @@ export function ConfirmItems({
   error,
 }: {
   items: DraftItem[];
+  categories: Category[];
+  categoriesError: string | null;
+  onReloadCategories: () => void;
+  onCreateCategory: (name: string) => Promise<Category>;
   onChange: React.Dispatch<React.SetStateAction<DraftItem[]>>;
   onConfirm: () => void;
   onBack: () => void;
@@ -71,14 +132,24 @@ export function ConfirmItems({
   const canConfirm = saveable.length > 0 && !confirming;
   // One native DateTimePicker at a time — multiple instances share events on iOS/Android.
   const [activeDueKey, setActiveDueKey] = useState<string | null>(null);
+  const [activeCategoryKey, setActiveCategoryKey] = useState<string | null>(null);
+  const activeCategory = items.find((item) => item.key === activeCategoryKey) ?? null;
 
-  const updateAt = (key: string, patch: Partial<Pick<DraftItem, 'text' | 'dueAt'>>) => {
+  useEffect(() => {
+    onChange((prev) => applyCategorySuggestions(prev, categories));
+  }, [categories, onChange]);
+
+  const updateAt = (
+    key: string,
+    patch: Partial<Pick<DraftItem, 'text' | 'dueAt' | 'folderId' | 'categoryName' | 'categoryChosen'>>
+  ) => {
     onChange((prev) => patchDraftByKey(prev, key, patch));
   };
 
   const removeAt = (key: string) => {
     haptics.light();
     setActiveDueKey((current) => (current === key ? null : current));
+    setActiveCategoryKey((current) => (current === key ? null : current));
     onChange((prev) => prev.filter((item) => item.key !== key));
   };
 
@@ -122,10 +193,22 @@ export function ConfirmItems({
               dueAt={item.dueAt}
               onChangeDue={(dueAt) => updateAt(item.key, { dueAt })}
               pickerOpen={activeDueKey === item.key}
-              onOpenPicker={() => setActiveDueKey(item.key)}
+              onOpenPicker={() => {
+                setActiveCategoryKey(null);
+                setActiveDueKey(item.key);
+              }}
               onClosePicker={() =>
                 setActiveDueKey((current) => (current === item.key ? null : current))
               }
+            />
+            <CategoryChip
+              label={item.categoryName ?? UNFILED_LABEL}
+              assigned={Boolean(item.folderId)}
+              onPress={() => {
+                setActiveDueKey((current) => (current === item.key ? null : current));
+                setActiveCategoryKey(item.key);
+                onReloadCategories();
+              }}
             />
           </Card>
         ))}
@@ -152,6 +235,24 @@ export function ConfirmItems({
           disabled={!canConfirm}
         />
       </View>
+      {activeCategory ? (
+        <CategoryPickerSheet
+          categories={categories}
+          selectedId={activeCategory.folderId}
+          listError={categories.length === 0 ? categoriesError : null}
+          onRetry={onReloadCategories}
+          onCreate={onCreateCategory}
+          onSelect={(folderId, name) => {
+            updateAt(activeCategory.key, {
+              folderId,
+              categoryName: name,
+              categoryChosen: true,
+            });
+            setActiveCategoryKey(null);
+          }}
+          onClose={() => setActiveCategoryKey(null)}
+        />
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
