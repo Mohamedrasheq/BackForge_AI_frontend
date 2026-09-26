@@ -51,7 +51,7 @@ export default function TodayScreen() {
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, items.length === 0 && styles.emptyList]}
           extraData={categories}
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           refreshControl={
@@ -67,10 +67,10 @@ export default function TodayScreen() {
           }
           ListEmptyComponent={
             <EmptyState
-              icon="calendar"
-              title="Nothing needs you right now."
-              description="Capture it when something comes up."
-              actionLabel="Capture"
+              mark="calendar"
+              title="Nothing on today yet"
+              description="Dump a thought — we’ll turn it into a list"
+              actionLabel="Go to Capture"
               onAction={() => router.navigate('/(tabs)/capture')}
             />
           }
@@ -98,6 +98,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Theme.space.screenX,
     paddingBottom: Theme.space.listBottomFab,
     flexGrow: 1,
+  },
+  emptyList: {
+    justifyContent: 'center',
   },
   sep: {
     height: Theme.space.listGap,

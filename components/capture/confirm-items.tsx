@@ -208,6 +208,7 @@ export function ConfirmItems({
               />
             </View>
             <EditableItemFields
+              compact
               text={item.text}
               onChangeText={(text) => updateAt(item.key, { text })}
               dueAt={item.dueAt}
@@ -220,16 +221,18 @@ export function ConfirmItems({
               onClosePicker={() =>
                 setActiveDueKey((current) => (current === item.key ? null : current))
               }
-            />
-            <CategoryChip
-              label={item.categoryName ?? UNFILED_LABEL}
-              assigned={Boolean(item.folderId) || item.pendingNew}
-              hint={item.pendingNew ? 'New' : undefined}
-              onPress={() => {
-                setActiveDueKey((current) => (current === item.key ? null : current));
-                setActiveCategoryKey(item.key);
-                onReloadCategories();
-              }}
+              dueAccessory={
+                <CategoryChip
+                  label={item.categoryName ?? UNFILED_LABEL}
+                  assigned={Boolean(item.folderId) || item.pendingNew}
+                  hint={item.pendingNew ? 'New' : undefined}
+                  onPress={() => {
+                    setActiveDueKey((current) => (current === item.key ? null : current));
+                    setActiveCategoryKey(item.key);
+                    onReloadCategories();
+                  }}
+                />
+              }
             />
           </Card>
         ))}
@@ -291,11 +294,11 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: Theme.space.screenX,
     paddingBottom: Theme.space.md,
-    gap: Theme.space.md,
+    gap: 12,
   },
   card: {
     gap: 12,
-    padding: 18,
+    padding: 14,
   },
   cardTop: {
     flexDirection: 'row',

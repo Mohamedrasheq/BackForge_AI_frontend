@@ -46,17 +46,10 @@ function emptyCopy(
       description: status === 'done' ? 'No done items match that.' : 'No open items match that.',
     };
   }
-  if (status === 'done') {
-    return {
-      icon: 'checkmark',
-      title: 'Nothing done',
-      description: 'Nothing marked done yet.',
-    };
-  }
   return {
-    icon: 'tray',
-    title: 'Nothing open',
-    description: 'Nothing open right now.',
+    icon: 'checkmark',
+    title: 'Nothing done',
+    description: 'Nothing marked done yet.',
   };
 }
 
@@ -96,6 +89,7 @@ export default function AllItemsScreen() {
   const categoriesSettled = !categoriesLoading || Boolean(categoriesError);
 
   const empty = emptyCopy(query, status);
+  const openEmpty = !query && status === 'open';
 
   const pendingDelete = useMemo(
     () => items.find((item) => item.id === pendingDeleteId) ?? null,
@@ -257,7 +251,10 @@ export default function AllItemsScreen() {
             key={status}
             sections={sections}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={[
+              styles.list,
+              openEmpty && visible.length === 0 && styles.emptyList,
+            ]}
             keyboardShouldPersistTaps="handled"
             automaticallyAdjustKeyboardInsets
             stickySectionHeadersEnabled={false}
@@ -275,7 +272,17 @@ export default function AllItemsScreen() {
               />
             }
             ListEmptyComponent={
-              <EmptyState icon={empty.icon} title={empty.title} description={empty.description} />
+              openEmpty ? (
+                <EmptyState
+                  mark="list"
+                  title="Nothing open"
+                  description="Capture a plan to fill this list"
+                  actionLabel="Go to Capture"
+                  onAction={() => router.navigate('/(tabs)/capture')}
+                />
+              ) : (
+                <EmptyState icon={empty.icon} title={empty.title} description={empty.description} />
+              )
             }
             renderSectionHeader={({ section }) => (
               <Text
@@ -334,6 +341,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Theme.space.screenX,
     paddingBottom: Theme.space.listBottom,
     flexGrow: 1,
+  },
+  emptyList: {
+    justifyContent: 'center',
   },
   sep: {
     height: Theme.space.listGap,
