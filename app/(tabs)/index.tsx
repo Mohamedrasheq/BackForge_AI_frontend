@@ -1,3 +1,4 @@
+import { ReviewEntry } from '@/components/review/review-entry';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { CaptureFab } from '@/components/ui/fab';
@@ -10,6 +11,8 @@ import { useCategories } from '@/hooks/use-categories';
 import { formatTodaySubtitle } from '@/lib/format';
 import { categoryLabelForItem } from '@/lib/categories';
 import { useTodayItems } from '@/hooks/use-items';
+import { useReviewEntry } from '@/hooks/use-review-entry';
+import { REVIEW_HREF } from '@/lib/review-push';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
@@ -18,6 +21,7 @@ export default function TodayScreen() {
   const router = useRouter();
   const { items, loading, refreshing, error, reload, markDone } = useTodayItems();
   const { categories, reload: reloadCategories } = useCategories();
+  const review = useReviewEntry('today');
   const openCount = items.length;
 
   return (
@@ -30,6 +34,14 @@ export default function TodayScreen() {
       />
 
       {error ? <ErrorBanner message={error} onRetry={() => void reload()} /> : null}
+
+      {review.show ? (
+        <ReviewEntry
+          count={review.count}
+          onReview={() => router.push(REVIEW_HREF)}
+          onDismiss={review.dismiss}
+        />
+      ) : null}
 
       {loading && items.length === 0 ? (
         <View style={styles.centered}>
@@ -46,9 +58,10 @@ export default function TodayScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => {
-              void reload(true);
-              void reloadCategories();
-            }}
+                void reload(true);
+                void reloadCategories();
+                void review.reload();
+              }}
               tintColor={Theme.color.accent}
             />
           }
@@ -65,7 +78,11 @@ export default function TodayScreen() {
             <ItemRow
               item={item}
               categoryLabel={categoryLabelForItem(item, categories)}
-              onDone={(next) => void markDone(next.id)}
+              onDone={(next) => {
+                void markDone(next.id).finally(() => {
+                  void review.reload();
+                });
+              }}
             />
           )}
         />

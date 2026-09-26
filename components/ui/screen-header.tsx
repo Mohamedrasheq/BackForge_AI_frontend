@@ -6,16 +6,19 @@ export function ScreenHeader({
   title,
   subtitle,
   large = false,
+  left,
   right,
 }: {
   title: string;
   subtitle?: string;
   large?: boolean;
+  left?: React.ReactNode;
   right?: React.ReactNode;
 }) {
   return (
     <View style={styles.wrap}>
       <View style={styles.row}>
+        {left ? <View style={styles.left}>{left}</View> : null}
         <View style={styles.text}>
           <Text style={[styles.title, large && styles.largeTitle]}>{title}</Text>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -37,6 +40,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: Theme.space.md,
+  },
+  left: {
+    marginTop: 2,
   },
   text: {
     flex: 1,

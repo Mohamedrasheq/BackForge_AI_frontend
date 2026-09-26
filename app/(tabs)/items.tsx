@@ -1,4 +1,5 @@
 import { DeleteItemDialog } from '@/components/items/delete-item-dialog';
+import { ReviewEntry } from '@/components/review/review-entry';
 import { ItemEditor, type ItemDraft } from '@/components/items/item-editor';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorBanner } from '@/components/ui/error-banner';
@@ -10,9 +11,12 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { Theme } from '@/constants/theme';
 import { useCategories } from '@/hooks/use-categories';
 import { useAllItems } from '@/hooks/use-items';
+import { useReviewEntry } from '@/hooks/use-review-entry';
+import { REVIEW_HREF } from '@/lib/review-push';
 import { categoryLabelForItem, groupItemsByCategory } from '@/lib/categories';
 import { haptics } from '@/lib/haptics';
 import type { Item, ItemStatus } from '@/types/api';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -57,6 +61,8 @@ function emptyCopy(
 }
 
 export default function AllItemsScreen() {
+  const router = useRouter();
+  const review = useReviewEntry('items');
   const [input, setInput] = useState('');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<ItemStatus>('open');
@@ -102,6 +108,7 @@ export default function AllItemsScreen() {
       await saveItem(id, draft);
       setEditingId(null);
       haptics.success();
+      void review.reload();
     } catch {
       haptics.error();
     } finally {
@@ -116,6 +123,7 @@ export default function AllItemsScreen() {
       setPendingDeleteId(null);
       setEditingId((current) => (current === id ? null : current));
       haptics.success();
+      void review.reload();
     } catch {
       haptics.error();
     } finally {
@@ -150,12 +158,22 @@ export default function AllItemsScreen() {
       <ItemRow
         item={item}
         categoryLabel={open ? categoryLabelForItem(item, categories) : null}
-        onDone={open ? (next) => void markDone(next.id) : undefined}
+        onDone={
+          open
+            ? (next) => {
+                void markDone(next.id).finally(() => {
+                  void review.reload();
+                });
+              }
+            : undefined
+        }
         onReschedule={
           open
             ? (next, dueAt) => {
                 setDatePickerId(null);
-                void reschedule(next.id, dueAt);
+                void reschedule(next.id, dueAt).finally(() => {
+                  void review.reload();
+                });
               }
             : undefined
         }
@@ -188,6 +206,14 @@ export default function AllItemsScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScreenHeader title="All items" />
+
+        {review.show ? (
+          <ReviewEntry
+            count={review.count}
+            onReview={() => router.push(REVIEW_HREF)}
+            onDismiss={review.dismiss}
+          />
+        ) : null}
 
         <View style={styles.searchWrap}>
           <IconSymbol name="magnifyingglass" size={18} color={Theme.color.textSecondary} />
@@ -243,6 +269,7 @@ export default function AllItemsScreen() {
                 onRefresh={() => {
                   void reload(true);
                   void reloadCategories();
+                  void review.reload();
                 }}
                 tintColor={Theme.color.accent}
               />

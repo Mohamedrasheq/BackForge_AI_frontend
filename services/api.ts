@@ -60,6 +60,7 @@ export function normalizeItem(raw: unknown): Item | null {
     status: isDoneStatus(raw.status ?? raw.done ?? raw.completed) ? 'done' : 'open',
     dueAt: readDueAt(raw),
     createdAt: readString(raw.created_at, raw.createdAt),
+    updatedAt: readUpdatedAt(raw),
     folderId: readFolderId(raw),
   };
 }
@@ -136,6 +137,14 @@ export function normalizeCategories(payload: unknown): Category[] {
     categories.push(category);
   }
   return categories;
+}
+
+function readUpdatedAt(raw: Record<string, unknown>): string | null {
+  const value = readString(raw.updated_at, raw.updatedAt);
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
 }
 
 function readDueAt(raw: Record<string, unknown>): string | null {
@@ -385,7 +394,15 @@ export async function markItemDone(id: string): Promise<Item | null> {
   });
 
   if (payload == null) {
-    return { id, text: '', status: 'done', dueAt: null, createdAt: null, folderId: null };
+    return {
+      id,
+      text: '',
+      status: 'done',
+      dueAt: null,
+      createdAt: null,
+      updatedAt: null,
+      folderId: null,
+    };
   }
 
   if (isRecord(payload)) {
