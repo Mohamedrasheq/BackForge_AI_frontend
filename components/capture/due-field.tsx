@@ -139,11 +139,11 @@ export function DueField({
           {Platform.OS === 'ios' ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Done editing due date"
+              accessibilityLabel="Set due date"
               onPress={closePicker}
-              style={({ pressed }) => [styles.done, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.set, pressed && styles.pressed]}
             >
-              <Text style={styles.doneLabel}>Done</Text>
+              <Text style={styles.setLabel}>Set</Text>
             </Pressable>
           ) : null}
         </View>
@@ -201,12 +201,12 @@ const styles = StyleSheet.create({
     fontSize: Theme.type.caption,
     color: Theme.color.textTertiary,
   },
-  done: {
+  set: {
     alignSelf: 'flex-end',
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
-  doneLabel: {
+  setLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: Theme.color.accent,

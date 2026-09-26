@@ -57,8 +57,9 @@ export default function AllItemsScreen() {
   const [input, setInput] = useState('');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<ItemStatus>('open');
-  const { items, loading, refreshing, error, reload, markDone, saveItem, removeItem } =
+  const { items, loading, refreshing, error, reload, markDone, saveItem, removeItem, reschedule, movingId } =
     useAllItems(query);
+  const [datePickerId, setDatePickerId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -129,17 +130,35 @@ export default function AllItemsScreen() {
       );
     }
 
+    const open = item.status === 'open';
+
     return (
       <ItemRow
         item={item}
-        onDone={item.status === 'open' ? (next) => void markDone(next.id) : undefined}
+        onDone={open ? (next) => void markDone(next.id) : undefined}
+        onReschedule={
+          open
+            ? (next, dueAt) => {
+                setDatePickerId(null);
+                void reschedule(next.id, dueAt);
+              }
+            : undefined
+        }
+        rescheduling={movingId === item.id}
+        datePickerOpen={datePickerId === item.id}
+        onOpenDatePicker={() => setDatePickerId(item.id)}
+        onCloseDatePicker={() =>
+          setDatePickerId((current) => (current === item.id ? null : current))
+        }
         onEdit={(next) => {
           haptics.light();
+          setDatePickerId(null);
           setEditingId(next.id);
           setPendingDeleteId(null);
         }}
         onDelete={(next) => {
           haptics.warning();
+          setDatePickerId(null);
           setEditingId(null);
           setPendingDeleteId(next.id);
         }}
@@ -178,6 +197,7 @@ export default function AllItemsScreen() {
             setStatus(next);
             setEditingId(null);
             setPendingDeleteId(null);
+            setDatePickerId(null);
           }}
         />
 
@@ -194,7 +214,7 @@ export default function AllItemsScreen() {
             contentContainerStyle={styles.list}
             keyboardShouldPersistTaps="handled"
             automaticallyAdjustKeyboardInsets
-            extraData={`${editingId ?? ''}:${pendingDeleteId ?? ''}:${saving}`}
+            extraData={`${editingId ?? ''}:${pendingDeleteId ?? ''}:${saving}:${datePickerId ?? ''}:${movingId ?? ''}`}
             ItemSeparatorComponent={() => <View style={styles.sep} />}
             refreshControl={
               <RefreshControl
