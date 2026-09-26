@@ -12,6 +12,7 @@ export function DueField({
   pickerOpen = false,
   onOpenPicker,
   onClosePicker,
+  allowClear = true,
 }: {
   value: string | null;
   onChange: (next: string | null) => void;
@@ -19,6 +20,8 @@ export function DueField({
   pickerOpen?: boolean;
   onOpenPicker?: () => void;
   onClosePicker?: () => void;
+  /** Review Move always keeps a day, so the clear control stays hidden. */
+  allowClear?: boolean;
 }) {
   const [picking, setPicking] = useState<'date' | 'time' | null>(null);
 
@@ -99,13 +102,13 @@ export function DueField({
           onChange={(event) => onChange(fromDateTimeLocalValue(event.target.value))}
           style={webInputStyle}
         />
-        {value ? (
+        {value && allowClear ? (
           <Pressable accessibilityRole="button" accessibilityLabel="Clear due date" onPress={onClear} hitSlop={8}>
             <Text style={styles.clear}>Clear</Text>
           </Pressable>
-        ) : (
+        ) : !value ? (
           <Text style={styles.hint}>No date</Text>
-        )}
+        ) : null}
       </View>
     );
   }
@@ -122,7 +125,7 @@ export function DueField({
           <IconSymbol name="calendar" size={16} color={Theme.color.accent} />
           <Text style={[styles.chipLabel, !value && styles.undated]}>{label}</Text>
         </Pressable>
-        {value ? (
+        {value && allowClear ? (
           <Pressable accessibilityRole="button" accessibilityLabel="Clear due date" onPress={onClear} hitSlop={8}>
             <Text style={styles.clear}>Clear</Text>
           </Pressable>

@@ -11,6 +11,8 @@ export interface Item {
   status: ItemStatus;
   dueAt: string | null;
   createdAt: string | null;
+  /** Last edit, when the API sends one. Quiet rules fall back to `createdAt`. */
+  updatedAt: string | null;
   /** Category id. Null is Unfiled. Wire field is `folder_id`. */
   folderId: string | null;
 }

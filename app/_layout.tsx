@@ -1,6 +1,7 @@
 import { Theme } from '@/constants/theme';
 import { setApiTokenGetter } from '@/lib/api-auth';
 import { OnboardingProvider, useOnboarding } from '@/lib/onboarding';
+import { reviewHrefFromNotificationData } from '@/lib/review-push';
 import { registerDevice } from '@/services/api';
 import {
   getExpoPushToken,
@@ -71,7 +72,13 @@ function InitialLayout() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
     const received = onNotificationReceived(() => undefined);
-    const response = onNotificationResponse(() => {
+    const response = onNotificationResponse((event) => {
+      // Future review nudges only. This build does not send them.
+      const reviewHref = reviewHrefFromNotificationData(event.notification.request.content.data);
+      if (reviewHref) {
+        router.push(reviewHref);
+        return;
+      }
       router.push('/(tabs)');
     });
     return () => {
@@ -87,9 +94,10 @@ function InitialLayout() {
     const onSignIn = route === 'sign-in';
     const onOnboarding = route === 'onboarding';
     const inTabs = route === '(tabs)';
+    const inReview = route === 'review';
 
     if (isSignedIn) {
-      if (!inTabs) {
+      if (!inTabs && !inReview) {
         setReady(false);
         router.replace('/(tabs)');
         return;
@@ -138,6 +146,7 @@ function InitialLayout() {
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="sign-in" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="review" />
       </Stack>
       {!ready && (
         <View style={[StyleSheet.absoluteFill, styles.boot, styles.overlay]}>
