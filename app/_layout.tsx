@@ -95,9 +95,10 @@ function InitialLayout() {
     const onOnboarding = route === 'onboarding';
     const inTabs = route === '(tabs)';
     const inReview = route === 'review';
+    const onCategory = route === 'category';
 
     if (isSignedIn) {
-      if (!inTabs && !inReview) {
+      if (!inTabs && !inReview && !onCategory) {
         setReady(false);
         router.replace('/(tabs)');
         return;
@@ -147,6 +148,7 @@ function InitialLayout() {
         <Stack.Screen name="sign-in" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="review" />
+        <Stack.Screen name="category/[id]" />
       </Stack>
       {!ready && (
         <View style={[StyleSheet.absoluteFill, styles.boot, styles.overlay]}>

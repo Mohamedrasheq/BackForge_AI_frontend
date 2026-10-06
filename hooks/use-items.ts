@@ -1,13 +1,13 @@
-import { isAfterLocalToday } from '@/lib/due';
+import { isAfterLocalToday, isBeforeLocalToday } from '@/lib/due';
 import { haptics } from '@/lib/haptics';
 import { deleteItem, getItems, getTodayItems, markItemDone, updateItem, updateItemDue } from '@/services/api';
 import type { Item } from '@/types/api';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-/** Today is dated-for-today plus overdue. A later calendar day leaves this list. */
+/** Today is only items due on the current local calendar day (plus undated). Overdue lives in All items / Review. */
 function visibleOnToday(item: Item, now = new Date()): boolean {
-  return !isAfterLocalToday(item.dueAt, now);
+  return !isAfterLocalToday(item.dueAt, now) && !isBeforeLocalToday(item.dueAt, now);
 }
 
 export function useTodayItems() {
@@ -66,6 +66,8 @@ export function useAllItems(query: string) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
+  /** Query string that `items` was loaded for. Null until the first successful fetch. */
+  const [loadedQuery, setLoadedQuery] = useState<string | null>(null);
   const itemsRef = useRef(items);
   const requestId = useRef(0);
 
@@ -84,6 +86,7 @@ export function useAllItems(query: string) {
       const next = await getItems(query);
       if (id !== requestId.current) return;
       setItems(next);
+      setLoadedQuery(query);
       setError(null);
     } catch (err) {
       if (id !== requestId.current) return;
@@ -106,8 +109,13 @@ export function useAllItems(query: string) {
 
   const markDone = useCallback(async (id: string) => {
     const previous = items;
+    // Category detail sorts Done by updatedAt. Items have no completed-at field.
     setItems((current) =>
-      current.map((item) => (item.id === id ? { ...item, status: 'done' } : item))
+      current.map((item) =>
+        item.id === id
+          ? { ...item, status: 'done', updatedAt: new Date().toISOString() }
+          : item
+      )
     );
     try {
       await markItemDone(id);
@@ -204,5 +212,6 @@ export function useAllItems(query: string) {
     removeItem,
     reschedule,
     movingId,
+    loadedQuery,
   };
 }

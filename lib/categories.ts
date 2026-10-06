@@ -1,8 +1,8 @@
+import { UNFILED_LABEL } from '@/lib/category-browse';
 import { DuplicateCategoryError } from '@/services/api';
 import type { Category, Item } from '@/types/api';
 
-/** Product label for a null folder_id. UI copy says category, never folder. */
-export const UNFILED_LABEL = 'Unfiled';
+export { UNFILED_LABEL };
 
 export function categoryNameKey(name: string): string {
   return name.trim().toLowerCase();
