@@ -1,6 +1,6 @@
-import { DateFilterSheet } from '@/components/items/date-filter-sheet';
 import { EditableItemRow } from '@/components/items/editable-item-row';
 import { DeleteItemDialog } from '@/components/items/delete-item-dialog';
+import { MonthCalendar } from '@/components/items/month-calendar';
 import { ReviewEntry } from '@/components/review/review-entry';
 import { type ItemDraft } from '@/components/items/item-editor';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -24,8 +24,8 @@ import { groupItemsByCategory } from '@/lib/categories';
 import {
   CLEAR_DATE_LABEL,
   DATE_FILTER_EMPTY_DESCRIPTION,
-  activeDatePillLabel,
-  dateFilterButtonLabel,
+  calendarDayFromDate,
+  dateChipLabel,
   dateFilterEmptyTitle,
   dayKey,
   filterItemsByStatusAndDay,
@@ -124,8 +124,10 @@ export default function AllItemsScreen() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<ItemsFilter>('open');
   const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
-  const [dateSheetOpen, setDateSheetOpen] = useState(false);
-  const dateFilterDisabled = filter === 'category';
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const today = calendarDayFromDate(new Date());
+    return { year: today.year, month: today.month };
+  });
   const itemsQuery = filter === 'category' ? '' : query;
   const {
     items,
@@ -182,15 +184,16 @@ export default function AllItemsScreen() {
 
   const empty = emptyCopy(query, filter === 'done' ? 'done' : 'open');
   const openEmpty = !query && !selectedDay && filter === 'open';
-  const dateFilterActive = selectedDay !== null && !dateFilterDisabled;
-  const centerEmpty = visible.length === 0 && !query && (filter === 'open' || selectedDay !== null);
+  const dateFilterActive = selectedDay !== null && filter !== 'category';
+  const listBlocked =
+    filter !== 'category' &&
+    ((loading && items.length === 0) || (!categoriesSettled && visible.length > 0));
 
   const clearDate = () => setSelectedDay(null);
 
-  const openDateSheet = () => {
-    if (dateFilterDisabled) return;
+  const changeSelectedDay = (day: CalendarDay | null) => {
     Keyboard.dismiss();
-    setDateSheetOpen(true);
+    setSelectedDay(day);
   };
 
   const pendingDelete = useMemo(
@@ -299,44 +302,20 @@ export default function AllItemsScreen() {
           />
         ) : null}
 
-        <View style={styles.searchRow}>
-          <View style={styles.searchWrap}>
-            <IconSymbol name="magnifyingglass" size={18} color={Theme.color.textSecondary} />
-            <TextInput
-              value={input}
-              onChangeText={setInput}
-              placeholder={filter === 'category' ? 'Search categories' : 'Search'}
-              placeholderTextColor={Theme.color.textTertiary}
-              selectionColor={Theme.color.accent}
-              cursorColor={Theme.color.accent}
-              style={styles.search}
-              autoCorrect={false}
-              autoCapitalize="none"
-              returnKeyType="search"
-            />
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={dateFilterButtonLabel(selectedDay)}
-            accessibilityState={{ disabled: dateFilterDisabled }}
-            disabled={dateFilterDisabled}
-            onPress={() => {
-              haptics.selection();
-              openDateSheet();
-            }}
-            style={({ pressed }) => [
-              styles.dateButton,
-              selectedDay && styles.dateButtonActive,
-              dateFilterDisabled && styles.dateButtonDisabled,
-              pressed && !dateFilterDisabled && styles.pressed,
-            ]}
-          >
-            <IconSymbol
-              name="calendar"
-              size={22}
-              color={selectedDay ? Theme.color.accent : '#6B7280'}
-            />
-          </Pressable>
+        <View style={styles.searchWrap}>
+          <IconSymbol name="magnifyingglass" size={18} color={Theme.color.textSecondary} />
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder={filter === 'category' ? 'Search categories' : 'Search'}
+            placeholderTextColor={Theme.color.textTertiary}
+            selectionColor={Theme.color.accent}
+            cursorColor={Theme.color.accent}
+            style={styles.search}
+            autoCorrect={false}
+            autoCapitalize="none"
+            returnKeyType="search"
+          />
         </View>
 
         <FilterChips
@@ -347,36 +326,8 @@ export default function AllItemsScreen() {
             setEditingId(null);
             setPendingDeleteId(null);
             setDatePickerId(null);
-            if (next === 'category') setDateSheetOpen(false);
           }}
         />
-
-        {dateFilterActive && selectedDay ? (
-          <View style={styles.pillWrap}>
-            <View style={styles.pill}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={longDateLabel(selectedDay)}
-                onPress={openDateSheet}
-                style={({ pressed }) => [styles.pillBody, pressed && styles.pressed]}
-              >
-                <Text style={styles.pillText}>{activeDatePillLabel(selectedDay)}</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={CLEAR_DATE_LABEL}
-                hitSlop={8}
-                onPress={() => {
-                  haptics.light();
-                  clearDate();
-                }}
-                style={({ pressed }) => [styles.pillClear, pressed && styles.pressed]}
-              >
-                <IconSymbol name="xmark" size={16} color={Theme.color.accent} />
-              </Pressable>
-            </View>
-          </View>
-        ) : null}
 
         {error ? <ErrorBanner message={error} onRetry={() => void reload()} /> : null}
         {filter === 'category' && categoriesError && !error ? (
@@ -426,20 +377,12 @@ export default function AllItemsScreen() {
               renderItem={({ item: row }) => <CategoryRow row={row} onPress={openCategory} />}
             />
           )
-        ) : loading && items.length === 0 ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color={Theme.color.accent} />
-          </View>
-        ) : !categoriesSettled && visible.length > 0 ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color={Theme.color.accent} />
-          </View>
         ) : (
           <SectionList
             key={`${filter}:${selectedDay ? dayKey(selectedDay) : 'all'}`}
-            sections={sections}
+            sections={listBlocked ? [] : sections}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={[styles.list, centerEmpty && styles.emptyList]}
+            contentContainerStyle={styles.list}
             keyboardShouldPersistTaps="handled"
             automaticallyAdjustKeyboardInsets
             stickySectionHeadersEnabled={false}
@@ -452,8 +395,28 @@ export default function AllItemsScreen() {
                 tintColor={Theme.color.accent}
               />
             }
+            ListHeaderComponent={
+              <View style={[styles.calendarBlock, selectedDay ? styles.calendarBlockFiltered : null]}>
+                <MonthCalendar
+                  items={items}
+                  month={visibleMonth}
+                  onMonthChange={setVisibleMonth}
+                  selected={selectedDay}
+                  onSelectedChange={changeSelectedDay}
+                />
+                {selectedDay ? (
+                  <Text style={styles.filterCaption} accessibilityLabel={longDateLabel(selectedDay)}>
+                    {dateChipLabel(selectedDay)}
+                  </Text>
+                ) : null}
+              </View>
+            }
             ListEmptyComponent={
-              dateFilterActive && selectedDay && !query ? (
+              listBlocked ? (
+                <View style={styles.loadingBlock}>
+                  <ActivityIndicator color={Theme.color.accent} />
+                </View>
+              ) : dateFilterActive && selectedDay && !query ? (
                 <EmptyState
                   title={dateFilterEmptyTitle(filter === 'done' ? 'done' : 'open', selectedDay)}
                   description={DATE_FILTER_EMPTY_DESCRIPTION}
@@ -491,16 +454,6 @@ export default function AllItemsScreen() {
             renderItem={renderItem}
           />
         )}
-        <DateFilterSheet
-          visible={dateSheetOpen}
-          items={items}
-          selected={selectedDay}
-          onSelect={(day) => {
-            setSelectedDay(day);
-            setDateSheetOpen(false);
-          }}
-          onClose={() => setDateSheetOpen(false)}
-        />
         {pendingDelete ? (
           <DeleteItemDialog
             item={pendingDelete}
@@ -521,15 +474,9 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  searchWrap: {
     marginHorizontal: Theme.space.screenX,
     marginBottom: Theme.space.sm,
-  },
-  searchWrap: {
-    flex: 1,
     height: 44,
     borderRadius: Theme.radius.md,
     borderWidth: 1,
@@ -548,51 +495,18 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     textDecorationLine: 'none', // iOS can carry a done row's line-through into a recycled TextInput placeholder.
   },
-  dateButton: {
-    width: 44,
-    height: 44,
-    borderRadius: Theme.radius.md,
-    borderWidth: 1,
-    borderColor: Theme.color.border,
-    backgroundColor: Theme.color.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dateButtonActive: {
-    backgroundColor: 'rgba(180, 83, 9, 0.1)',
-  },
-  dateButtonDisabled: {
-    opacity: 0.4,
-  },
-  pillWrap: {
-    paddingHorizontal: Theme.space.screenX,
+  calendarBlock: {
     marginBottom: Theme.space.md,
   },
-  pill: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 32,
-    borderRadius: Theme.radius.full,
-    backgroundColor: 'rgba(180, 83, 9, 0.1)',
+  calendarBlockFiltered: {
+    marginBottom: Theme.space.sm,
   },
-  pillBody: {
-    height: 32,
-    paddingLeft: 12,
-    justifyContent: 'center',
-  },
-  pillText: {
-    fontSize: Theme.type.label,
+  filterCaption: {
+    marginTop: 10,
+    fontSize: Theme.type.caption,
     lineHeight: 18,
-    fontWeight: '600',
-    color: Theme.color.accent,
-  },
-  pillClear: {
-    height: 32,
-    paddingLeft: 6,
-    paddingRight: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontWeight: '500',
+    color: Theme.color.textSecondary,
   },
   list: {
     paddingHorizontal: Theme.space.screenX,
@@ -600,6 +514,11 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   emptyList: {
+    justifyContent: 'center',
+  },
+  loadingBlock: {
+    minHeight: 160,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   sep: {
