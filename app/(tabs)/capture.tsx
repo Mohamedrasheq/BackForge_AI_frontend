@@ -5,7 +5,7 @@ import {
   saveableDraftItems,
   type DraftItem,
 } from '@/components/capture/confirm-items';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { VoiceWave } from '@/components/capture/voice-wave';
 import { IconButton } from '@/components/ui/icon-button';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { Screen } from '@/components/ui/screen';
@@ -21,15 +21,15 @@ import {
   createPendingCategoryNames,
 } from '@/lib/categories';
 import { haptics } from '@/lib/haptics';
+import { ROW_BLEED } from '@/lib/voice-wave';
 import { bulkCreateItems, listCategories, parseItems } from '@/services/api';
+import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -39,6 +39,7 @@ import {
 
 export default function CaptureScreen() {
   const router = useRouter();
+  const focused = useIsFocused();
   const { categories, error: categoriesError, reload: reloadCategories, create: createCategory } =
     useCategories();
   const inputRef = useRef<TextInput>(null);
@@ -56,8 +57,16 @@ export default function CaptureScreen() {
   const [error, setError] = useState<string | null>(null);
   const [allowAutoFocus, setAllowAutoFocus] = useState(true);
 
-  const { recording, transcribing, error: speechError, start, stop, clearError: clearSpeechError } =
-    useCaptureRecording();
+  const {
+    recording,
+    transcribing,
+    error: speechError,
+    start,
+    stop,
+    clearError: clearSpeechError,
+    meteringDb,
+    meteringTick,
+  } = useCaptureRecording();
   const lockInput = recording || transcribing;
   const canSubmit = text.trim().length > 0 && !submitting && !lockInput;
   const canClear = text.length > 0 && !submitting && !lockInput;
@@ -240,32 +249,17 @@ export default function CaptureScreen() {
                   />
                 </View>
 
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    recording ? 'Stop recording' : transcribing ? 'Transcribing' : 'Talk'
-                  }
-                  disabled={transcribing}
-                  onPress={() => void onMicPress()}
-                  style={({ pressed }) => [
-                    styles.mic,
-                    recording && styles.micActive,
-                    (pressed || transcribing) && styles.micPressed,
-                  ]}
-                >
-                  <View style={[styles.micIcon, recording && styles.micIconActive]}>
-                    {transcribing ? (
-                      <ActivityIndicator color={Theme.color.accent} />
-                    ) : (
-                      <IconSymbol
-                        name="mic.fill"
-                        size={20}
-                        color={recording ? Theme.color.white : Theme.color.accent}
-                      />
-                    )}
-                  </View>
-                  <Text style={[styles.hint, recording && styles.hintActive]}>{hint}</Text>
-                </Pressable>
+                <View style={styles.voice}>
+                  <VoiceWave
+                    recording={recording}
+                    transcribing={transcribing}
+                    active={focused}
+                    meteringDb={meteringDb}
+                    meteringTick={meteringTick}
+                    onPress={() => void onMicPress()}
+                  />
+                </View>
+                <Text style={[styles.hint, recording && styles.hintActive]}>{hint}</Text>
 
                 {error || speechError ? (
                   <Text style={[styles.error, error === EMPTY_PARSE_MESSAGE && styles.gentle]}>
@@ -317,39 +311,12 @@ const styles = StyleSheet.create({
     color: Theme.color.text,
     fontWeight: '500',
   },
-  mic: {
-    marginTop: Theme.space.md,
-    minHeight: 52,
-    borderRadius: Theme.radius.md,
-    borderWidth: 1,
-    borderColor: Theme.color.border,
-    backgroundColor: Theme.color.card,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Theme.space.md,
-    paddingVertical: Theme.space.sm,
-    gap: 12,
-  },
-  micActive: {
-    borderColor: Theme.color.accent,
-    backgroundColor: Theme.color.accentSoft,
-  },
-  micPressed: {
-    opacity: 0.8,
-  },
-  micIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Theme.color.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  micIconActive: {
-    backgroundColor: Theme.color.accent,
+  voice: {
+    marginTop: Theme.space.md - ROW_BLEED,
   },
   hint: {
-    flex: 1,
+    marginTop: Theme.space.sm - ROW_BLEED,
+    textAlign: 'center',
     color: Theme.color.text,
     fontSize: Theme.type.label,
     lineHeight: 20,
