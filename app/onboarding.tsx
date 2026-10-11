@@ -141,18 +141,14 @@ export default function OnboardingScreen() {
   const scrollX = useSharedValue(0);
   const widthSv = useSharedValue(0);
   const ctaIntro = useSharedValue(0);
-  const firstCta = useRef(true);
 
   useEffect(() => {
     pageRef.current = page;
   }, [page]);
 
   useEffect(() => {
-    const delay = firstCta.current ? 190 : 110;
-    firstCta.current = false;
-    ctaIntro.value = 0;
-    ctaIntro.value = withDelay(delay, withTiming(1, { duration: 220 }));
-  }, [ctaIntro, page]);
+    ctaIntro.value = withDelay(190, withTiming(1, { duration: 220 }));
+  }, [ctaIntro]);
 
   useEffect(() => {
     if (viewport.width <= 0) return;
