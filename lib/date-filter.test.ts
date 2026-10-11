@@ -19,8 +19,11 @@ import {
   filterItemsByStatusAndDay,
   localeWeekStartsOn,
   longDateLabel,
+  monthDelta,
+  monthSwipeDelta,
   monthTitle,
   shiftMonth,
+  toggleSelectedDay,
   weekdayInitials,
   weekStartsOnFromFirstDay,
   type CalendarDay,
@@ -115,6 +118,38 @@ describe('shiftMonth', () => {
     assert.deepEqual(shiftMonth(2026, 1, -1), { year: 2025, month: 12 });
     assert.deepEqual(shiftMonth(2026, 10, 120), { year: 2036, month: 10 });
     assert.deepEqual(shiftMonth(2026, 10, -120), { year: 2016, month: 10 });
+  });
+
+  it('measures the jump to another month, including the current month', () => {
+    assert.equal(monthDelta({ year: 2026, month: 10 }, { year: 2026, month: 10 }), 0);
+    assert.equal(monthDelta({ year: 2026, month: 10 }, { year: 2026, month: 11 }), 1);
+    assert.equal(monthDelta({ year: 2026, month: 10 }, { year: 2026, month: 9 }), -1);
+    assert.equal(monthDelta({ year: 2026, month: 1 }, { year: 2025, month: 12 }), -1);
+    assert.equal(monthDelta({ year: 2026, month: 10 }, { year: 2027, month: 1 }), 3);
+  });
+});
+
+describe('month swipe', () => {
+  it('changes month on a long drag or a flick, and ignores a short drag', () => {
+    assert.equal(monthSwipeDelta(-40, 0), 1);
+    assert.equal(monthSwipeDelta(40, 0), -1);
+    assert.equal(monthSwipeDelta(-8, -500), 1);
+    assert.equal(monthSwipeDelta(8, 500), -1);
+    assert.equal(monthSwipeDelta(20, 100), 0);
+    assert.equal(monthSwipeDelta(0, 0), 0);
+  });
+
+  it('follows the drag when the flick points the other way', () => {
+    assert.equal(monthSwipeDelta(-40, 500), 1);
+    assert.equal(monthSwipeDelta(40, -500), -1);
+  });
+});
+
+describe('toggleSelectedDay', () => {
+  it('selects a day, replaces the selection, and clears when that day is tapped again', () => {
+    assert.deepEqual(toggleSelectedDay(null, THU_15), THU_15);
+    assert.equal(toggleSelectedDay(THU_15, { year: 2026, month: 10, day: 15 }), null);
+    assert.deepEqual(toggleSelectedDay(THU_15, TODAY), TODAY);
   });
 });
 

@@ -46,6 +46,12 @@ export function isSameCalendarDay(a: CalendarDay, b: CalendarDay): boolean {
   return a.year === b.year && a.month === b.month && a.day === b.day;
 }
 
+/** Tap selects a day. Tapping the selected day again clears the filter. */
+export function toggleSelectedDay(selected: CalendarDay | null, tapped: CalendarDay): CalendarDay | null {
+  if (selected && isSameCalendarDay(selected, tapped)) return null;
+  return tapped;
+}
+
 /** Local `YYYY-MM-DD` for a due instant. Invalid and missing values are undated. */
 export function dueLocalDayKey(dueAt: string | null): string | null {
   if (!dueAt) return null;
@@ -54,13 +60,38 @@ export function dueLocalDayKey(dueAt: string | null): string | null {
   return dayKey(calendarDayFromDate(date));
 }
 
-export function shiftMonth(
-  year: number,
-  month: number,
-  delta: number
-): { year: number; month: number } {
+export type CalendarMonth = {
+  year: number;
+  /** 1–12 */
+  month: number;
+};
+
+export function shiftMonth(year: number, month: number, delta: number): CalendarMonth {
   const date = new Date(year, month - 1 + delta, 1);
   return { year: date.getFullYear(), month: date.getMonth() + 1 };
+}
+
+/** Positive when `to` is after `from`. Zero when both are the same month. */
+export function monthDelta(from: CalendarMonth, to: CalendarMonth): number {
+  return (to.year - from.year) * 12 + (to.month - from.month);
+}
+
+const SWIPE_DISTANCE = 40;
+/** Points per second. A short drag below this distance and speed does not change month. */
+const SWIPE_VELOCITY = 500;
+
+/**
+ * Horizontal month swipe. `velocityX` is points per second (Gesture Handler).
+ * When the drag and the flick disagree, the drag direction wins.
+ * Returns 1 for next month, -1 for previous, 0 to stay.
+ */
+export function monthSwipeDelta(dx: number, velocityX: number): -1 | 0 | 1 {
+  const next = dx <= -SWIPE_DISTANCE || velocityX <= -SWIPE_VELOCITY;
+  const prev = dx >= SWIPE_DISTANCE || velocityX >= SWIPE_VELOCITY;
+  if (next && prev) return dx <= 0 ? 1 : -1;
+  if (next) return 1;
+  if (prev) return -1;
+  return 0;
 }
 
 type WeekInfoLike = { firstDay?: number };
