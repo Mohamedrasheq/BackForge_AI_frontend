@@ -7,6 +7,7 @@ import {
   dayAccessibilityLabel,
   dayKey,
   dayTint,
+  isCurrentMonth,
   isTodayCell,
   localeWeekStartsOn,
   monthDelta,
@@ -298,58 +299,67 @@ export function MonthCalendar({
     const today = calendarDayFromDate(new Date());
     goToMonth({ year: today.year, month: today.month });
   };
+  const showTodayJump = !isCurrentMonth(year, monthNumber, now);
 
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Text
-          style={styles.month}
-          numberOfLines={1}
-          accessibilityRole="header"
-          accessibilityLiveRegion="polite"
-        >
-          {monthTitle(year, monthNumber)}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Previous month"
-          hitSlop={6}
-          onPress={() => {
-            haptics.selection();
-            const current = monthRef.current;
-            goToMonth(shiftMonth(current.year, current.month, -1));
-          }}
-          style={({ pressed }) => [styles.chevron, pressed && styles.pressed]}
-        >
-          <IconSymbol name="chevron.left" size={20} color={Theme.color.text} />
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Next month"
-          hitSlop={6}
-          onPress={() => {
-            haptics.selection();
-            const current = monthRef.current;
-            goToMonth(shiftMonth(current.year, current.month, 1));
-          }}
-          style={({ pressed }) => [styles.chevron, pressed && styles.pressed]}
-        >
-          <IconSymbol name="chevron.right" size={20} color={Theme.color.text} />
-        </Pressable>
-        <View style={styles.headerSpacer} />
-        <View style={styles.headerActions}>
-          {selected ? (
-            <HeaderTextButton
-              label="Clear"
-              accessibilityLabel="Clear date"
-              onPress={() => onSelectedChange(null)}
-            />
-          ) : null}
-          <HeaderTextButton
-            label="Today"
-            accessibilityHint="Jumps to the current month"
-            onPress={jumpToCurrentMonth}
-          />
+        <View style={styles.monthSlot}>
+          <Text
+            style={styles.month}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            accessibilityRole="header"
+            accessibilityLiveRegion="polite"
+          >
+            {monthTitle(year, monthNumber, now)}
+          </Text>
+        </View>
+        {selected || showTodayJump ? (
+          <View style={styles.headerActions}>
+            {selected ? (
+              <HeaderTextButton
+                label="Clear"
+                accessibilityLabel="Clear date"
+                onPress={() => onSelectedChange(null)}
+              />
+            ) : null}
+            {showTodayJump ? (
+              <HeaderTextButton
+                label="Today"
+                accessibilityHint="Jumps to the current month"
+                onPress={jumpToCurrentMonth}
+              />
+            ) : null}
+          </View>
+        ) : null}
+        <View style={styles.monthNav}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Previous month"
+            hitSlop={6}
+            onPress={() => {
+              haptics.selection();
+              const current = monthRef.current;
+              goToMonth(shiftMonth(current.year, current.month, -1));
+            }}
+            style={({ pressed }) => [styles.chevron, pressed && styles.pressed]}
+          >
+            <IconSymbol name="chevron.left" size={20} color={Theme.color.text} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Next month"
+            hitSlop={6}
+            onPress={() => {
+              haptics.selection();
+              const current = monthRef.current;
+              goToMonth(shiftMonth(current.year, current.month, 1));
+            }}
+            style={({ pressed }) => [styles.chevron, pressed && styles.pressed]}
+          >
+            <IconSymbol name="chevron.right" size={20} color={Theme.color.text} />
+          </Pressable>
         </View>
       </View>
 
@@ -439,24 +449,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  monthSlot: {
+    flex: 1,
+    minWidth: 72,
+    marginRight: Theme.space.xs,
+  },
   month: {
-    flexShrink: 1,
     fontSize: 17,
     lineHeight: 22,
     fontWeight: '700',
     letterSpacing: -0.2,
     color: Theme.color.text,
   },
+  monthNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
   chevron: {
     width: 32,
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerSpacer: {
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 4,
   },
   headerActions: {
     flexDirection: 'row',

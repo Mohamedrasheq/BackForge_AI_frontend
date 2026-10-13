@@ -198,6 +198,14 @@ export function weekdayInitials(weekStartsOn: number, locale?: string): string[]
   return labels;
 }
 
+/**
+ * True when the visible month is the device-local month of `now`.
+ * The day inside that month does not matter.
+ */
+export function isCurrentMonth(year: number, month: number, now = new Date()): boolean {
+  return year === now.getFullYear() && month === now.getMonth() + 1;
+}
+
 /** `October`, or `January 2027` when the month is not in the current year. */
 export function monthTitle(
   year: number,
