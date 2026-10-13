@@ -14,8 +14,9 @@ import {
   dateFilterEmptyTitle,
   dayAccessibilityLabel,
   dayKey,
-  dueDot,
+  dayTint,
   dueLocalDayKey,
+  isTodayCell,
   filterItemsByStatusAndDay,
   localeWeekStartsOn,
   longDateLabel,
@@ -185,7 +186,44 @@ describe('labels', () => {
   });
 });
 
-describe('due dots and filtering', () => {
+describe('today ring', () => {
+  const now = new Date(2026, 9, 13, 18, 45, 0);
+
+  it('matches only the local calendar day, not the same day number in another month', () => {
+    assert.equal(isTodayCell({ year: 2026, month: 10, day: 13 }, now), true);
+    assert.equal(isTodayCell({ year: 2026, month: 10, day: 12 }, now), false);
+    assert.equal(isTodayCell({ year: 2026, month: 11, day: 13 }, now), false);
+    assert.equal(isTodayCell({ year: 2026, month: 9, day: 13 }, now), false);
+    assert.equal(isTodayCell({ year: 2025, month: 10, day: 13 }, now), false);
+    assert.equal(isTodayCell({ year: 2027, month: 10, day: 13 }, now), false);
+  });
+
+  it('places the today key only in the grid for the current month', () => {
+    const months = [
+      { year: 2026, month: 9 },
+      { year: 2026, month: 10 },
+      { year: 2026, month: 11 },
+      { year: 2026, month: 12 },
+      { year: 2025, month: 10 },
+      { year: 2027, month: 1 },
+    ];
+
+    for (const weekStartsOn of [0, 1]) {
+      for (const { year, month } of months) {
+        const todayKeys = buildMonthGrid(year, month, weekStartsOn)
+          .flat()
+          .flatMap((day) => (day && isTodayCell(day, now) ? [dayKey(day)] : []));
+        if (year === 2026 && month === 10) {
+          assert.deepEqual(todayKeys, ['2026-10-13']);
+        } else {
+          assert.deepEqual(todayKeys, []);
+        }
+      }
+    }
+  });
+});
+
+describe('day tints and filtering', () => {
   const openToday = item({ id: 'open-today', dueAt: at(2026, 10, 11, 8), folderId: 'work' });
   const openLater = item({
     id: 'open-later',
@@ -208,13 +246,15 @@ describe('due dots and filtering', () => {
     assert.equal(dayKey(calendarDayFromDate(new Date(2026, 9, 15, 23, 30))), '2026-10-15');
   });
 
-  it('paints an amber dot when any open item is due, including overdue days', () => {
+  it('tints open and overdue days amber, and done-only days grey', () => {
     const counts = countItemsByDueDay(items);
     assert.deepEqual(counts.get('2026-10-11'), { open: 2, done: 1 });
-    assert.equal(dueDot(counts.get('2026-10-11')), 'amber');
-    assert.equal(dueDot(counts.get('2026-10-01')), 'amber');
-    assert.equal(dueDot(counts.get('2026-10-15')), 'grey');
-    assert.equal(dueDot(counts.get('2026-10-20')), null);
+    assert.equal(dayTint(counts.get('2026-10-11')), 'amber');
+    assert.equal(dayTint(counts.get('2026-10-01')), 'amber');
+    assert.equal(dayTint(counts.get('2026-10-15')), 'grey');
+    assert.equal(dayTint(counts.get('2026-10-20')), null);
+    assert.equal(dayTint(undefined), null);
+    assert.equal(dayTint({ open: 0, done: 0 }), null);
     assert.equal(counts.has('undated'), false);
   });
 

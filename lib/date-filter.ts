@@ -18,7 +18,7 @@ export type DueDayCounts = {
 };
 
 /** Amber when any open item is due, including overdue days. Grey when every due item is done. */
-export type DueDot = 'amber' | 'grey';
+export type DayTint = 'amber' | 'grey';
 
 export const DATE_FILTER_EMPTY_DESCRIPTION = 'Pick another day or clear the date';
 
@@ -44,6 +44,14 @@ export function calendarDayFromDate(date: Date): CalendarDay {
 
 export function isSameCalendarDay(a: CalendarDay, b: CalendarDay): boolean {
   return a.year === b.year && a.month === b.month && a.day === b.day;
+}
+
+/**
+ * True only when `day` is the device-local calendar day of `now`.
+ * The same day-of-month in another month or year is not today.
+ */
+export function isTodayCell(day: CalendarDay, now: Date): boolean {
+  return isSameCalendarDay(day, calendarDayFromDate(now));
 }
 
 /** Tap selects a day. Tapping the selected day again clears the filter. */
@@ -276,7 +284,8 @@ export function countItemsByDueDay(items: readonly Item[]): Map<string, DueDayCo
   return map;
 }
 
-export function dueDot(counts: DueDayCounts | undefined): DueDot | null {
+/** Light amber fill when any open item is due, including overdue. Light grey when every due item is done. */
+export function dayTint(counts: DueDayCounts | undefined): DayTint | null {
   if (!counts || (counts.open === 0 && counts.done === 0)) return null;
   if (counts.open > 0) return 'amber';
   return 'grey';

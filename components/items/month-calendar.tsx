@@ -6,7 +6,8 @@ import {
   countItemsByDueDay,
   dayAccessibilityLabel,
   dayKey,
-  dueDot,
+  dayTint,
+  isTodayCell,
   localeWeekStartsOn,
   monthDelta,
   monthSwipeDelta,
@@ -19,7 +20,7 @@ import {
 } from '@/lib/date-filter';
 import { haptics } from '@/lib/haptics';
 import type { Item } from '@/types/api';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -32,7 +33,9 @@ import {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
 
-const DOT_GREY = '#9CA3AF';
+/** Accent `#B45309` at ~14% opacity. Days with an open item, including overdue. */
+const DAY_TINT_AMBER = `${Theme.color.accent}24`;
+const DAY_TINT_GREY = '#E5E7EB';
 const MONTH_SLIDE = 28;
 
 function useReduceMotionEnabled(): boolean {
@@ -98,6 +101,11 @@ export function MonthCalendar({
   selected: CalendarDay | null;
   onSelectedChange: (day: CalendarDay | null) => void;
 }) {
+  // 'use no memo': the today ring has to be computed in this render from the
+  // month shown in the header. React Compiler memoizes the day-cell JSX by
+  // grid slot, so the ring stays on that cell after prev/next or swipe.
+  'use no memo';
+
   const reduceMotion = useReduceMotionEnabled();
   const reduceMotionRef = useRef(reduceMotion);
   reduceMotionRef.current = reduceMotion;
@@ -110,6 +118,7 @@ export function MonthCalendar({
   const opacity = useRef(new Animated.Value(1)).current;
   const animating = useRef(false);
   const generation = useRef(0);
+  const pendingEnter = useRef(false);
 
   useEffect(() => {
     const shift = translateX;
@@ -177,26 +186,42 @@ export function MonthCalendar({
       }
       translateX.setValue(-out);
       opacity.setValue(0.35);
+      // Commit the next month before the slide-in. Starting that native
+      // animation in this callback keeps the previous grid's cells, so the
+      // today ring stays on the same slot under the new month title.
+      pendingEnter.current = true;
       onMonthChangeRef.current(target);
-      Animated.parallel([
-        Animated.timing(translateX, {
-          toValue: 0,
-          duration: 140,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 140,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        if (gen === generation.current) animating.current = false;
-      });
     });
     return true;
   };
+
+  useLayoutEffect(() => {
+    if (!pendingEnter.current) return;
+    pendingEnter.current = false;
+    const gen = generation.current;
+    if (reduceMotionRef.current) {
+      translateX.setValue(0);
+      opacity.setValue(1);
+      animating.current = false;
+      return;
+    }
+    Animated.parallel([
+      Animated.timing(translateX, {
+        toValue: 0,
+        duration: 140,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 140,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      if (gen === generation.current) animating.current = false;
+    });
+  }, [month.year, month.month, opacity, translateX]);
 
   const goToMonth = (target: CalendarMonth) => {
     const current = monthRef.current;
@@ -251,13 +276,17 @@ export function MonthCalendar({
   );
 
   const weekStartsOn = localeWeekStartsOn();
+  // Header and grid both read this prop in the same render. monthRef is only
+  // for gestures, so a swipe cannot show a grid for a different month than the title.
+  const year = month.year;
+  const monthNumber = month.month;
   const weeks = useMemo(
-    () => buildMonthGrid(month.year, month.month, weekStartsOn),
-    [month.year, month.month, weekStartsOn]
+    () => buildMonthGrid(year, monthNumber, weekStartsOn),
+    [year, monthNumber, weekStartsOn]
   );
   const initials = useMemo(() => weekdayInitials(weekStartsOn), [weekStartsOn]);
   const counts = useMemo(() => countItemsByDueDay(items), [items]);
-  const todayKey = dayKey(calendarDayFromDate(new Date()));
+  const now = new Date();
   const selectedKey = selected ? dayKey(selected) : null;
   const gridShift = useMemo(
     () => ({ transform: [{ translateX }], opacity }),
@@ -279,7 +308,7 @@ export function MonthCalendar({
           accessibilityRole="header"
           accessibilityLiveRegion="polite"
         >
-          {monthTitle(month.year, month.month)}
+          {monthTitle(year, monthNumber)}
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -338,51 +367,60 @@ export function MonthCalendar({
             ))}
           </View>
           <Animated.View style={gridShift}>
-            {weeks.map((week, weekIndex) => (
-              <View key={`${month.year}-${month.month}-${weekIndex}`} style={styles.week}>
-                {week.map((day, dayIndex) => {
-                  if (!day) {
-                    return <View key={`blank-${weekIndex}-${dayIndex}`} style={styles.cell} />;
-                  }
-                  const key = dayKey(day);
-                  const isSelected = key === selectedKey;
-                  const dot = dueDot(counts.get(key));
-                  return (
-                    <Pressable
-                      key={key}
-                      accessibilityRole="button"
-                      accessibilityLabel={dayAccessibilityLabel(day, counts.get(key), isSelected)}
-                      accessibilityState={{ selected: isSelected }}
-                      onPress={() => {
-                        if (animating.current) return;
-                        haptics.selection();
-                        onSelectedChange(toggleSelectedDay(selected, day));
-                      }}
-                      style={({ pressed }) => [styles.cell, pressed && styles.pressed]}
-                    >
-                      <View
-                        style={[
-                          styles.dayFace,
-                          key === todayKey && !isSelected && styles.todayRing,
-                          isSelected && styles.selectedFace,
-                        ]}
+            <View key={`${year}-${monthNumber}`} collapsable={false}>
+              {weeks.map((week, weekIndex) => (
+                <View key={`${year}-${monthNumber}-${weekIndex}`} style={styles.week}>
+                  {week.map((day, dayIndex) => {
+                    if (!day) {
+                      return (
+                        <View
+                          key={`blank-${year}-${monthNumber}-${weekIndex}-${dayIndex}`}
+                          style={styles.cell}
+                        />
+                      );
+                    }
+                    const key = dayKey(day);
+                    const isSelected = key === selectedKey;
+                    const isToday = isTodayCell(day, now);
+                    const tint = dayTint(counts.get(key));
+                    return (
+                      <Pressable
+                        key={key}
+                        accessibilityRole="button"
+                        accessibilityLabel={dayAccessibilityLabel(day, counts.get(key), isSelected)}
+                        accessibilityState={{ selected: isSelected }}
+                        onPress={() => {
+                          if (animating.current) return;
+                          haptics.selection();
+                          onSelectedChange(toggleSelectedDay(selected, day));
+                        }}
+                        style={({ pressed }) => [styles.cell, pressed && styles.pressed]}
                       >
-                        <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
-                          {day.day}
-                        </Text>
-                      </View>
-                      <View style={styles.dotSlot}>
-                        {dot ? (
-                          <View
-                            style={[styles.dot, dot === 'amber' ? styles.dotAmber : styles.dotGrey]}
-                          />
-                        ) : null}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ))}
+                        <View
+                          style={[
+                            styles.dayFace,
+                            tint === 'amber' && styles.dayTintAmber,
+                            tint === 'grey' && styles.dayTintGrey,
+                            isToday && !isSelected && styles.todayRing,
+                            isSelected && styles.selectedFace,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.dayText,
+                              tint === 'amber' && !isSelected && styles.dayTextOpen,
+                              isSelected && styles.dayTextSelected,
+                            ]}
+                          >
+                            {day.day}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
           </Animated.View>
         </View>
       </GestureDetector>
@@ -458,13 +496,25 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   dayFace: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    // Always set the border and fill. Dropping them leaves the previous
+    // today ring or tint on a reused cell after the month changes.
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+  },
+  dayTintAmber: {
+    backgroundColor: DAY_TINT_AMBER,
+  },
+  dayTintGrey: {
+    backgroundColor: DAY_TINT_GREY,
   },
   todayRing: {
     borderWidth: 1.5,
@@ -479,26 +529,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: Theme.color.text,
   },
+  dayTextOpen: {
+    color: Theme.color.accent,
+    fontWeight: '600',
+  },
   dayTextSelected: {
     color: Theme.color.white,
     fontWeight: '600',
-  },
-  dotSlot: {
-    height: 4,
-    marginTop: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-  },
-  dotAmber: {
-    backgroundColor: Theme.color.accent,
-  },
-  dotGrey: {
-    backgroundColor: DOT_GREY,
   },
   pressed: {
     opacity: 0.7,
