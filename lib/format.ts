@@ -1,9 +1,7 @@
+import { calendarDayFromDate, dateChipLabel, fullDateLabel } from '@/lib/date-filter';
+
 export function formatTodaySubtitle(date = new Date()): string {
-  return date.toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
+  return fullDateLabel(date);
 }
 
 export function formatDue(value: string | null): string | null {
@@ -24,13 +22,7 @@ export function formatDue(value: string | null): string | null {
 
   if (sameDay) return `Today · ${time}`;
 
-  const day = date.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-
-  return `${day} · ${time}`;
+  return `${dateChipLabel(calendarDayFromDate(date))} · ${time}`;
 }
 
 export function isUpcoming(value: string | null): boolean {

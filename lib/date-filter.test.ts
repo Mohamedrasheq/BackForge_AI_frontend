@@ -12,6 +12,7 @@ import {
   dateChipLabel,
   dateFilterButtonLabel,
   dateFilterEmptyTitle,
+  fullDateLabel,
   dayAccessibilityLabel,
   dayKey,
   dayTint,
@@ -68,6 +69,21 @@ describe('week start', () => {
 
   it('falls back to Monday when the locale cannot provide week info', () => {
     assert.equal(localeWeekStartsOn('not a locale'), 1);
+  });
+
+  it('defaults to Monday when Intl.Locale fails', () => {
+    const intl = Intl as { Locale: typeof Intl.Locale };
+    const original = intl.Locale;
+    function BrokenLocale() {
+      throw new TypeError('Intl.Locale is unavailable');
+    }
+    intl.Locale = BrokenLocale as unknown as typeof Intl.Locale;
+    try {
+      assert.equal(localeWeekStartsOn('en-US'), 1);
+      assert.equal(localeWeekStartsOn('ja-JP'), 1);
+    } finally {
+      intl.Locale = original;
+    }
   });
 });
 
@@ -165,33 +181,67 @@ describe('labels', () => {
   });
 
   it('shows the year on the month title only outside the current year', () => {
-    assert.equal(monthTitle(2026, 10, NOW, 'en-US'), 'October');
-    assert.equal(monthTitle(2027, 1, NOW, 'en-US'), 'January 2027');
-    assert.equal(monthTitle(2025, 12, NOW, 'en-US'), 'December 2025');
+    assert.equal(monthTitle(2026, 10, NOW), 'October');
+    assert.equal(monthTitle(2027, 1, NOW), 'January 2027');
+    assert.equal(monthTitle(2025, 12, NOW), 'December 2025');
   });
 
   it('formats the pill as weekday, day, month, and uses Today for the local today', () => {
-    assert.equal(dateChipLabel(THU_15, 'en-US'), 'Thu, 15 Oct');
-    assert.equal(activeDatePillLabel(THU_15, NOW, 'en-US'), 'Thu, 15 Oct');
-    assert.equal(activeDatePillLabel(TODAY, NOW, 'en-US'), 'Today, 11 Oct');
+    assert.equal(dateChipLabel(THU_15), 'Thu, 15 Oct');
+    assert.equal(activeDatePillLabel(THU_15, NOW), 'Thu, 15 Oct');
+    assert.equal(activeDatePillLabel(TODAY, NOW), 'Today, 11 Oct');
   });
 
   it('builds empty-state copy and the calendar button label', () => {
-    assert.equal(dateFilterEmptyTitle('open', THU_15, 'en-US'), 'Nothing due on Thu, 15 Oct');
-    assert.equal(dateFilterEmptyTitle('done', THU_15, 'en-US'), 'Nothing done for Thu, 15 Oct');
+    assert.equal(dateFilterEmptyTitle('open', THU_15), 'Nothing due on Thu, 15 Oct');
+    assert.equal(dateFilterEmptyTitle('done', THU_15), 'Nothing done for Thu, 15 Oct');
     assert.equal(DATE_FILTER_EMPTY_DESCRIPTION, 'Pick another day or clear the date');
     assert.equal(CLEAR_DATE_LABEL, 'Clear date');
     assert.equal(dateFilterButtonLabel(null), 'Filter by date');
-    assert.equal(
-      dateFilterButtonLabel(THU_15, 'en-US'),
-      'Filter by date, Thursday 15 October selected'
-    );
-    assert.equal(longDateLabel(THU_15, 'en-US'), 'Thursday 15 October');
+    assert.equal(dateFilterButtonLabel(THU_15), 'Filter by date, Thursday 15 October selected');
+    assert.equal(longDateLabel(THU_15), 'Thursday 15 October');
+  });
+
+  it('names every month and weekday in English, including 6 October', () => {
+    const long = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    const short = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const shortWeekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    for (let month = 1; month <= 12; month += 1) {
+      assert.equal(monthTitle(2024, month, NOW), `${long[month - 1]} 2024`);
+      const day: CalendarDay = { year: 2024, month, day: 15 };
+      const weekday = new Date(2024, month - 1, 15).getDay();
+      const chip = `${shortWeekdays[weekday]}, 15 ${short[month - 1]}`;
+      assert.equal(dateChipLabel(day), chip);
+      assert.equal(longDateLabel(day), `${weekdays[weekday]} 15 ${long[month - 1]}`);
+      assert.equal(dateFilterEmptyTitle('open', day), `Nothing due on ${chip}`);
+      assert.ok(!dateChipLabel(day).startsWith(','));
+    }
+
+    const tue6: CalendarDay = { year: 2026, month: 10, day: 6 };
+    assert.equal(dateChipLabel(tue6), 'Tue, 6 Oct');
+    assert.equal(dateFilterEmptyTitle('open', tue6), 'Nothing due on Tue, 6 Oct');
+    assert.equal(longDateLabel(tue6), 'Tuesday 6 October');
+    assert.equal(fullDateLabel(new Date(2026, 9, 6)), 'Tuesday, October 6');
   });
 
   it('orders weekday initials from the week start', () => {
-    assert.deepEqual(weekdayInitials(0, 'en-US'), ['S', 'M', 'T', 'W', 'T', 'F', 'S']);
-    assert.deepEqual(weekdayInitials(1, 'en-US'), ['M', 'T', 'W', 'T', 'F', 'S', 'S']);
+    assert.deepEqual(weekdayInitials(0), ['S', 'M', 'T', 'W', 'T', 'F', 'S']);
+    assert.deepEqual(weekdayInitials(1), ['M', 'T', 'W', 'T', 'F', 'S', 'S']);
   });
 });
 
@@ -270,15 +320,15 @@ describe('day tints and filtering', () => {
   it('describes a day for accessibility', () => {
     const counts = countItemsByDueDay(items);
     assert.equal(
-      dayAccessibilityLabel(TODAY, counts.get(dayKey(TODAY)), true, 'en-US'),
+      dayAccessibilityLabel(TODAY, counts.get(dayKey(TODAY)), true),
       'Sunday 11 October, 2 open, 1 done, selected'
     );
     assert.equal(
-      dayAccessibilityLabel(THU_15, counts.get(dayKey(THU_15)), false, 'en-US'),
+      dayAccessibilityLabel(THU_15, counts.get(dayKey(THU_15)), false),
       'Thursday 15 October, 1 done'
     );
-    assert.equal(dayAccessibilityLabel(THU_15, undefined, true, 'en-US'), 'Thursday 15 October, selected');
-    assert.equal(dayAccessibilityLabel(THU_15, undefined, false, 'en-US'), 'Thursday 15 October');
+    assert.equal(dayAccessibilityLabel(THU_15, undefined, true), 'Thursday 15 October, selected');
+    assert.equal(dayAccessibilityLabel(THU_15, undefined, false), 'Thursday 15 October');
   });
 
   it('filters Open and Done by local due day and drops undated items only while a date is set', () => {
