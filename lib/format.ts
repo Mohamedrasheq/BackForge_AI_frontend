@@ -25,11 +25,12 @@ export function formatDue(value: string | null): string | null {
   return `${dateChipLabel(calendarDayFromDate(date))} · ${time}`;
 }
 
-export function isUpcoming(value: string | null): boolean {
+/** True from one minute before `now` onward. Undated and invalid instants are not upcoming. */
+export function isUpcoming(value: string | null, now = new Date()): boolean {
   if (!value) return false;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return false;
-  return date.getTime() >= Date.now() - 60_000;
+  return date.getTime() >= now.getTime() - 60_000;
 }
 
 function pad2(value: number): string {
