@@ -13,6 +13,7 @@ import { SegmentedControl } from '@/components/ui/segmented-control';
 import { cardSurface, Theme } from '@/constants/theme';
 import { useCategories } from '@/hooks/use-categories';
 import { useAllItems } from '@/hooks/use-items';
+import { useNotificationEnable } from '@/hooks/use-notification-enable';
 import { useReviewEntry } from '@/hooks/use-review-entry';
 import { REVIEW_HREF } from '@/lib/review-push';
 import {
@@ -34,9 +35,10 @@ import {
   type CalendarDay,
 } from '@/lib/date-filter';
 import { haptics } from '@/lib/haptics';
+import { UPCOMING_EMPTY, upcomingSections } from '@/lib/upcoming';
 import type { Item, ItemStatus } from '@/types/api';
-import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -58,9 +60,12 @@ const VIEW_OPTIONS: { value: ItemsView; label: string }[] = [
   { value: 'category', label: 'Category' },
 ];
 
-const STATUS_OPTIONS: { value: ItemStatus; label: string }[] = [
+type CalendarList = ItemStatus | 'upcoming';
+
+const STATUS_OPTIONS: { value: CalendarList; label: string }[] = [
   { value: 'open', label: 'Open' },
   { value: 'done', label: 'Done' },
+  { value: 'upcoming', label: 'Upcoming' },
 ];
 
 const DONE_EMPTY: { icon: IconSymbolName; title: string; description: string } = {
@@ -112,8 +117,9 @@ function CategoryRow({
 export default function AllItemsScreen() {
   const router = useRouter();
   const review = useReviewEntry('items');
+  const { permission, refreshPermission } = useNotificationEnable();
   const [view, setView] = useState<ItemsView>('calendar');
-  const [status, setStatus] = useState<ItemStatus>('open');
+  const [status, setStatus] = useState<CalendarList>('open');
   const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const today = calendarDayFromDate(new Date());
@@ -143,14 +149,25 @@ export default function AllItemsScreen() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const visible = useMemo(
-    () => (view === 'calendar' ? filterItemsByStatusAndDay(items, status, selectedDay) : []),
-    [items, selectedDay, status, view]
+  useFocusEffect(
+    useCallback(() => {
+      void refreshPermission();
+    }, [refreshPermission])
   );
-  const sections = useMemo(
-    () => groupItemsByCategory(visible, categories),
-    [visible, categories]
-  );
+
+  const calendarItems = useMemo(() => {
+    if (view !== 'calendar' || status === 'upcoming') return [];
+    return filterItemsByStatusAndDay(items, status, selectedDay);
+  }, [items, selectedDay, status, view]);
+  const sections = useMemo(() => {
+    if (view !== 'calendar') return [];
+    if (status === 'upcoming') return upcomingSections(items, selectedDay);
+    return groupItemsByCategory(calendarItems, categories);
+  }, [calendarItems, categories, items, selectedDay, status, view]);
+  const listedCount =
+    status === 'upcoming'
+      ? sections.reduce((sum, section) => sum + section.data.length, 0)
+      : calendarItems.length;
   const categoryRows = useMemo(
     () => (view === 'category' ? buildCategoryBrowseRows(categories, items) : []),
     [categories, items, view]
@@ -164,7 +181,9 @@ export default function AllItemsScreen() {
 
   const openEmpty = !selectedDay && status === 'open';
   const dateFilterActive = selectedDay !== null;
-  const listBlocked = (loading && items.length === 0) || (!categoriesSettled && visible.length > 0);
+  const showNotifications =
+    status === 'upcoming' && permission !== null && permission !== 'granted';
+  const listBlocked = (loading && items.length === 0) || (!categoriesSettled && listedCount > 0);
 
   const clearDate = () => setSelectedDay(null);
 
@@ -267,6 +286,7 @@ export default function AllItemsScreen() {
     void reload(true);
     void reloadCategories();
     void review.reload();
+    void refreshPermission();
   };
 
   return (
@@ -377,6 +397,19 @@ export default function AllItemsScreen() {
                     resetRowActions();
                   }}
                 />
+                {showNotifications ? (
+                  <Pressable
+                    accessibilityRole="link"
+                    accessibilityLabel="Turn on notifications in Account"
+                    onPress={() => {
+                      haptics.light();
+                      router.navigate('/(tabs)/account');
+                    }}
+                    style={({ pressed }) => [styles.notifyCard, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.notifyText}>Turn on notifications in Account</Text>
+                  </Pressable>
+                ) : null}
                 {selectedDay ? (
                   <Text
                     style={styles.dateHeading}
@@ -393,6 +426,12 @@ export default function AllItemsScreen() {
                 <View style={styles.loadingBlock}>
                   <ActivityIndicator color={Theme.color.accent} />
                 </View>
+              ) : status === 'upcoming' ? (
+                <EmptyState
+                  description={UPCOMING_EMPTY}
+                  actionLabel={dateFilterActive ? CLEAR_DATE_LABEL : undefined}
+                  onAction={dateFilterActive ? clearDate : undefined}
+                />
               ) : dateFilterActive && selectedDay ? (
                 <EmptyState
                   title={dateFilterEmptyTitle(status, selectedDay)}
@@ -458,6 +497,18 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '600',
     color: Theme.color.textSecondary,
+  },
+  notifyCard: {
+    ...cardSurface,
+    marginBottom: Theme.space.md,
+    paddingVertical: 14,
+    paddingHorizontal: Theme.space.md,
+  },
+  notifyText: {
+    fontSize: Theme.type.body,
+    lineHeight: 22,
+    fontWeight: '500',
+    color: Theme.color.accent,
   },
   list: {
     paddingHorizontal: Theme.space.screenX,
