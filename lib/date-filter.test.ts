@@ -72,16 +72,17 @@ describe('week start', () => {
   });
 
   it('defaults to Monday when Intl.Locale fails', () => {
-    const original = Intl.Locale;
+    const intl = Intl as { Locale: typeof Intl.Locale };
+    const original = intl.Locale;
     function BrokenLocale() {
       throw new TypeError('Intl.Locale is unavailable');
     }
-    Intl.Locale = BrokenLocale as unknown as typeof Intl.Locale;
+    intl.Locale = BrokenLocale as unknown as typeof Intl.Locale;
     try {
       assert.equal(localeWeekStartsOn('en-US'), 1);
       assert.equal(localeWeekStartsOn('ja-JP'), 1);
     } finally {
-      Intl.Locale = original;
+      intl.Locale = original;
     }
   });
 });
