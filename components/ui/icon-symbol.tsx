@@ -13,7 +13,6 @@ const MAPPING = {
   'checkmark.circle.fill': 'check-circle',
   circle: 'radio-button-unchecked',
   'mic.fill': 'mic',
-  magnifyingglass: 'search',
   'arrow.up.circle.fill': 'arrow-circle-up',
   'chevron.left': 'chevron-left',
   'chevron.right': 'chevron-right',

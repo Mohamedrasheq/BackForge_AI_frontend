@@ -20,7 +20,6 @@ import {
   isTodayCell,
   filterItemsByStatusAndDay,
   localeWeekStartsOn,
-  isCurrentMonth,
   longDateLabel,
   monthDelta,
   monthSwipeDelta,
@@ -172,14 +171,6 @@ describe('toggleSelectedDay', () => {
 });
 
 describe('labels', () => {
-  it('treats only the local month of now as the current month', () => {
-    assert.equal(isCurrentMonth(2026, 10, NOW), true);
-    assert.equal(isCurrentMonth(2026, 9, NOW), false);
-    assert.equal(isCurrentMonth(2026, 11, NOW), false);
-    assert.equal(isCurrentMonth(2025, 10, NOW), false);
-    assert.equal(isCurrentMonth(2027, 10, NOW), false);
-  });
-
   it('shows the year on the month title only outside the current year', () => {
     assert.equal(monthTitle(2026, 10, NOW), 'October');
     assert.equal(monthTitle(2027, 1, NOW), 'January 2027');
