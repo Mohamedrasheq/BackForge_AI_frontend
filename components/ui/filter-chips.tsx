@@ -47,7 +47,6 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: Theme.space.sm,
-    paddingHorizontal: Theme.space.screenX,
     marginBottom: Theme.space.md,
   },
   chip: {

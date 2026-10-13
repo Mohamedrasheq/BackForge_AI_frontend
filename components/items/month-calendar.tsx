@@ -2,12 +2,10 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { cardSurface, Theme } from '@/constants/theme';
 import {
   buildMonthGrid,
-  calendarDayFromDate,
   countItemsByDueDay,
   dayAccessibilityLabel,
   dayKey,
   dayTint,
-  isCurrentMonth,
   isTodayCell,
   localeWeekStartsOn,
   monthDelta,
@@ -59,34 +57,6 @@ function useReduceMotionEnabled(): boolean {
   }, []);
 
   return live ?? Boolean(reducedAtLaunch);
-}
-
-function HeaderTextButton({
-  label,
-  accessibilityLabel,
-  accessibilityHint,
-  onPress,
-}: {
-  label: string;
-  accessibilityLabel?: string;
-  accessibilityHint?: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityHint={accessibilityHint}
-      hitSlop={8}
-      onPress={() => {
-        haptics.light();
-        onPress();
-      }}
-      style={({ pressed }) => [styles.headerAction, pressed && styles.pressed]}
-    >
-      <Text style={styles.headerActionText}>{label}</Text>
-    </Pressable>
-  );
 }
 
 export function MonthCalendar({
@@ -294,13 +264,6 @@ export function MonthCalendar({
     [opacity, translateX]
   );
 
-  // Today moves the visible month only. It does not select a day.
-  const jumpToCurrentMonth = () => {
-    const today = calendarDayFromDate(new Date());
-    goToMonth({ year: today.year, month: today.month });
-  };
-  const showTodayJump = !isCurrentMonth(year, monthNumber, now);
-
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -315,24 +278,6 @@ export function MonthCalendar({
             {monthTitle(year, monthNumber, now)}
           </Text>
         </View>
-        {selected || showTodayJump ? (
-          <View style={styles.headerActions}>
-            {selected ? (
-              <HeaderTextButton
-                label="Clear"
-                accessibilityLabel="Clear date"
-                onPress={() => onSelectedChange(null)}
-              />
-            ) : null}
-            {showTodayJump ? (
-              <HeaderTextButton
-                label="Today"
-                accessibilityHint="Jumps to the current month"
-                onPress={jumpToCurrentMonth}
-              />
-            ) : null}
-          </View>
-        ) : null}
         <View style={styles.monthNav}>
           <Pressable
             accessibilityRole="button"
@@ -471,21 +416,6 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  headerAction: {
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-  },
-  headerActionText: {
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '600',
-    color: Theme.color.accent,
   },
   gridClip: {
     overflow: 'hidden',

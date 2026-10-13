@@ -9,6 +9,7 @@ import { FilterChips } from '@/components/ui/filter-chips';
 import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { cardSurface, Theme } from '@/constants/theme';
 import { useCategories } from '@/hooks/use-categories';
 import { useAllItems } from '@/hooks/use-items';
@@ -35,7 +36,7 @@ import {
 import { haptics } from '@/lib/haptics';
 import type { Item, ItemStatus } from '@/types/api';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -47,35 +48,26 @@ import {
   SectionList,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
-type ItemsFilter = ItemStatus | 'category';
+type ItemsView = 'calendar' | 'category';
 
-const FILTER_OPTIONS: { value: ItemsFilter; label: string }[] = [
-  { value: 'open', label: 'Open' },
-  { value: 'done', label: 'Done' },
+const VIEW_OPTIONS: { value: ItemsView; label: string }[] = [
+  { value: 'calendar', label: 'Calendar' },
   { value: 'category', label: 'Category' },
 ];
 
-function emptyCopy(
-  query: string,
-  status: ItemStatus
-): { icon: IconSymbolName; title: string; description: string } {
-  if (query) {
-    return {
-      icon: 'magnifyingglass',
-      title: 'No matches',
-      description: status === 'done' ? 'No done items match that.' : 'No open items match that.',
-    };
-  }
-  return {
-    icon: 'checkmark',
-    title: 'Nothing done',
-    description: 'Nothing marked done yet.',
-  };
-}
+const STATUS_OPTIONS: { value: ItemStatus; label: string }[] = [
+  { value: 'open', label: 'Open' },
+  { value: 'done', label: 'Done' },
+];
+
+const DONE_EMPTY: { icon: IconSymbolName; title: string; description: string } = {
+  icon: 'checkmark',
+  title: 'Nothing done',
+  description: 'Nothing marked done yet.',
+};
 
 function CategoryCountText({ openCount, doneCount }: { openCount: number; doneCount: number }) {
   const parts = categoryCountParts(openCount, doneCount);
@@ -120,15 +112,13 @@ function CategoryRow({
 export default function AllItemsScreen() {
   const router = useRouter();
   const review = useReviewEntry('items');
-  const [input, setInput] = useState('');
-  const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<ItemsFilter>('open');
+  const [view, setView] = useState<ItemsView>('calendar');
+  const [status, setStatus] = useState<ItemStatus>('open');
   const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const today = calendarDayFromDate(new Date());
     return { year: today.year, month: today.month };
   });
-  const itemsQuery = filter === 'category' ? '' : query;
   const {
     items,
     loading,
@@ -140,8 +130,7 @@ export default function AllItemsScreen() {
     removeItem,
     reschedule,
     movingId,
-    loadedQuery,
-  } = useAllItems(itemsQuery);
+  } = useAllItems();
   const {
     categories,
     loading: categoriesLoading,
@@ -154,42 +143,36 @@ export default function AllItemsScreen() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    const handle = setTimeout(() => setQuery(input.trim()), 300);
-    return () => clearTimeout(handle);
-  }, [input]);
-
   const visible = useMemo(
-    () => (filter === 'category' ? [] : filterItemsByStatusAndDay(items, filter, selectedDay)),
-    [items, filter, selectedDay]
+    () => (view === 'calendar' ? filterItemsByStatusAndDay(items, status, selectedDay) : []),
+    [items, selectedDay, status, view]
   );
   const sections = useMemo(
     () => groupItemsByCategory(visible, categories),
     [visible, categories]
   );
   const categoryRows = useMemo(
-    () => (filter === 'category' ? buildCategoryBrowseRows(categories, items, query) : []),
-    [filter, categories, items, query]
+    () => (view === 'category' ? buildCategoryBrowseRows(categories, items) : []),
+    [categories, items, view]
   );
-  const anyCategoryRows = useMemo(() => {
-    if (filter !== 'category') return false;
-    if (!query) return categoryRows.length > 0;
-    return buildCategoryBrowseRows(categories, items, '').length > 0;
-  }, [filter, categories, items, query, categoryRows.length]);
   const categoriesSettled = !categoriesLoading || Boolean(categoriesError);
   const categoryBlocking =
-    filter === 'category' && (loadedQuery !== '' || (!categoriesSettled && !categoriesError));
+    view === 'category' &&
+    ((loading && items.length === 0) || (!categoriesSettled && !categoriesError));
   const hideCategoryRows = Boolean(error) && items.length === 0;
   const shownCategoryRows = hideCategoryRows ? [] : categoryRows;
 
-  const empty = emptyCopy(query, filter === 'done' ? 'done' : 'open');
-  const openEmpty = !query && !selectedDay && filter === 'open';
-  const dateFilterActive = selectedDay !== null && filter !== 'category';
-  const listBlocked =
-    filter !== 'category' &&
-    ((loading && items.length === 0) || (!categoriesSettled && visible.length > 0));
+  const openEmpty = !selectedDay && status === 'open';
+  const dateFilterActive = selectedDay !== null;
+  const listBlocked = (loading && items.length === 0) || (!categoriesSettled && visible.length > 0);
 
   const clearDate = () => setSelectedDay(null);
+
+  const resetRowActions = () => {
+    setEditingId(null);
+    setPendingDeleteId(null);
+    setDatePickerId(null);
+  };
 
   const changeSelectedDay = (day: CalendarDay | null) => {
     Keyboard.dismiss();
@@ -302,39 +285,21 @@ export default function AllItemsScreen() {
           />
         ) : null}
 
-        <View style={styles.searchWrap}>
-          <IconSymbol name="magnifyingglass" size={18} color={Theme.color.textSecondary} />
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder={filter === 'category' ? 'Search categories' : 'Search'}
-            placeholderTextColor={Theme.color.textTertiary}
-            selectionColor={Theme.color.accent}
-            cursorColor={Theme.color.accent}
-            style={styles.search}
-            autoCorrect={false}
-            autoCapitalize="none"
-            returnKeyType="search"
-          />
-        </View>
-
-        <FilterChips
-          value={filter}
-          options={FILTER_OPTIONS}
+        <SegmentedControl
+          value={view}
+          options={VIEW_OPTIONS}
           onChange={(next) => {
-            setFilter(next);
-            setEditingId(null);
-            setPendingDeleteId(null);
-            setDatePickerId(null);
+            setView(next);
+            resetRowActions();
           }}
         />
 
         {error ? <ErrorBanner message={error} onRetry={() => void reload()} /> : null}
-        {filter === 'category' && categoriesError && !error ? (
+        {view === 'category' && categoriesError && !error ? (
           <ErrorBanner message={categoriesError} onRetry={() => void reloadCategories()} />
         ) : null}
 
-        {filter === 'category' ? (
+        {view === 'category' ? (
           categoryBlocking ? (
             error ? (
               <View style={styles.flex} />
@@ -349,7 +314,7 @@ export default function AllItemsScreen() {
               keyExtractor={(row) => row.id}
               contentContainerStyle={[
                 styles.list,
-                shownCategoryRows.length === 0 && !anyCategoryRows && styles.emptyList,
+                shownCategoryRows.length === 0 && styles.emptyList,
               ]}
               keyboardShouldPersistTaps="handled"
               automaticallyAdjustKeyboardInsets
@@ -362,7 +327,7 @@ export default function AllItemsScreen() {
                 />
               }
               ListEmptyComponent={
-                hideCategoryRows || (categoriesError && categories.length === 0 && !anyCategoryRows) ? null : !anyCategoryRows ? (
+                hideCategoryRows || (categoriesError && categories.length === 0) ? null : (
                   <EmptyState
                     mark="list"
                     title="No categories yet"
@@ -370,8 +335,6 @@ export default function AllItemsScreen() {
                     actionLabel="Go to Capture"
                     onAction={() => router.navigate('/(tabs)/capture')}
                   />
-                ) : (
-                  <Text style={styles.noMatch}>No categories match</Text>
                 )
               }
               renderItem={({ item: row }) => <CategoryRow row={row} onPress={openCategory} />}
@@ -379,7 +342,7 @@ export default function AllItemsScreen() {
           )
         ) : (
           <SectionList
-            key={`${filter}:${selectedDay ? dayKey(selectedDay) : 'all'}`}
+            key={`${status}:${selectedDay ? dayKey(selectedDay) : 'all'}`}
             sections={listBlocked ? [] : sections}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
@@ -396,16 +359,30 @@ export default function AllItemsScreen() {
               />
             }
             ListHeaderComponent={
-              <View style={[styles.calendarBlock, selectedDay ? styles.calendarBlockFiltered : null]}>
-                <MonthCalendar
-                  items={items}
-                  month={visibleMonth}
-                  onMonthChange={setVisibleMonth}
-                  selected={selectedDay}
-                  onSelectedChange={changeSelectedDay}
+              <View>
+                <View style={styles.calendarBlock}>
+                  <MonthCalendar
+                    items={items}
+                    month={visibleMonth}
+                    onMonthChange={setVisibleMonth}
+                    selected={selectedDay}
+                    onSelectedChange={changeSelectedDay}
+                  />
+                </View>
+                <FilterChips
+                  value={status}
+                  options={STATUS_OPTIONS}
+                  onChange={(next) => {
+                    setStatus(next);
+                    resetRowActions();
+                  }}
                 />
                 {selectedDay ? (
-                  <Text style={styles.filterCaption} accessibilityLabel={longDateLabel(selectedDay)}>
+                  <Text
+                    style={styles.dateHeading}
+                    accessibilityRole="header"
+                    accessibilityLabel={longDateLabel(selectedDay)}
+                  >
                     {dateChipLabel(selectedDay)}
                   </Text>
                 ) : null}
@@ -416,9 +393,9 @@ export default function AllItemsScreen() {
                 <View style={styles.loadingBlock}>
                   <ActivityIndicator color={Theme.color.accent} />
                 </View>
-              ) : dateFilterActive && selectedDay && !query ? (
+              ) : dateFilterActive && selectedDay ? (
                 <EmptyState
-                  title={dateFilterEmptyTitle(filter === 'done' ? 'done' : 'open', selectedDay)}
+                  title={dateFilterEmptyTitle(status, selectedDay)}
                   description={DATE_FILTER_EMPTY_DESCRIPTION}
                   actionLabel={CLEAR_DATE_LABEL}
                   onAction={clearDate}
@@ -433,11 +410,9 @@ export default function AllItemsScreen() {
                 />
               ) : (
                 <EmptyState
-                  icon={empty.icon}
-                  title={empty.title}
-                  description={empty.description}
-                  actionLabel={dateFilterActive ? CLEAR_DATE_LABEL : undefined}
-                  onAction={dateFilterActive ? clearDate : undefined}
+                  icon={DONE_EMPTY.icon}
+                  title={DONE_EMPTY.title}
+                  description={DONE_EMPTY.description}
                 />
               )
             }
@@ -474,38 +449,14 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  searchWrap: {
-    marginHorizontal: Theme.space.screenX,
-    marginBottom: Theme.space.sm,
-    height: 44,
-    borderRadius: Theme.radius.md,
-    borderWidth: 1,
-    borderColor: Theme.color.border,
-    backgroundColor: Theme.color.card,
-    paddingHorizontal: Theme.space.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  search: {
-    flex: 1,
-    fontSize: Theme.type.body,
-    lineHeight: 22,
-    color: Theme.color.text,
-    paddingVertical: 0,
-    textDecorationLine: 'none', // iOS can carry a done row's line-through into a recycled TextInput placeholder.
-  },
   calendarBlock: {
     marginBottom: Theme.space.md,
   },
-  calendarBlockFiltered: {
+  dateHeading: {
     marginBottom: Theme.space.sm,
-  },
-  filterCaption: {
-    marginTop: 10,
     fontSize: Theme.type.caption,
     lineHeight: 18,
-    fontWeight: '500',
+    fontWeight: '600',
     color: Theme.color.textSecondary,
   },
   list: {
@@ -574,11 +525,5 @@ const styles = StyleSheet.create({
   },
   countOpen: {
     color: Theme.color.accent,
-  },
-  noMatch: {
-    paddingTop: Theme.space.sm,
-    fontSize: Theme.type.body,
-    lineHeight: 22,
-    color: Theme.color.textSecondary,
   },
 });

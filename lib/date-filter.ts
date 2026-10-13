@@ -247,14 +247,6 @@ export function weekdayInitials(weekStartsOn: number): string[] {
   return labels;
 }
 
-/**
- * True when the visible month is the device-local month of `now`.
- * The day inside that month does not matter.
- */
-export function isCurrentMonth(year: number, month: number, now = new Date()): boolean {
-  return year === now.getFullYear() && month === now.getMonth() + 1;
-}
-
 /** `October`, or `January 2027` when the month is not in the current year. */
 export function monthTitle(year: number, month: number, now = new Date()): string {
   const name = monthLong(month);
@@ -342,7 +334,7 @@ export function dayTint(counts: DueDayCounts | undefined): DayTint | null {
 
 /**
  * Open or Done rows for one local due day.
- * Pass items already narrowed by search. A null day keeps undated items.
+ * A null day keeps undated items.
  * A set day drops anything without a due time, including done items.
  */
 export function filterItemsByStatusAndDay(

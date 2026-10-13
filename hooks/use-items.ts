@@ -60,14 +60,12 @@ export function useTodayItems() {
   return { items, loading, refreshing, error, reload, markDone };
 }
 
-export function useAllItems(query: string) {
+export function useAllItems() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
-  /** Query string that `items` was loaded for. Null until the first successful fetch. */
-  const [loadedQuery, setLoadedQuery] = useState<string | null>(null);
   const itemsRef = useRef(items);
   const requestId = useRef(0);
 
@@ -83,10 +81,9 @@ export function useAllItems(query: string) {
     }
 
     try {
-      const next = await getItems(query);
+      const next = await getItems();
       if (id !== requestId.current) return;
       setItems(next);
-      setLoadedQuery(query);
       setError(null);
     } catch (err) {
       if (id !== requestId.current) return;
@@ -99,7 +96,7 @@ export function useAllItems(query: string) {
         setRefreshing(false);
       }
     }
-  }, [query]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -212,6 +209,5 @@ export function useAllItems(query: string) {
     removeItem,
     reschedule,
     movingId,
-    loadedQuery,
   };
 }

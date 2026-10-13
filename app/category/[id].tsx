@@ -56,7 +56,7 @@ export default function CategoryDetailScreen() {
     removeItem,
     reschedule,
     movingId,
-  } = useAllItems('');
+  } = useAllItems();
   const {
     categories,
     loading: categoriesLoading,

@@ -347,10 +347,8 @@ export async function getTodayItems(): Promise<Item[]> {
   return normalizeItems(payload).filter((item) => item.status !== 'done');
 }
 
-export async function getItems(query?: string): Promise<Item[]> {
-  const trimmed = query?.trim();
-  const path = trimmed ? `/items?q=${encodeURIComponent(trimmed)}` : '/items';
-  return normalizeItems(await apiFetch<unknown>(path));
+export async function getItems(): Promise<Item[]> {
+  return normalizeItems(await apiFetch<unknown>('/items'));
 }
 
 /**
