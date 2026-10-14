@@ -13,7 +13,7 @@ export function FilterChips<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <View style={styles.row}>
+    <View style={chipStyles.row}>
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -28,12 +28,12 @@ export function FilterChips<T extends string>({
               onChange(option.value);
             }}
             style={({ pressed }) => [
-              styles.chip,
-              active ? styles.chipActive : styles.chipIdle,
-              pressed && styles.pressed,
+              chipStyles.chip,
+              active ? chipStyles.chipActive : chipStyles.chipIdle,
+              pressed && chipStyles.pressed,
             ]}
           >
-            <Text style={[styles.label, active ? styles.labelActive : styles.labelIdle]}>
+            <Text style={[chipStyles.label, active ? chipStyles.labelActive : chipStyles.labelIdle]}>
               {option.label}
             </Text>
           </Pressable>
@@ -43,7 +43,7 @@ export function FilterChips<T extends string>({
   );
 }
 
-const styles = StyleSheet.create({
+export const chipStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: Theme.space.sm,
