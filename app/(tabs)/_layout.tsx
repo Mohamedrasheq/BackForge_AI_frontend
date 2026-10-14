@@ -62,6 +62,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="ask"
+        options={{
+          title: 'Ask',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={24} name="bubble.left.and.bubble.right" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="account"
         options={{
           title: 'Account',
