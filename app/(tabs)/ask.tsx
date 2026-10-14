@@ -30,10 +30,8 @@ import {
   ASK_CLEAR,
   ASK_COUNTER_FROM,
   ASK_EMPTY_ACCOUNT,
-  ASK_EMPTY_DESCRIPTION,
   ASK_FAILURE,
   ASK_GO_CAPTURE,
-  ASK_GREETING,
   ASK_MESSAGE_MAX,
   ASK_NO_MATCH_HINT,
   ASK_OPEN_ALL,
@@ -533,12 +531,11 @@ export default function AskScreen() {
             >
               {showEmpty ? (
                 <View style={styles.empty}>
-                  <Text style={styles.greeting} accessibilityRole="header">
-                    {ASK_GREETING}
-                  </Text>
-                  <Text style={styles.trust}>{accountEmpty ? ASK_EMPTY_ACCOUNT : ASK_EMPTY_DESCRIPTION}</Text>
                   {accountEmpty ? (
-                    <TextButton label={ASK_GO_CAPTURE} onPress={openCapture} style={styles.emptyAction} />
+                    <>
+                      <Text style={styles.emptyAccount}>{ASK_EMPTY_ACCOUNT}</Text>
+                      <TextButton label={ASK_GO_CAPTURE} onPress={openCapture} style={styles.emptyAction} />
+                    </>
                   ) : null}
                 </View>
               ) : (
@@ -619,17 +616,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: Theme.space.xl,
   },
-  greeting: {
-    maxWidth: 320,
-    fontSize: Theme.type.screenTitle,
-    lineHeight: 34,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    color: Theme.color.text,
-    textAlign: 'center',
-  },
-  trust: {
-    marginTop: Theme.space.sm,
+  emptyAccount: {
     maxWidth: 300,
     fontSize: Theme.type.caption,
     lineHeight: 18,
