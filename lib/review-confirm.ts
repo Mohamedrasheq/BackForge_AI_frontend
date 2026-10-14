@@ -33,10 +33,10 @@ export async function confirmReview(rows: ReviewDraft[]): Promise<ReviewConfirmR
           return { appliedIds, error: 'Pick a day for each item you are moving.' };
         }
         const text = changedText(row);
-        await updateItem(row.id, text ? { text, dueAt: row.dueAt } : { dueAt: row.dueAt });
+        await updateItem(row.id, text ? { text, dueAt: row.dueAt } : { dueAt: row.dueAt }, 'review');
       } else {
         const text = changedText(row);
-        if (text) await updateItem(row.id, { text });
+        if (text) await updateItem(row.id, { text }, 'review');
       }
       appliedIds.push(row.id);
     } catch (err) {

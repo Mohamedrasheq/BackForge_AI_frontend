@@ -25,6 +25,7 @@ const MAPPING = {
   'rectangle.portrait.and.arrow.right': 'logout',
   'exclamationmark.triangle': 'warning',
   'arrow.clockwise': 'refresh',
+  'bubble.left.and.bubble.right': 'forum',
 } as const;
 
 export type IconSymbolName = keyof typeof MAPPING;

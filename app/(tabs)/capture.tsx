@@ -174,7 +174,7 @@ export default function CaptureScreen() {
         setError(EMPTY_PARSE_MESSAGE);
         return;
       }
-      await bulkCreateItems(ready);
+      await bulkCreateItems(ready, 'capture');
       haptics.success();
       setText('');
       setRows([]);

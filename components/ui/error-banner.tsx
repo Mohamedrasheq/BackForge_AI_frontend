@@ -5,14 +5,17 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 export function ErrorBanner({
   message,
   onRetry,
+  retryLabel = 'Try again',
 }: {
   message: string;
   onRetry?: () => void;
+  /** Ask uses "Retry". Other screens keep "Try again". */
+  retryLabel?: string;
 }) {
   return (
     <Pressable onPress={onRetry} style={styles.banner}>
       <Text style={styles.text}>{message}</Text>
-      {onRetry ? <Text style={styles.retry}>Try again</Text> : null}
+      {onRetry ? <Text style={styles.retry}>{retryLabel}</Text> : null}
     </Pressable>
   );
 }

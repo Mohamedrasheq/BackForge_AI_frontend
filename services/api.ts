@@ -5,7 +5,23 @@
 
 import { getApiToken } from '@/lib/api-auth';
 import { audioPartFromUri, readTranscriptPayload } from '@/lib/transcribe-audio';
-import type { BulkCreateItem, Category, Item, ProposedItem, UpdateItemRequest } from '@/types/api';
+import {
+  askRateLimitScope,
+  normalizeAskResponse,
+  ASK_FAILURE,
+  ASK_HISTORY_TURNS,
+  ASK_MESSAGE_MAX,
+  type AskResponse,
+} from '@/lib/ask-contract';
+import type {
+  AskHistoryTurn,
+  BulkCreateItem,
+  Category,
+  Item,
+  ItemWriteSource,
+  ProposedItem,
+  UpdateItemRequest,
+} from '@/types/api';
 import { Platform } from 'react-native';
 
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -14,12 +30,27 @@ export const API_BASE = (ENV_API_URL || 'https://back-forge-ai.vercel.app/api').
 export class ApiError extends Error {
   status: number;
   code: string | null;
+  payload: unknown;
+  retryAfter: string | null;
 
-  constructor(message: string, status: number, code: string | null = null) {
+  constructor(message: string, status: number, code: string | null = null, payload: unknown = null) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+    this.payload = payload;
+    this.retryAfter = null;
+  }
+}
+
+/** POST /ask returned 429. `scope` picks the minute lock or the day lock. */
+export class AskRateLimitError extends ApiError {
+  scope: 'minute' | 'day';
+
+  constructor(scope: 'minute' | 'day') {
+    super(scope === 'day' ? 'day' : 'minute', 429, 'rate_limited');
+    this.name = 'AskRateLimitError';
+    this.scope = scope;
   }
 }
 
@@ -243,17 +274,20 @@ function readFailureCode(payload: unknown): string | null {
   return null;
 }
 
-async function readFailure(response: Response): Promise<{ message: string; code: string | null }> {
+async function readFailure(
+  response: Response
+): Promise<{ message: string; code: string | null; payload: unknown }> {
   try {
     const body = await response.json();
     return {
       message: readErrorMessage(body) || `Request failed (${response.status})`,
       code: readFailureCode(body),
+      payload: body,
     };
   } catch {
     // ignore parse failure
   }
-  return { message: `Request failed (${response.status})`, code: null };
+  return { message: `Request failed (${response.status})`, code: null, payload: null };
 }
 
 async function readError(response: Response): Promise<string> {
@@ -293,7 +327,9 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (!response.ok) {
     const failure = await readFailure(response);
-    throw new ApiError(failure.message, response.status, failure.code);
+    const error = new ApiError(failure.message, response.status, failure.code, failure.payload);
+    error.retryAfter = response.headers.get('retry-after');
+    throw error;
   }
 
   if (response.status === 204) {
@@ -334,10 +370,17 @@ export function toBulkCreateItems(items: ProposedItem[]): BulkCreateItem[] {
   }));
 }
 
-export async function bulkCreateItems(items: ProposedItem[]): Promise<Item[]> {
+export async function bulkCreateItems(
+  items: ProposedItem[],
+  source?: ItemWriteSource
+): Promise<Item[]> {
+  const body: { items: BulkCreateItem[]; source?: ItemWriteSource } = {
+    items: toBulkCreateItems(items),
+  };
+  if (source) body.source = source;
   const payload = await apiFetch<unknown>('/items/bulk', {
     method: 'POST',
-    body: JSON.stringify({ items: toBulkCreateItems(items) }),
+    body: JSON.stringify(body),
   });
   return normalizeItems(payload);
 }
@@ -358,11 +401,14 @@ export async function getItems(): Promise<Item[]> {
  */
 export async function updateItem(
   id: string,
-  patch: { text?: string; dueAt?: string | null }
+  patch: { text?: string; dueAt?: string | null; folderId?: string | null },
+  source?: ItemWriteSource
 ): Promise<Item | null> {
   const body: UpdateItemRequest = {};
   if (patch.text !== undefined) body.body = patch.text;
   if (patch.dueAt !== undefined) body.due_at = patch.dueAt;
+  if (patch.folderId !== undefined) body.folder_id = patch.folderId;
+  if (source) body.source = source;
 
   const payload = await apiFetch<unknown>(`/items/${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -386,9 +432,10 @@ export async function deleteItem(id: string): Promise<void> {
   });
 }
 
-export async function markItemDone(id: string): Promise<Item | null> {
+export async function markItemDone(id: string, source?: ItemWriteSource): Promise<Item | null> {
   const payload = await apiFetch<unknown>(`/items/${encodeURIComponent(id)}/done`, {
     method: 'POST',
+    body: source ? JSON.stringify({ source }) : undefined,
   });
 
   if (payload == null) {
@@ -513,4 +560,43 @@ export async function transcribeCaptureAudio(uri: string): Promise<string> {
   }
 
   return transcript;
+}
+
+/**
+ * POST /ask. Request is `{ message, timezone, history? }`.
+ * History is the last 6 turns and does not include `message`.
+ * A 429 throws `AskRateLimitError` with `scope` `minute` or `day`.
+ */
+export async function askQuestion(input: {
+  message: string;
+  timezone: string;
+  history?: AskHistoryTurn[];
+}): Promise<AskResponse> {
+  const message = input.message.trim().slice(0, ASK_MESSAGE_MAX);
+  const history = input.history?.slice(-ASK_HISTORY_TURNS);
+  const body: {
+    message: string;
+    timezone: string;
+    history?: AskHistoryTurn[];
+  } = {
+    message,
+    timezone: input.timezone,
+  };
+  if (history && history.length > 0) body.history = history;
+
+  try {
+    const payload = await apiFetch<unknown>('/ask', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    const parsed = normalizeAskResponse(payload);
+    if (!parsed) throw new ApiError(ASK_FAILURE, 200);
+    return parsed;
+  } catch (err) {
+    if (err instanceof AskRateLimitError) throw err;
+    if (err instanceof ApiError && err.status === 429) {
+      throw new AskRateLimitError(askRateLimitScope(err.payload, err.retryAfter));
+    }
+    throw err;
+  }
 }

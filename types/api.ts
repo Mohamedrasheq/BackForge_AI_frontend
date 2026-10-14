@@ -62,6 +62,27 @@ export interface BulkCreateItem {
 export interface UpdateItemRequest {
   body?: string;
   due_at?: string | null;
+  /** Null clears the category (Unfiled). */
+  folder_id?: string | null;
+  source?: ItemWriteSource;
+}
+
+/** Where a write came from. The server defaults an omitted source to `manual`. */
+export type ItemWriteSource = 'capture' | 'ask' | 'review' | 'manual';
+
+/**
+ * POST /ask — last few chat turns, not including the message being sent.
+ * `content` is the user text or the assistant reply.
+ */
+export interface AskHistoryTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface AskRequest {
+  message: string;
+  timezone: string;
+  history?: AskHistoryTurn[];
 }
 
 export interface DeviceRegisterResponse {

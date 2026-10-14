@@ -9,12 +9,14 @@ export function IconButton({
   accessibilityLabel,
   tone = 'accent',
   size = 36,
+  disabled = false,
 }: {
   name: IconSymbolName;
   onPress: () => void;
   accessibilityLabel: string;
   tone?: 'accent' | 'danger';
   size?: number;
+  disabled?: boolean;
 }) {
   const danger = tone === 'danger';
 
@@ -22,13 +24,16 @@ export function IconButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
       onPress={onPress}
+      disabled={disabled}
       hitSlop={8}
       style={({ pressed }) => [
         styles.button,
         { width: size, height: size, borderRadius: size / 2 },
         danger ? styles.danger : styles.accent,
-        pressed && styles.pressed,
+        disabled && styles.disabled,
+        pressed && !disabled && styles.pressed,
       ]}
     >
       <IconSymbol
@@ -53,5 +58,8 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
+  },
+  disabled: {
+    opacity: 0.45,
   },
 });

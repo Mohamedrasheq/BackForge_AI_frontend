@@ -7,9 +7,19 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Theme } from '@/constants/theme';
+import { wasLine } from '@/lib/ask-drafts';
 import { resolveCategorySuggestion, UNFILED_LABEL } from '@/lib/categories';
+import {
+  doneMetaLine,
+  draftKindLabel,
+  draftRemoveControl,
+  saveableDraftItems,
+  type DraftKind,
+  type DraftWas,
+} from '@/lib/confirm-drafts';
+import { formatDue } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
-import type { Category, ProposedItem } from '@/types/api';
+import type { Category } from '@/types/api';
 import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -34,6 +44,12 @@ export type DraftItem = {
   suggestedIsNew: boolean;
   /** True after the user picks a category or Unfiled, so a late suggestion cannot overwrite it. */
   categoryChosen: boolean;
+  /** Absent on Capture drafts, which stay adds. */
+  kind?: DraftKind;
+  /** Required for an edit or done proposal. */
+  itemId?: string;
+  /** Edit only. The client fills this from the saved item before Confirm opens. */
+  was?: DraftWas;
 };
 
 let draftKeySeq = 0;
@@ -49,6 +65,9 @@ export function createDraftItem(
     suggestedCategory?: string | null;
     suggestedIsNew?: boolean;
     categoryChosen?: boolean;
+    kind?: DraftKind;
+    itemId?: string;
+    was?: DraftWas;
   },
   categories: Category[] = []
 ): DraftItem {
@@ -76,8 +95,13 @@ export function createDraftItem(
     suggestedCategory,
     suggestedIsNew,
     categoryChosen,
+    kind: item?.kind,
+    itemId: item?.itemId,
+    was: item?.was,
   };
 }
+
+export { saveableDraftItems };
 
 export function patchDraftByKey(
   items: DraftItem[],
@@ -106,19 +130,6 @@ export function applyCategorySuggestions(items: DraftItem[], categories: Categor
     return { ...item, ...resolved };
   });
   return changed ? next : items;
-}
-
-export function saveableDraftItems(items: DraftItem[]): ProposedItem[] {
-  return items
-    .map((item) => ({
-      text: item.text.trim(),
-      dueAt: item.dueAt,
-      folderId: item.folderId,
-      suggestedFolderId: null,
-      suggestedCategory: null,
-      suggestedIsNew: false,
-    }))
-    .filter((item) => item.text.length > 0);
 }
 
 export const EMPTY_PARSE_MESSAGE = 'Nothing to save from that. Try adding a bit more.';
@@ -193,49 +204,72 @@ export function ConfirmItems({
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
       >
-        {items.map((item, index) => (
-          <Card key={item.key} style={styles.card}>
-            <View style={styles.cardTop}>
-              <View style={styles.indexWrap}>
-                <Text style={styles.index}>{index + 1}</Text>
-              </View>
-              <IconButton
-                name="trash"
-                tone="danger"
-                size={32}
-                accessibilityLabel={`Delete item ${index + 1}`}
-                onPress={() => removeAt(item.key)}
-              />
-            </View>
-            <EditableItemFields
-              compact
-              text={item.text}
-              onChangeText={(text) => updateAt(item.key, { text })}
-              dueAt={item.dueAt}
-              onChangeDue={(dueAt) => updateAt(item.key, { dueAt })}
-              pickerOpen={activeDueKey === item.key}
-              onOpenPicker={() => {
-                setActiveCategoryKey(null);
-                setActiveDueKey(item.key);
-              }}
-              onClosePicker={() =>
-                setActiveDueKey((current) => (current === item.key ? null : current))
-              }
-              dueAccessory={
-                <CategoryChip
-                  label={item.categoryName ?? UNFILED_LABEL}
-                  assigned={Boolean(item.folderId) || item.pendingNew}
-                  hint={item.pendingNew ? 'New' : undefined}
-                  onPress={() => {
-                    setActiveDueKey((current) => (current === item.key ? null : current));
-                    setActiveCategoryKey(item.key);
-                    onReloadCategories();
-                  }}
+        {items.map((item, index) => {
+          const remove = draftRemoveControl(item.kind, index);
+          const kindLabel = draftKindLabel(item.kind);
+          const previous = wasLine(item);
+          return (
+            <Card key={item.key} style={styles.card}>
+              <View style={styles.cardTop}>
+                <View style={styles.cardTopLeft}>
+                  <View style={styles.indexWrap}>
+                    <Text style={styles.index}>{index + 1}</Text>
+                  </View>
+                  {kindLabel ? <Text style={styles.kindLabel}>{kindLabel}</Text> : null}
+                </View>
+                <IconButton
+                  name={remove.name}
+                  tone={remove.tone}
+                  size={32}
+                  accessibilityLabel={remove.accessibilityLabel}
+                  onPress={() => removeAt(item.key)}
                 />
-              }
-            />
-          </Card>
-        ))}
+              </View>
+              {item.kind === 'done' ? (
+                <View style={styles.doneRow}>
+                  <IconSymbol name="checkmark.circle.fill" size={20} color={Theme.color.accent} />
+                  <View style={styles.doneBody}>
+                    <Text style={styles.doneText}>{item.text}</Text>
+                    <Text style={styles.doneMeta}>
+                      {doneMetaLine(formatDue(item.dueAt), item.categoryName)}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <EditableItemFields
+                    compact
+                    text={item.text}
+                    onChangeText={(text) => updateAt(item.key, { text })}
+                    dueAt={item.dueAt}
+                    onChangeDue={(dueAt) => updateAt(item.key, { dueAt })}
+                    pickerOpen={activeDueKey === item.key}
+                    onOpenPicker={() => {
+                      setActiveCategoryKey(null);
+                      setActiveDueKey(item.key);
+                    }}
+                    onClosePicker={() =>
+                      setActiveDueKey((current) => (current === item.key ? null : current))
+                    }
+                    dueAccessory={
+                      <CategoryChip
+                        label={item.categoryName ?? UNFILED_LABEL}
+                        assigned={Boolean(item.folderId) || item.pendingNew}
+                        hint={item.pendingNew ? 'New' : undefined}
+                        onPress={() => {
+                          setActiveDueKey((current) => (current === item.key ? null : current));
+                          setActiveCategoryKey(item.key);
+                          onReloadCategories();
+                        }}
+                      />
+                    }
+                  />
+                  {previous ? <Text style={styles.was}>{previous}</Text> : null}
+                </>
+              )}
+            </Card>
+          );
+        })}
 
         <Pressable
           accessibilityRole="button"
@@ -304,6 +338,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
+  },
+  cardTopLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  kindLabel: {
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: Theme.color.accent,
+  },
+  doneRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  doneBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  doneText: {
+    fontSize: Theme.type.body,
+    lineHeight: 22,
+    fontWeight: '600',
+    color: Theme.color.text,
+  },
+  doneMeta: {
+    marginTop: 4,
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
+    color: Theme.color.textSecondary,
+  },
+  was: {
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
+    color: Theme.color.textSecondary,
   },
   indexWrap: {
     minWidth: 24,
