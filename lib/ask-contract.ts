@@ -17,10 +17,12 @@ export const ASK_CANDIDATE_LIMIT = 5;
 export const ASK_MINUTE_COOLDOWN_MS = 60_000;
 
 export const ASK_TITLE = 'Ask';
-export const ASK_SUBTITLE = 'About your tasks';
 export const ASK_PLACEHOLDER = 'Ask about your tasks';
 export const ASK_PLACEHOLDER_MINUTE = 'Back in a minute';
 export const ASK_PLACEHOLDER_DAY = 'Back tomorrow';
+export const ASK_GREETING = 'What do you want to know about your tasks?';
+export const ASK_EMPTY_DESCRIPTION =
+  'Answers come from your own list. Changes wait for your Confirm.';
 export const ASK_EMPTY_ACCOUNT = 'Capture a few tasks first, then ask about them.';
 export const ASK_SAMPLES = ["What's due this week?", 'Anything overdue?', 'Plan my day'] as const;
 export const ASK_GO_CAPTURE = 'Go to Capture';
