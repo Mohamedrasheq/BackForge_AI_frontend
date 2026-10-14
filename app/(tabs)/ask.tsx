@@ -12,7 +12,6 @@ import { IconButton } from '@/components/ui/icon-button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ItemRow } from '@/components/ui/item-row';
 import { Screen } from '@/components/ui/screen';
-import { ScreenHeader } from '@/components/ui/screen-header';
 import { SecondaryButton } from '@/components/ui/secondary-button';
 import { TextButton } from '@/components/ui/text-button';
 import { cardSurface, Theme } from '@/constants/theme';
@@ -42,8 +41,6 @@ import {
   ASK_SAVED_BUTTON,
   ASK_SEE_ALL,
   ASK_SEND,
-  ASK_SUBTITLE,
-  ASK_TITLE,
   deviceTimeZone,
   isCandidateChoice,
   reviewChangesLabel,
@@ -508,19 +505,15 @@ export default function AskScreen() {
         />
       ) : (
         <>
-          <ScreenHeader
-            title={ASK_TITLE}
-            subtitle={ASK_SUBTITLE}
-            right={
-              state.messages.length > 0 ? (
-                <TextButton
-                  label={ASK_CLEAR}
-                  tone="secondary"
-                  onPress={() => dispatchAskSession({ type: 'clear' })}
-                />
-              ) : null
-            }
-          />
+          <View style={styles.topBar}>
+            {state.messages.length > 0 ? (
+              <TextButton
+                label={ASK_CLEAR}
+                tone="secondary"
+                onPress={() => dispatchAskSession({ type: 'clear' })}
+              />
+            ) : null}
+          </View>
           <KeyboardAvoidingView
             style={styles.flex}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -603,6 +596,13 @@ export default function AskScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  topBar: {
+    minHeight: 36,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: Theme.space.screenX,
   },
   messages: {
     paddingHorizontal: Theme.space.screenX,
