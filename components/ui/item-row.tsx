@@ -26,8 +26,11 @@ export function ItemRow({
   onEdit,
   onDelete,
   categoryLabel,
+  grouped = false,
 }: {
   item: Item;
+  /** Drops the row's own card so it can sit inside a grouped list. */
+  grouped?: boolean;
   /** Read-only category name. Omitted when the item is Unfiled. */
   categoryLabel?: string | null;
   onDone?: (item: Item) => void;
@@ -78,7 +81,7 @@ export function ItemRow({
   };
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, grouped && styles.rowGrouped]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={done ? 'Completed' : 'Mark done'}
@@ -212,6 +215,15 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 18,
     paddingHorizontal: Theme.space.md,
+  },
+  rowGrouped: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    boxShadow: 'none',
   },
   checkWrap: {
     paddingTop: 1,

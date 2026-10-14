@@ -4,8 +4,9 @@ import {
   EMPTY_PARSE_MESSAGE,
   type DraftItem,
 } from '@/components/capture/confirm-items';
-import { Card } from '@/components/ui/card';
-import { EmptyState } from '@/components/ui/empty-state';
+import { ReplyText } from '@/components/ask/reply-text';
+import { SuggestionChips } from '@/components/ask/suggestion-chips';
+import { TypingIndicator } from '@/components/ask/typing-indicator';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { IconButton } from '@/components/ui/icon-button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -30,9 +31,9 @@ import {
   ASK_COUNTER_FROM,
   ASK_EMPTY_ACCOUNT,
   ASK_EMPTY_DESCRIPTION,
-  ASK_EMPTY_TITLE,
   ASK_FAILURE,
   ASK_GO_CAPTURE,
+  ASK_GREETING,
   ASK_MESSAGE_MAX,
   ASK_NO_MATCH_HINT,
   ASK_OPEN_ALL,
@@ -42,7 +43,6 @@ import {
   ASK_SEE_ALL,
   ASK_SEND,
   ASK_SUBTITLE,
-  ASK_THINKING,
   ASK_TITLE,
   deviceTimeZone,
   isCandidateChoice,
@@ -70,6 +70,7 @@ import {
   createPendingCategoryNames,
 } from '@/lib/categories';
 import { haptics } from '@/lib/haptics';
+import { replyPlainText } from '@/lib/reply-markdown';
 import {
   AskRateLimitError,
   askQuestion,
@@ -83,7 +84,6 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore, type SetStateAction } from 'react';
 import {
   AccessibilityInfo,
-  Animated,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -136,34 +136,7 @@ function candidateItem(candidate: AskCandidate): Item {
   };
 }
 
-function ThinkingCard({ reduceMotion }: { reduceMotion: boolean }) {
-  const opacity = useRef(new Animated.Value(reduceMotion ? 1 : 0.5)).current;
-
-  useEffect(() => {
-    if (reduceMotion) {
-      opacity.setValue(1);
-      return;
-    }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 600, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.5, duration: 600, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [opacity, reduceMotion]);
-
-  return (
-    <Animated.View style={{ opacity }}>
-      <Card>
-        <Text style={styles.thinking}>{ASK_THINKING}</Text>
-      </Card>
-    </Animated.View>
-  );
-}
-
-function AnswerCard({
+function AnswerTurn({
   message,
   onReview,
   onOpenItems,
@@ -177,34 +150,33 @@ function AnswerCard({
   const choice = isCandidateChoice(message);
   const picked = message.pickedCandidateId;
   return (
-    <Card accessibilityLiveRegion="polite" accessibilityLabel={message.text} style={styles.answer}>
-      {message.text ? <Text style={styles.body}>{message.text}</Text> : null}
+    <View accessibilityLiveRegion="polite" style={styles.turn}>
+      {message.text ? <ReplyText text={message.text} /> : null}
+      {message.candidates.length > 0 ? (
+        <View style={styles.group}>
+          {message.candidates.map((candidate, index) => (
+            <View key={candidate.id} style={index > 0 && styles.divider}>
+              {choice ? (
+                <CandidateRow
+                  candidate={candidate}
+                  dimmed={picked != null && picked !== candidate.id}
+                  disabled={picked != null}
+                  onPress={() => onPick(message, candidate)}
+                />
+              ) : (
+                <ItemRow item={candidateItem(candidate)} categoryLabel={candidate.categoryName} grouped />
+              )}
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {message.showing ? <Text style={styles.muted}>{showingLabel(message.showing)}</Text> : null}
       {message.variant === 'no-match' ? <Text style={styles.muted}>{ASK_NO_MATCH_HINT}</Text> : null}
-      {message.candidates.map((candidate) =>
-        choice ? (
-          <CandidateRow
-            key={candidate.id}
-            candidate={candidate}
-            dimmed={picked != null && picked !== candidate.id}
-            disabled={picked != null}
-            onPress={() => onPick(message, candidate)}
-          />
-        ) : (
-          <ItemRow
-            key={candidate.id}
-            item={candidateItem(candidate)}
-            categoryLabel={candidate.categoryName}
-          />
-        )
-      )}
       {message.variant === 'no-match' || message.variant === 'delete' ? (
-        <TextButton label={ASK_OPEN_ALL} onPress={onOpenItems} style={styles.cardAction} />
+        <TextButton label={ASK_OPEN_ALL} onPress={onOpenItems} style={styles.turnAction} />
       ) : null}
       {message.showing ? (
-        <>
-          <Text style={styles.muted}>{showingLabel(message.showing)}</Text>
-          <TextButton label={ASK_SEE_ALL} onPress={onOpenItems} style={styles.cardAction} />
-        </>
+        <TextButton label={ASK_SEE_ALL} onPress={onOpenItems} style={styles.turnAction} />
       ) : null}
       {message.review !== 'none' ? (
         <SecondaryButton
@@ -213,7 +185,7 @@ function AnswerCard({
           onPress={() => onReview(message)}
         />
       ) : null}
-    </Card>
+    </View>
   );
 }
 
@@ -242,7 +214,7 @@ function CandidateRow({
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
-        <ItemRow item={candidateItem(candidate)} categoryLabel={candidate.categoryName} />
+        <ItemRow item={candidateItem(candidate)} categoryLabel={candidate.categoryName} grouped />
       </View>
       <IconSymbol name="chevron.right" size={18} color={Theme.color.textTertiary} />
     </Pressable>
@@ -262,15 +234,13 @@ function ChatMessage({
 }) {
   if (message.role === 'user') {
     return (
-      <View style={styles.userWrap}>
-        <Card style={styles.userCard}>
-          <Text style={styles.body}>{message.text}</Text>
-        </Card>
+      <View style={styles.userBubble}>
+        <Text style={styles.body}>{message.text}</Text>
       </View>
     );
   }
   return (
-    <AnswerCard message={message} onReview={onReview} onOpenItems={onOpenItems} onPick={onPick} />
+    <AnswerTurn message={message} onReview={onReview} onOpenItems={onOpenItems} onPick={onPick} />
   );
 }
 
@@ -337,7 +307,7 @@ export default function AskScreen() {
     if (!latest || latest.id === announcedId.current) return;
     announcedId.current = latest.id;
     if (Platform.OS === 'ios' && latest.text.trim()) {
-      AccessibilityInfo.announceForAccessibility(latest.text);
+      AccessibilityInfo.announceForAccessibility(replyPlainText(latest.text));
     }
   }, [state.messages]);
 
@@ -563,23 +533,12 @@ export default function AskScreen() {
             >
               {showEmpty ? (
                 <View style={styles.empty}>
-                  <EmptyState
-                    title={ASK_EMPTY_TITLE}
-                    description={accountEmpty ? ASK_EMPTY_ACCOUNT : ASK_EMPTY_DESCRIPTION}
-                  />
+                  <Text style={styles.greeting} accessibilityRole="header">
+                    {ASK_GREETING}
+                  </Text>
+                  <Text style={styles.trust}>{accountEmpty ? ASK_EMPTY_ACCOUNT : ASK_EMPTY_DESCRIPTION}</Text>
                   {accountEmpty ? (
-                    <TextButton label={ASK_GO_CAPTURE} onPress={openCapture} />
-                  ) : accountEmpty === false ? (
-                    <View style={styles.samples}>
-                      {ASK_SAMPLES.map((sample) => (
-                        <TextButton
-                          key={sample}
-                          label={sample}
-                          disabled={blocked}
-                          onPress={() => submit(sample)}
-                        />
-                      ))}
-                    </View>
+                    <TextButton label={ASK_GO_CAPTURE} onPress={openCapture} style={styles.emptyAction} />
                   ) : null}
                 </View>
               ) : (
@@ -593,11 +552,20 @@ export default function AskScreen() {
                   />
                 ))
               )}
-              {state.pending ? <ThinkingCard reduceMotion={reduceMotion} /> : null}
+              {state.pending ? (
+                <View style={styles.turn}>
+                  <TypingIndicator reduceMotion={reduceMotion} />
+                </View>
+              ) : null}
               {caption ? <Text style={styles.caption}>{caption}</Text> : null}
             </ScrollView>
             {state.error ? (
               <ErrorBanner message={ASK_FAILURE} retryLabel={ASK_RETRY} onRetry={() => void retry()} />
+            ) : null}
+            {showEmpty && accountEmpty === false ? (
+              <View style={styles.suggestions}>
+                <SuggestionChips suggestions={ASK_SAMPLES} disabled={blocked} onPick={submit} />
+              </View>
             ) : null}
             <View style={styles.composerWrap}>
               <View style={styles.composer}>
@@ -638,35 +606,58 @@ const styles = StyleSheet.create({
   },
   messages: {
     paddingHorizontal: Theme.space.screenX,
+    paddingTop: Theme.space.sm,
     paddingBottom: Theme.space.md,
-    gap: 12,
+    gap: Theme.space.lg,
   },
   messagesEmpty: {
     flexGrow: 1,
   },
   empty: {
     flexGrow: 1,
-    justifyContent: 'center',
-  },
-  samples: {
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Theme.space.xl,
   },
-  userWrap: {
-    alignItems: 'flex-end',
+  greeting: {
+    maxWidth: 320,
+    fontSize: Theme.type.screenTitle,
+    lineHeight: 34,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    color: Theme.color.text,
+    textAlign: 'center',
   },
-  userCard: {
+  trust: {
+    marginTop: Theme.space.sm,
+    maxWidth: 300,
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
+    color: Theme.color.textSecondary,
+    textAlign: 'center',
+  },
+  emptyAction: {
+    marginTop: Theme.space.sm,
+  },
+  userBubble: {
     alignSelf: 'flex-end',
     maxWidth: '80%',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: Theme.radius.lg,
     backgroundColor: 'rgba(180, 83, 9, 0.08)',
-    borderColor: 'transparent',
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-    boxShadow: 'none',
   },
-  answer: {
+  turn: {
     alignSelf: 'stretch',
-    gap: 12,
+    gap: Theme.space.listGap,
+  },
+  group: {
+    ...cardSurface,
+    overflow: 'hidden',
+  },
+  divider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Theme.color.border,
   },
   body: {
     fontSize: Theme.type.body,
@@ -678,19 +669,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: Theme.color.textSecondary,
   },
-  thinking: {
-    fontSize: Theme.type.body,
-    lineHeight: 22,
-    color: Theme.color.textSecondary,
-  },
-  cardAction: {
+  turnAction: {
     alignSelf: 'flex-start',
     paddingHorizontal: 0,
   },
   candidate: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    paddingRight: Theme.space.md,
   },
   candidateBody: {
     flex: 1,
@@ -706,6 +692,9 @@ const styles = StyleSheet.create({
     color: Theme.color.textSecondary,
     paddingVertical: Theme.space.sm,
   },
+  suggestions: {
+    paddingTop: Theme.space.sm,
+  },
   composerWrap: {
     paddingHorizontal: Theme.space.screenX,
     paddingTop: Theme.space.sm,
@@ -714,19 +703,21 @@ const styles = StyleSheet.create({
   },
   composer: {
     ...cardSurface,
+    borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 8,
-    paddingVertical: 10,
-    paddingLeft: 14,
-    paddingRight: 8,
+    minHeight: 48,
+    paddingVertical: 6,
+    paddingLeft: 18,
+    paddingRight: 6,
   },
   input: {
     flex: 1,
-    minHeight: 24,
+    minHeight: 36,
     maxHeight: 88,
-    paddingTop: 6,
-    paddingBottom: 6,
+    paddingTop: 7,
+    paddingBottom: 7,
     fontSize: Theme.type.body,
     lineHeight: 22,
     color: Theme.color.text,
