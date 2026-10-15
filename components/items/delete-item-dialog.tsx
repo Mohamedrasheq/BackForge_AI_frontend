@@ -22,6 +22,34 @@ export function DeleteItemDialog({
   onCancel: () => void;
 }) {
   return (
+    <ConfirmDeleteDialog
+      title="Delete this item?"
+      body={item.text}
+      note="This removes it from your list."
+      deleting={deleting}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
+  );
+}
+
+/** Cancel / Delete confirmation shared by item and account deletes. */
+export function ConfirmDeleteDialog({
+  title,
+  body,
+  note,
+  deleting,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  body?: string;
+  note: string;
+  deleting: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
     <Modal transparent animationType="fade" visible onRequestClose={deleting ? undefined : onCancel}>
       <Pressable
         accessibilityRole="button"
@@ -33,11 +61,13 @@ export function DeleteItemDialog({
       >
         <Pressable style={styles.sheetWrap} onPress={() => undefined}>
           <Card style={styles.card}>
-            <Text style={styles.title}>Delete this item?</Text>
-            <Text style={styles.body} numberOfLines={3}>
-              {item.text}
-            </Text>
-            <Text style={styles.note}>This removes it from your list.</Text>
+            <Text style={styles.title}>{title}</Text>
+            {body ? (
+              <Text style={styles.body} numberOfLines={3}>
+                {body}
+              </Text>
+            ) : null}
+            <Text style={styles.note}>{note}</Text>
             <View style={styles.actions}>
               <View style={styles.action}>
                 <SecondaryButton label="Cancel" onPress={onCancel} disabled={deleting} />

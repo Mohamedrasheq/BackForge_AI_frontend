@@ -1,4 +1,7 @@
+import { ConfirmDeleteDialog } from '@/components/items/delete-item-dialog';
 import { Card } from '@/components/ui/card';
+import { ErrorBanner } from '@/components/ui/error-banner';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SecondaryButton } from '@/components/ui/secondary-button';
@@ -6,17 +9,27 @@ import { TextButton } from '@/components/ui/text-button';
 import { Theme } from '@/constants/theme';
 import { useAccountCounts } from '@/hooks/use-account-counts';
 import { useNotificationEnable } from '@/hooks/use-notification-enable';
+import {
+  DELETE_ACCOUNT_FAILED,
+  DELETE_ACCOUNT_LABEL,
+  DELETE_ACCOUNT_NOTE,
+  DELETE_ACCOUNT_TITLE,
+} from '@/lib/account-delete';
+import { clearLocalAccountData } from '@/lib/account-reset';
 import { haptics } from '@/lib/haptics';
+import { LEGAL_LINKS } from '@/lib/links';
 import {
   notificationStatusDetail,
   notificationStatusLabel,
 } from '@/lib/notifications-enable';
 import { useOnboarding } from '@/lib/onboarding';
+import { deleteAccount } from '@/services/api';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import Constants from 'expo-constants';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 function spokenCount(value: number, singular: string, plural: string): string {
   return `${value} ${value === 1 ? singular : plural}`;
@@ -55,8 +68,9 @@ function StatChip({
 }
 
 export default function AccountScreen() {
+  const router = useRouter();
   const { user } = useUser();
-  const { signOut } = useAuth();
+  const { signOut, userId } = useAuth();
   const { resetSeen } = useOnboarding();
   const { permission, registering, message, refreshPermission, enableAlerts } =
     useNotificationEnable();
@@ -65,6 +79,9 @@ export default function AccountScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [onboardingReset, setOnboardingReset] = useState(false);
   const [permissionCheckFailed, setPermissionCheckFailed] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const name =
     user?.fullName ||
@@ -92,6 +109,30 @@ export default function AccountScreen() {
     }
   };
 
+  const onDeleteAccount = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteAccount();
+    } catch {
+      haptics.error();
+      setDeleting(false);
+      setConfirmDelete(false);
+      setDeleteError(DELETE_ACCOUNT_FAILED);
+      return;
+    }
+    await clearLocalAccountData(userId);
+    try {
+      await signOut();
+    } catch {
+      // The server already removed the account, so its session is gone either way.
+    }
+    setDeleting(false);
+    setConfirmDelete(false);
+    router.replace('/sign-in');
+  };
+
   const statusLabel = permission ? notificationStatusLabel(permission) : null;
   const statusDetail = permission
     ? notificationStatusDetail(permission)
@@ -101,6 +142,7 @@ export default function AccountScreen() {
   return (
     <Screen>
       <ScreenHeader title="Account" />
+      {deleteError ? <ErrorBanner message={deleteError} /> : null}
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
         <Card style={styles.profile}>
@@ -184,10 +226,43 @@ export default function AccountScreen() {
           {message ? <Text style={styles.message}>{message}</Text> : null}
         </Card>
 
+        <Card style={styles.links}>
+          {LEGAL_LINKS.map((link, index) => (
+            <Pressable
+              key={link.url}
+              accessibilityRole="link"
+              accessibilityLabel={link.label}
+              onPress={() => {
+                haptics.light();
+                void WebBrowser.openBrowserAsync(link.url);
+              }}
+              style={({ pressed }) => [
+                styles.linkRow,
+                index > 0 && styles.linkDivider,
+                pressed && styles.linkPressed,
+              ]}
+            >
+              <Text style={styles.linkLabel}>{link.label}</Text>
+              <IconSymbol name="chevron.right" size={18} color={Theme.color.textTertiary} />
+            </Pressable>
+          ))}
+        </Card>
+
         <View style={styles.signOutRow}>
           <TextButton
             label={signingOut ? 'Signing out…' : 'Sign out'}
             onPress={() => void onSignOut()}
+            tone="danger"
+            style={styles.signOut}
+          />
+          <TextButton
+            label={DELETE_ACCOUNT_LABEL}
+            onPress={() => {
+              haptics.warning();
+              setDeleteError(null);
+              setConfirmDelete(true);
+            }}
+            disabled={deleting}
             tone="danger"
             style={styles.signOut}
           />
@@ -212,6 +287,15 @@ export default function AccountScreen() {
 
         <Text style={styles.version}>{version}</Text>
       </ScrollView>
+      {confirmDelete ? (
+        <ConfirmDeleteDialog
+          title={DELETE_ACCOUNT_TITLE}
+          note={DELETE_ACCOUNT_NOTE}
+          deleting={deleting}
+          onConfirm={() => void onDeleteAccount()}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -340,10 +424,36 @@ const styles = StyleSheet.create({
     fontSize: Theme.type.caption,
     lineHeight: 20,
   },
+  links: {
+    marginTop: Theme.space.lg,
+    padding: 0,
+    overflow: 'hidden',
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Theme.space.md,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  linkDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Theme.color.border,
+  },
+  linkPressed: {
+    backgroundColor: Theme.color.background,
+  },
+  linkLabel: {
+    fontSize: Theme.type.label,
+    fontWeight: '600',
+    color: Theme.color.text,
+  },
   signOutRow: {
     marginTop: Theme.space.xl,
     width: '100%',
     alignItems: 'center',
+    gap: Theme.space.xs,
   },
   signOut: {
     alignSelf: 'center',
