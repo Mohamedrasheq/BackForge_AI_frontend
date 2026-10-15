@@ -12,9 +12,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.rasheq462003.backforge.ai",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSMicrophoneUsageDescription": "The microphone is used so you can talk items in.",
+        "NSMicrophoneUsageDescription": "BackForge uses the microphone so you can speak tasks and have them turned into a list.",
         "NSUserNotificationsUsageDescription": "Reminders are sent for items that need you."
       },
       "appleTeamId": "KDU25W2MCD"
@@ -63,6 +64,7 @@
         }
       ],
       "expo-secure-store",
+      "expo-apple-authentication",
       [
         "expo-notifications",
         {
@@ -73,7 +75,7 @@
       [
         "expo-av",
         {
-          "microphonePermission": "The microphone is used so you can talk items in."
+          "microphonePermission": "BackForge uses the microphone so you can speak tasks and have them turned into a list."
         }
       ],
       "@react-native-community/datetimepicker"
