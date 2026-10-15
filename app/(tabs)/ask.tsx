@@ -83,6 +83,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore, type SetStateAction } from 'react';
 import {
   AccessibilityInfo,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -521,7 +522,9 @@ export default function AskScreen() {
             consent.status === 'needed' ? (
               <AiConsentCard onAgree={consent.agree} />
             ) : (
-              <View style={styles.flex} />
+              <View style={styles.consentLoading}>
+                <ActivityIndicator color={Theme.color.accent} />
+              </View>
             )
           ) : (
             <KeyboardAvoidingView
@@ -611,6 +614,11 @@ export default function AskScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  consentLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   topBar: {
     minHeight: 36,

@@ -26,16 +26,3 @@ export function aiConsentStoredValue(): string {
 export function isAiConsentStored(raw: string | null | undefined): boolean {
   return raw === AGREED_VALUE;
 }
-
-/**
- * Gate state for Capture and Ask.
- * `known` is the in-memory answer for the user: undefined while storage is still being read.
- */
-export function aiConsentStatus(
-  userId: string | null | undefined,
-  known: boolean | undefined
-): AiConsentStatus {
-  if (!aiConsentStorageKey(userId)) return 'loading';
-  if (known === undefined) return 'loading';
-  return known ? 'agreed' : 'needed';
-}

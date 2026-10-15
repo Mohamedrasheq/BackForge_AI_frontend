@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  aiConsentStatus,
   aiConsentStorageKey,
   aiConsentStoredValue,
   isAiConsentStored,
@@ -27,17 +26,5 @@ describe('isAiConsentStored', () => {
     assert.equal(isAiConsentStored(null), false);
     assert.equal(isAiConsentStored('true'), false);
     assert.equal(isAiConsentStored(''), false);
-  });
-});
-
-describe('aiConsentStatus', () => {
-  it('waits for a user and for storage', () => {
-    assert.equal(aiConsentStatus(null, true), 'loading');
-    assert.equal(aiConsentStatus('user_1', undefined), 'loading');
-  });
-
-  it('asks until agreed, then stays agreed', () => {
-    assert.equal(aiConsentStatus('user_1', false), 'needed');
-    assert.equal(aiConsentStatus('user_1', true), 'agreed');
   });
 });

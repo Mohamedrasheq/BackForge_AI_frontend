@@ -29,6 +29,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -228,7 +229,9 @@ export default function CaptureScreen() {
             consent.status === 'needed' ? (
               <AiConsentCard onAgree={consent.agree} />
             ) : (
-              <View style={styles.flex} />
+              <View style={styles.consentLoading}>
+                <ActivityIndicator color={Theme.color.accent} />
+              </View>
             )
           ) : (
             <KeyboardAvoidingView
@@ -299,6 +302,11 @@ export default function CaptureScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  consentLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   body: {
     flex: 1,
