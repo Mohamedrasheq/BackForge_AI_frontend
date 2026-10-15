@@ -14,6 +14,7 @@ const MAPPING = {
   circle: 'radio-button-unchecked',
   'mic.fill': 'mic',
   'arrow.up.circle.fill': 'arrow-circle-up',
+  'arrow.up': 'arrow-upward',
   'chevron.left': 'chevron-left',
   'chevron.right': 'chevron-right',
   'chevron.down': 'expand-more',

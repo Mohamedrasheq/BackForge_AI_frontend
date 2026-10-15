@@ -19,7 +19,6 @@ import { REVIEW_HREF } from '@/lib/review-push';
 import {
   buildCategoryBrowseRows,
   categoryBrowseAccessibilityLabel,
-  categoryCountParts,
   type CategoryBrowseRow,
 } from '@/lib/category-browse';
 import { groupItemsByCategory } from '@/lib/categories';
@@ -41,12 +40,12 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   RefreshControl,
+  ScrollView,
   SectionList,
   StyleSheet,
   Text,
@@ -74,25 +73,13 @@ const DONE_EMPTY: { icon: IconSymbolName; title: string; description: string } =
   description: 'Nothing marked done yet.',
 };
 
-function CategoryCountText({ openCount, doneCount }: { openCount: number; doneCount: number }) {
-  const parts = categoryCountParts(openCount, doneCount);
-  return (
-    <Text style={styles.count} numberOfLines={1}>
-      {parts.map((part, index) => (
-        <Text key={`${part.tone}-${index}`} style={part.tone === 'open' ? styles.countOpen : undefined}>
-          {index > 0 ? ' · ' : null}
-          {part.text}
-        </Text>
-      ))}
-    </Text>
-  );
-}
-
 function CategoryRow({
   row,
+  first,
   onPress,
 }: {
   row: CategoryBrowseRow;
+  first: boolean;
   onPress: (row: CategoryBrowseRow) => void;
 }) {
   return (
@@ -101,13 +88,20 @@ function CategoryRow({
       accessibilityRole="button"
       accessibilityLabel={categoryBrowseAccessibilityLabel(row.name, row.openCount, row.doneCount)}
       onPress={() => onPress(row)}
-      style={({ pressed }) => [styles.categoryRow, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.categoryRow, pressed && styles.categoryRowPressed]}
     >
-      <Text style={[styles.categoryName, row.unfiled && styles.categoryNameMuted]} numberOfLines={1}>
-        {row.name}
-      </Text>
-      <View style={styles.categoryTrailing}>
-        <CategoryCountText openCount={row.openCount} doneCount={row.doneCount} />
+      <View style={styles.categoryIcon}>
+        <IconSymbol
+          name={row.unfiled ? 'tray' : 'tag'}
+          size={18}
+          color={row.unfiled ? Theme.color.textTertiary : Theme.color.accent}
+        />
+      </View>
+      <View style={[styles.categoryBody, !first && styles.categoryDivider]}>
+        <Text style={[styles.categoryName, row.unfiled && styles.categoryNameMuted]} numberOfLines={1}>
+          {row.name}
+        </Text>
+        <Text style={[styles.count, row.openCount > 0 && styles.countOpen]}>{row.openCount}</Text>
         <IconSymbol name="chevron.right" size={18} color={Theme.color.textTertiary} />
       </View>
     </Pressable>
@@ -329,16 +323,13 @@ export default function AllItemsScreen() {
               </View>
             )
           ) : (
-            <FlatList
-              data={shownCategoryRows}
-              keyExtractor={(row) => row.id}
+            <ScrollView
               contentContainerStyle={[
                 styles.list,
                 shownCategoryRows.length === 0 && styles.emptyList,
               ]}
               keyboardShouldPersistTaps="handled"
               automaticallyAdjustKeyboardInsets
-              ItemSeparatorComponent={() => <View style={styles.sep} />}
               refreshControl={
                 <RefreshControl
                   refreshing={refreshing}
@@ -346,19 +337,23 @@ export default function AllItemsScreen() {
                   tintColor={Theme.color.accent}
                 />
               }
-              ListEmptyComponent={
-                hideCategoryRows || (categoriesError && categories.length === 0) ? null : (
-                  <EmptyState
-                    mark="list"
-                    title="No categories yet"
-                    description="Categories are added when you confirm a capture"
-                    actionLabel="Go to Capture"
-                    onAction={() => router.navigate('/(tabs)/capture')}
-                  />
-                )
-              }
-              renderItem={({ item: row }) => <CategoryRow row={row} onPress={openCategory} />}
-            />
+            >
+              {shownCategoryRows.length > 0 ? (
+                <View style={styles.categoryGroup}>
+                  {shownCategoryRows.map((row, index) => (
+                    <CategoryRow key={row.id} row={row} first={index === 0} onPress={openCategory} />
+                  ))}
+                </View>
+              ) : hideCategoryRows || (categoriesError && categories.length === 0) ? null : (
+                <EmptyState
+                  mark="list"
+                  title="No categories yet"
+                  description="Categories are added when you confirm a capture"
+                  actionLabel="Go to Capture"
+                  onAction={() => router.navigate('/(tabs)/capture')}
+                />
+              )}
+            </ScrollView>
           )
         ) : (
           <SectionList
@@ -542,13 +537,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryRow: {
+  categoryGroup: {
     ...cardSurface,
+    overflow: 'hidden',
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    paddingLeft: Theme.space.md,
+  },
+  categoryRowPressed: {
+    backgroundColor: Theme.color.background,
+  },
+  categoryIcon: {
+    width: 20,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryBody: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 16,
-    paddingHorizontal: Theme.space.md,
+    gap: 8,
+    minHeight: 52,
+    paddingVertical: 14,
+    paddingRight: 12,
+  },
+  categoryDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Theme.color.border,
   },
   pressed: {
     opacity: 0.7,
@@ -563,16 +582,12 @@ const styles = StyleSheet.create({
   categoryNameMuted: {
     color: Theme.color.textSecondary,
   },
-  categoryTrailing: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 0,
-    gap: 4,
-  },
   count: {
-    fontSize: Theme.type.caption,
-    lineHeight: 18,
+    flexShrink: 0,
+    fontSize: Theme.type.body,
+    lineHeight: 22,
     color: Theme.color.textSecondary,
+    fontVariant: ['tabular-nums'],
   },
   countOpen: {
     color: Theme.color.accent,
