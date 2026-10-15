@@ -54,7 +54,7 @@
       <true/>
     </dict>
     <key>NSMicrophoneUsageDescription</key>
-    <string>The microphone is used so you can talk items in.</string>
+    <string>BackForge uses the microphone so you can speak tasks and have them turned into a list.</string>
     <key>NSUserNotificationsUsageDescription</key>
     <string>Reminders are sent for items that need you.</string>
     <key>NSFaceIDUsageDescription</key>

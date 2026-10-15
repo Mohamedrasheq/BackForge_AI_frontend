@@ -3,6 +3,7 @@
  * Clerk Bearer auth only — never send userId in bodies.
  */
 
+import { DELETE_ACCOUNT_FAILED, isAccountDeleted } from '@/lib/account-delete';
 import { getApiToken } from '@/lib/api-auth';
 import { audioPartFromUri, readTranscriptPayload } from '@/lib/transcribe-audio';
 import {
@@ -500,6 +501,17 @@ export async function deleteCategory(id: string): Promise<void> {
   await apiFetch<void>(`/categories/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
+}
+
+/**
+ * Permanently delete the signed-in account and its tasks and categories.
+ * Contract: `DELETE /account` returns `{ ok: true }`. Anything else throws.
+ */
+export async function deleteAccount(): Promise<void> {
+  const payload = await apiFetch<unknown>('/account', { method: 'DELETE' });
+  if (!isAccountDeleted(payload)) {
+    throw new Error(DELETE_ACCOUNT_FAILED);
+  }
 }
 
 export async function registerDevice(pushToken: string): Promise<void> {

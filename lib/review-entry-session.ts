@@ -28,3 +28,10 @@ export function dismissReviewEntry(surface: ReviewEntrySurface): void {
   dismissed[surface] = true;
   for (const listener of listeners) listener();
 }
+
+/** Show the Review entry again on both surfaces. Used when the account is deleted. */
+export function resetReviewEntryDismissals(): void {
+  dismissed.today = false;
+  dismissed.items = false;
+  for (const listener of listeners) listener();
+}

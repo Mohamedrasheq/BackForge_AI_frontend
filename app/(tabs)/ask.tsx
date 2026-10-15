@@ -7,6 +7,7 @@ import {
 import { ReplyText } from '@/components/ask/reply-text';
 import { SuggestionChips } from '@/components/ask/suggestion-chips';
 import { TypingIndicator } from '@/components/ask/typing-indicator';
+import { AiConsentCard } from '@/components/consent/ai-consent-card';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { IconButton } from '@/components/ui/icon-button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -15,6 +16,7 @@ import { Screen } from '@/components/ui/screen';
 import { SecondaryButton } from '@/components/ui/secondary-button';
 import { TextButton } from '@/components/ui/text-button';
 import { cardSurface, Theme } from '@/constants/theme';
+import { useAiConsent } from '@/hooks/use-ai-consent';
 import { useCategories } from '@/hooks/use-categories';
 import { useAllItems } from '@/hooks/use-items';
 import {
@@ -245,6 +247,7 @@ export default function AskScreen() {
   const router = useRouter();
   const state = useSyncExternalStore(subscribeAskSession, getAskSession, getAskSession);
   const reduceMotion = useReduceMotionEnabled();
+  const consent = useAiConsent();
   const { items, loading: itemsLoading, error: itemsError, reload: reloadItems } = useAllItems();
   const {
     categories,
@@ -514,83 +517,91 @@ export default function AskScreen() {
               />
             ) : null}
           </View>
-          <KeyboardAvoidingView
-            style={styles.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          >
-            <ScrollView
-              ref={scrollRef}
+          {consent.status !== 'agreed' ? (
+            consent.status === 'needed' ? (
+              <AiConsentCard onAgree={consent.agree} />
+            ) : (
+              <View style={styles.flex} />
+            )
+          ) : (
+            <KeyboardAvoidingView
               style={styles.flex}
-              contentContainerStyle={[styles.messages, showEmpty && styles.messagesEmpty]}
-              keyboardShouldPersistTaps="handled"
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-              {showEmpty ? (
-                <View style={styles.empty}>
-                  <Text style={styles.greeting} accessibilityRole="header">
-                    {ASK_GREETING}
-                  </Text>
-                  <Text style={styles.trust}>{accountEmpty ? ASK_EMPTY_ACCOUNT : ASK_EMPTY_DESCRIPTION}</Text>
-                  {accountEmpty ? (
-                    <TextButton label={ASK_GO_CAPTURE} onPress={openCapture} style={styles.emptyAction} />
-                  ) : null}
-                </View>
-              ) : (
-                state.messages.map((message) => (
-                  <ChatMessage
-                    key={message.id}
-                    message={message}
-                    onReview={openReview}
-                    onOpenItems={openItems}
-                    onPick={(card, candidate) => void onPick(card, candidate)}
-                  />
-                ))
-              )}
-              {state.pending ? (
-                <View style={styles.turn}>
-                  <TypingIndicator reduceMotion={reduceMotion} />
+              <ScrollView
+                ref={scrollRef}
+                style={styles.flex}
+                contentContainerStyle={[styles.messages, showEmpty && styles.messagesEmpty]}
+                keyboardShouldPersistTaps="handled"
+              >
+                {showEmpty ? (
+                  <View style={styles.empty}>
+                    <Text style={styles.greeting} accessibilityRole="header">
+                      {ASK_GREETING}
+                    </Text>
+                    <Text style={styles.trust}>{accountEmpty ? ASK_EMPTY_ACCOUNT : ASK_EMPTY_DESCRIPTION}</Text>
+                    {accountEmpty ? (
+                      <TextButton label={ASK_GO_CAPTURE} onPress={openCapture} style={styles.emptyAction} />
+                    ) : null}
+                  </View>
+                ) : (
+                  state.messages.map((message) => (
+                    <ChatMessage
+                      key={message.id}
+                      message={message}
+                      onReview={openReview}
+                      onOpenItems={openItems}
+                      onPick={(card, candidate) => void onPick(card, candidate)}
+                    />
+                  ))
+                )}
+                {state.pending ? (
+                  <View style={styles.turn}>
+                    <TypingIndicator reduceMotion={reduceMotion} />
+                  </View>
+                ) : null}
+                {caption ? <Text style={styles.caption}>{caption}</Text> : null}
+              </ScrollView>
+              {state.error ? (
+                <ErrorBanner message={ASK_FAILURE} retryLabel={ASK_RETRY} onRetry={() => void retry()} />
+              ) : null}
+              {showEmpty && accountEmpty === false ? (
+                <View style={styles.suggestions}>
+                  <SuggestionChips suggestions={ASK_SAMPLES} disabled={blocked} onPick={submit} />
                 </View>
               ) : null}
-              {caption ? <Text style={styles.caption}>{caption}</Text> : null}
-            </ScrollView>
-            {state.error ? (
-              <ErrorBanner message={ASK_FAILURE} retryLabel={ASK_RETRY} onRetry={() => void retry()} />
-            ) : null}
-            {showEmpty && accountEmpty === false ? (
-              <View style={styles.suggestions}>
-                <SuggestionChips suggestions={ASK_SAMPLES} disabled={blocked} onPick={submit} />
-              </View>
-            ) : null}
-            <View style={styles.composerWrap}>
-              <View style={styles.composer}>
-                <TextInput
-                  value={draft}
-                  onChangeText={(next) => setDraft(next.slice(0, ASK_MESSAGE_MAX))}
-                  placeholder={placeholder}
-                  placeholderTextColor={Theme.color.textTertiary}
-                  selectionColor={Theme.color.accent}
-                  cursorColor={Theme.color.accent}
-                  style={styles.input}
-                  multiline
-                  maxLength={ASK_MESSAGE_MAX}
-                  textAlignVertical="top"
-                  editable={!state.dayLocked}
-                />
-                <View style={styles.send}>
-                  <IconButton
-                    name="arrow.up"
-                    tone="filled"
-                    size={34}
-                    accessibilityLabel={ASK_SEND}
-                    disabled={!canSend(state, draft, now) || state.dayLocked}
-                    onPress={() => {
-                      if (submit(draft)) setDraft('');
-                    }}
+              <View style={styles.composerWrap}>
+                <View style={styles.composer}>
+                  <TextInput
+                    value={draft}
+                    onChangeText={(next) => setDraft(next.slice(0, ASK_MESSAGE_MAX))}
+                    placeholder={placeholder}
+                    placeholderTextColor={Theme.color.textTertiary}
+                    selectionColor={Theme.color.accent}
+                    cursorColor={Theme.color.accent}
+                    style={styles.input}
+                    multiline
+                    maxLength={ASK_MESSAGE_MAX}
+                    textAlignVertical="top"
+                    editable={!state.dayLocked}
                   />
+                  <View style={styles.send}>
+                    <IconButton
+                      name="arrow.up"
+                      tone="filled"
+                      size={34}
+                      accessibilityLabel={ASK_SEND}
+                      disabled={!canSend(state, draft, now) || state.dayLocked}
+                      onPress={() => {
+                        if (submit(draft)) setDraft('');
+                      }}
+                    />
+                  </View>
                 </View>
+                {counter ? <Text style={styles.counter}>{counter}</Text> : null}
               </View>
-              {counter ? <Text style={styles.counter}>{counter}</Text> : null}
-            </View>
-          </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+          )}
         </>
       )}
     </Screen>

@@ -38,3 +38,7 @@ export async function markReviewed(ids: string[], now = new Date()): Promise<voi
   }
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(pruneReviewedAt(current, now)));
 }
+
+export async function clearReviewedAt(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+}
