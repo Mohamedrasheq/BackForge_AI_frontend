@@ -12,7 +12,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.rasheq462003.backforge.ai",
-      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "BackForge uses the microphone so you can speak tasks and have them turned into a list.",
@@ -64,7 +63,6 @@
         }
       ],
       "expo-secure-store",
-      "expo-apple-authentication",
       [
         "expo-notifications",
         {

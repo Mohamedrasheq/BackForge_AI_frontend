@@ -2,10 +2,9 @@ import { GoogleLogo } from '@/components/ui/google-icon';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { Theme } from '@/constants/theme';
 import { haptics } from '@/lib/haptics';
-import { useOAuth, useSignIn, useSignInWithApple, useSignUp } from '@clerk/clerk-expo';
-import * as AppleAuthentication from 'expo-apple-authentication';
+import { useOAuth, useSignIn, useSignUp } from '@clerk/clerk-expo';
 import * as Linking from 'expo-linking';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -35,8 +34,6 @@ export default function SignInScreen() {
   useWarmUpBrowser();
 
   const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
-  const { startAppleAuthenticationFlow } = useSignInWithApple();
-  const [appleAvailable, setAppleAvailable] = useState(false);
   const { signIn, setActive: setSignInActive, isLoaded: isSignInLoaded } = useSignIn();
   const { signUp, setActive: setSignUpActive, isLoaded: isSignUpLoaded } = useSignUp();
 
@@ -65,32 +62,6 @@ export default function SignInScreen() {
       console.error('OAuth error', err);
     }
   }, [startOAuthFlow]);
-
-  useEffect(() => {
-    if (Platform.OS !== 'ios') return;
-    let cancelled = false;
-    AppleAuthentication.isAvailableAsync()
-      .then((available) => {
-        if (!cancelled) setAppleAvailable(available);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const onSignInWithApple = useCallback(async () => {
-    haptics.light();
-    try {
-      const { createdSessionId, setActive } = await startAppleAuthenticationFlow();
-      if (createdSessionId && setActive) {
-        await setActive({ session: createdSessionId });
-      }
-    } catch (err: any) {
-      if (err?.code === 'ERR_REQUEST_CANCELED') return;
-      Alert.alert('Error', err?.errors?.[0]?.message || err?.message || 'Could not sign in with Apple');
-    }
-  }, [startAppleAuthenticationFlow]);
 
   const onSendCode = async () => {
     if (!isSignInLoaded || !isSignUpLoaded || !email) return;
@@ -242,15 +213,6 @@ export default function SignInScreen() {
 
             {!showEmailForm ? (
               <View style={styles.actions}>
-                {appleAvailable ? (
-                  <AppleAuthentication.AppleAuthenticationButton
-                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                    cornerRadius={Theme.radius.md}
-                    style={styles.appleButton}
-                    onPress={() => void onSignInWithApple()}
-                  />
-                ) : null}
                 <Pressable
                   onPress={onSignInWithGoogle}
                   style={({ pressed }) => [styles.oauthButton, pressed && styles.oauthPressed]}
@@ -405,10 +367,6 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: Theme.space.md,
-  },
-  appleButton: {
-    width: '100%',
-    height: 54,
   },
   oauthButton: {
     height: 54,
