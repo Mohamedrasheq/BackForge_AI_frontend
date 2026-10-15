@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  aiConsentNoticeDone,
   aiConsentStorageKey,
   aiConsentStoredValue,
   isAiConsentStored,
@@ -43,11 +44,31 @@ describe('signedInRoute', () => {
     assert.deepEqual(signedInRoute('ai-consent', 'needed'), { kind: 'stay' });
   });
 
-  it('lets an agreed user into the app and moves them off the notice', () => {
+  it('lets an agreed user into the app', () => {
     assert.deepEqual(signedInRoute('(tabs)', 'agreed'), { kind: 'stay' });
     assert.deepEqual(signedInRoute('review', 'agreed'), { kind: 'stay' });
     assert.deepEqual(signedInRoute('category', 'agreed'), { kind: 'stay' });
-    assert.deepEqual(signedInRoute('ai-consent', 'agreed'), { kind: 'redirect', to: '/(tabs)' });
     assert.deepEqual(signedInRoute('sign-in', 'agreed'), { kind: 'redirect', to: '/(tabs)' });
+    assert.deepEqual(signedInRoute(undefined, 'agreed'), { kind: 'redirect', to: '/(tabs)' });
+  });
+
+  it('leaves the notice screen to close itself, so the tabs are not opened twice', () => {
+    assert.deepEqual(signedInRoute('ai-consent', 'agreed'), { kind: 'stay' });
+  });
+});
+
+describe('aiConsentNoticeDone', () => {
+  it('closes on the Agree tap even before the store reports it', () => {
+    assert.equal(aiConsentNoticeDone('needed', true), true);
+    assert.equal(aiConsentNoticeDone('loading', true), true);
+  });
+
+  it('closes when a stored agreement arrives late', () => {
+    assert.equal(aiConsentNoticeDone('agreed', false), true);
+  });
+
+  it('stays open until the user agrees', () => {
+    assert.equal(aiConsentNoticeDone('needed', false), false);
+    assert.equal(aiConsentNoticeDone('loading', false), false);
   });
 });

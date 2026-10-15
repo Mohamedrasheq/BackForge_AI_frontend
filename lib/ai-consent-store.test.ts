@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { aiConsentStorageKey, aiConsentStoredValue } from './ai-consent';
+import {
+  aiConsentNoticeDone,
+  aiConsentStorageKey,
+  aiConsentStoredValue,
+  signedInRoute,
+} from './ai-consent';
 import { createAiConsentStore, type AiConsentStorage } from './ai-consent-store';
 
 type Deferred = { resolve: (value: string | null) => void; reject: (error: unknown) => void };
@@ -141,6 +146,49 @@ describe('createAiConsentStore', () => {
     const nextLaunch = createAiConsentStore({ storage: fake.storage });
     await nextLaunch.ensureLoaded(USER);
     assert.equal(nextLaunch.getStatus(USER), 'agreed');
+  });
+
+  it('Agree closes the notice at once and it never shows again', async () => {
+    const fake = fakeStorage();
+    let finishWrite: () => void = () => undefined;
+    const slowDisk: AiConsentStorage = {
+      ...fake.storage,
+      setItem: (key, value) =>
+        new Promise<void>((resolve) => {
+          finishWrite = () => {
+            fake.data.set(key, value);
+            resolve();
+          };
+        }),
+    };
+    const store = createAiConsentStore({ storage: slowDisk });
+    await store.ensureLoaded(USER);
+    assert.deepEqual(signedInRoute('(tabs)', store.getStatus(USER)), {
+      kind: 'redirect',
+      to: '/ai-consent',
+    });
+
+    const seen: string[] = [];
+    store.subscribe(() => seen.push(store.getStatus(USER)));
+    const saving = store.agree(USER);
+
+    // Before the disk write finishes: the screen is told, and every route lets the user in.
+    assert.deepEqual(seen, ['agreed']);
+    assert.equal(aiConsentNoticeDone(store.getStatus(USER), false), true);
+    assert.deepEqual(signedInRoute('ai-consent', store.getStatus(USER)), { kind: 'stay' });
+    assert.deepEqual(signedInRoute('(tabs)', store.getStatus(USER)), { kind: 'stay' });
+
+    finishWrite();
+    await saving;
+
+    const nextLaunch = createAiConsentStore({ storage: fake.storage });
+    await nextLaunch.ensureLoaded(USER);
+    for (const route of ['(tabs)', 'sign-in', undefined]) {
+      assert.notDeepEqual(signedInRoute(route, nextLaunch.getStatus(USER)), {
+        kind: 'redirect',
+        to: '/ai-consent',
+      });
+    }
   });
 
   it('agreeing during the read is not undone by an empty result', async () => {
