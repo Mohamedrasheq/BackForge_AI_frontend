@@ -575,14 +575,18 @@ export default function AskScreen() {
                   textAlignVertical="top"
                   editable={!state.dayLocked}
                 />
-                <IconButton
-                  name="arrow.up.circle.fill"
-                  accessibilityLabel={ASK_SEND}
-                  disabled={!canSend(state, draft, now) || state.dayLocked}
-                  onPress={() => {
-                    if (submit(draft)) setDraft('');
-                  }}
-                />
+                <View style={styles.send}>
+                  <IconButton
+                    name="arrow.up"
+                    tone="filled"
+                    size={34}
+                    accessibilityLabel={ASK_SEND}
+                    disabled={!canSend(state, draft, now) || state.dayLocked}
+                    onPress={() => {
+                      if (submit(draft)) setDraft('');
+                    }}
+                  />
+                </View>
               </View>
               {counter ? <Text style={styles.counter}>{counter}</Text> : null}
             </View>
@@ -710,7 +714,10 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingVertical: 6,
     paddingLeft: 18,
-    paddingRight: 6,
+    paddingRight: 7,
+  },
+  send: {
+    marginBottom: 1,
   },
   input: {
     flex: 1,

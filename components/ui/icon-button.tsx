@@ -14,11 +14,20 @@ export function IconButton({
   name: IconSymbolName;
   onPress: () => void;
   accessibilityLabel: string;
-  tone?: 'accent' | 'danger';
+  /** `filled`: solid accent circle with a white icon, solid grey while disabled. */
+  tone?: 'accent' | 'danger' | 'filled';
   size?: number;
   disabled?: boolean;
 }) {
   const danger = tone === 'danger';
+  const filled = tone === 'filled';
+  const iconColor = filled
+    ? disabled
+      ? Theme.color.textTertiary
+      : Theme.color.white
+    : danger
+      ? Theme.color.danger
+      : Theme.color.accent;
 
   return (
     <Pressable
@@ -31,15 +40,23 @@ export function IconButton({
       style={({ pressed }) => [
         styles.button,
         { width: size, height: size, borderRadius: size / 2 },
-        danger ? styles.danger : styles.accent,
-        disabled && styles.disabled,
-        pressed && !disabled && styles.pressed,
+        filled
+          ? disabled
+            ? styles.filledDisabled
+            : pressed
+              ? styles.filledPressed
+              : styles.filled
+          : danger
+            ? styles.danger
+            : styles.accent,
+        disabled && !filled && styles.disabled,
+        pressed && !disabled && !filled && styles.pressed,
       ]}
     >
       <IconSymbol
         name={name}
         size={Math.round(size * 0.5)}
-        color={danger ? Theme.color.danger : Theme.color.accent}
+        color={iconColor}
       />
     </Pressable>
   );
@@ -55,6 +72,15 @@ const styles = StyleSheet.create({
   },
   danger: {
     backgroundColor: Theme.color.dangerSoft,
+  },
+  filled: {
+    backgroundColor: Theme.color.accent,
+  },
+  filledPressed: {
+    backgroundColor: Theme.color.accentPressed,
+  },
+  filledDisabled: {
+    backgroundColor: Theme.color.border,
   },
   pressed: {
     opacity: 0.7,
