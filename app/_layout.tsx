@@ -1,4 +1,6 @@
 import { Theme } from '@/constants/theme';
+import { useAiConsent } from '@/hooks/use-ai-consent';
+import { signedInRoute } from '@/lib/ai-consent';
 import { setApiTokenGetter } from '@/lib/api-auth';
 import { OnboardingProvider, useOnboarding } from '@/lib/onboarding';
 import { reviewHrefFromNotificationData } from '@/lib/review-push';
@@ -39,6 +41,7 @@ const tokenCache = {
 function InitialLayout() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const { seen: hasSeenOnboarding } = useOnboarding();
+  const { status: consentStatus } = useAiConsent();
   const segments = useSegments();
   const router = useRouter();
   const [ready, setReady] = useState(false);
@@ -93,14 +96,16 @@ function InitialLayout() {
     const route = segments[0];
     const onSignIn = route === 'sign-in';
     const onOnboarding = route === 'onboarding';
-    const inTabs = route === '(tabs)';
-    const inReview = route === 'review';
-    const onCategory = route === 'category';
 
     if (isSignedIn) {
-      if (!inTabs && !inReview && !onCategory) {
+      const next = signedInRoute(route, consentStatus);
+      if (next.kind === 'wait') {
         setReady(false);
-        router.replace('/(tabs)');
+        return;
+      }
+      if (next.kind === 'redirect') {
+        setReady(false);
+        router.replace(next.to);
         return;
       }
       setReady(true);
@@ -124,7 +129,7 @@ function InitialLayout() {
     }
 
     setReady(true);
-  }, [isLoaded, isSignedIn, hasSeenOnboarding, segments, router]);
+  }, [isLoaded, isSignedIn, hasSeenOnboarding, consentStatus, segments, router]);
 
   if (!isLoaded || hasSeenOnboarding === null) {
     return (
@@ -146,6 +151,7 @@ function InitialLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="sign-in" />
+        <Stack.Screen name="ai-consent" options={{ gestureEnabled: false }} />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="review" />
         <Stack.Screen name="category/[id]" />

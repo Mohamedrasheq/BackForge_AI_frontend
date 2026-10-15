@@ -26,3 +26,23 @@ export function aiConsentStoredValue(): string {
 export function isAiConsentStored(raw: string | null | undefined): boolean {
   return raw === AGREED_VALUE;
 }
+
+export type SignedInRoute =
+  | { kind: 'wait' }
+  | { kind: 'stay' }
+  | { kind: 'redirect'; to: '/ai-consent' | '/(tabs)' };
+
+const SIGNED_IN_ROUTES = new Set(['(tabs)', 'review', 'category']);
+
+/**
+ * Where a signed-in user belongs, given the first route segment and their consent.
+ * The AI notice comes before every signed-in screen, so Capture and Ask never need their own gate.
+ * `loading` waits on the boot spinner; the consent store falls back to `needed` within 1.5s.
+ */
+export function signedInRoute(route: string | undefined, status: AiConsentStatus): SignedInRoute {
+  if (status === 'loading') return { kind: 'wait' };
+  if (status === 'needed') {
+    return route === 'ai-consent' ? { kind: 'stay' } : { kind: 'redirect', to: '/ai-consent' };
+  }
+  return route && SIGNED_IN_ROUTES.has(route) ? { kind: 'stay' } : { kind: 'redirect', to: '/(tabs)' };
+}
