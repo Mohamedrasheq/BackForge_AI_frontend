@@ -8,7 +8,7 @@ import * as WebBrowser from 'expo-web-browser';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-/** Shown by Capture and Ask in place of their input until the user agrees. */
+/** The one-time AI notice shown after sign-in, before the tabs. */
 export function AiConsentCard({ onAgree }: { onAgree: () => void }) {
   return (
     <View style={styles.wrap}>

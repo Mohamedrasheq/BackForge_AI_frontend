@@ -6,14 +6,12 @@ import {
   type DraftItem,
 } from '@/components/capture/confirm-items';
 import { VoiceWave } from '@/components/capture/voice-wave';
-import { AiConsentCard } from '@/components/consent/ai-consent-card';
 import { IconButton } from '@/components/ui/icon-button';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { TextButton } from '@/components/ui/text-button';
 import { cardSurface, Theme } from '@/constants/theme';
-import { useAiConsent } from '@/hooks/use-ai-consent';
 import { useCaptureRecording } from '@/hooks/use-capture-recording';
 import { useCategories } from '@/hooks/use-categories';
 import {
@@ -29,7 +27,6 @@ import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -43,7 +40,6 @@ import {
 export default function CaptureScreen() {
   const router = useRouter();
   const focused = useIsFocused();
-  const consent = useAiConsent();
   const { categories, error: categoriesError, reload: reloadCategories, create: createCategory } =
     useCategories();
   const inputRef = useRef<TextInput>(null);
@@ -225,74 +221,64 @@ export default function CaptureScreen() {
               />
             }
           />
-          {consent.status !== 'agreed' ? (
-            consent.status === 'needed' ? (
-              <AiConsentCard onAgree={consent.agree} />
-            ) : (
-              <View style={styles.consentLoading}>
-                <ActivityIndicator color={Theme.color.accent} />
-              </View>
-            )
-          ) : (
-            <KeyboardAvoidingView
-              style={styles.flex}
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            >
-              <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-                <View style={styles.body}>
-                  <View style={[styles.composer, recording && styles.composerListening]}>
-                    <TextInput
-                      ref={inputRef}
-                      value={text}
-                      onChangeText={(next) => {
-                        setText(next);
-                        setError(null);
-                        clearSpeechError();
-                      }}
-                      placeholder="What's on your mind?"
-                      placeholderTextColor={Theme.color.textTertiary}
-                      selectionColor={Theme.color.accent}
-                      cursorColor={Theme.color.accent}
-                      style={styles.input}
-                      multiline
-                      textAlignVertical="top"
-                      autoFocus={allowAutoFocus && !lockInput}
-                      editable={!lockInput}
-                      showSoftInputOnFocus={!lockInput}
-                    />
-                  </View>
-
-                  <View style={styles.voice}>
-                    <VoiceWave
-                      recording={recording}
-                      transcribing={transcribing}
-                      active={focused}
-                      meteringDb={meteringDb}
-                      meteringTick={meteringTick}
-                      onPress={() => void onMicPress()}
-                    />
-                  </View>
-                  <Text style={[styles.hint, recording && styles.hintActive]}>{hint}</Text>
-
-                  {error || speechError ? (
-                    <Text style={[styles.error, error === EMPTY_PARSE_MESSAGE && styles.gentle]}>
-                      {error || speechError}
-                    </Text>
-                  ) : null}
-
-                  {canClear ? <TextButton label="Clear" onPress={onClear} tone="secondary" /> : null}
-
-                  <PrimaryButton
-                    label="Break down"
-                    onPress={() => void onBreakDown()}
-                    loading={submitting}
-                    disabled={!canSubmit}
-                    style={styles.submit}
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+              <View style={styles.body}>
+                <View style={[styles.composer, recording && styles.composerListening]}>
+                  <TextInput
+                    ref={inputRef}
+                    value={text}
+                    onChangeText={(next) => {
+                      setText(next);
+                      setError(null);
+                      clearSpeechError();
+                    }}
+                    placeholder="What's on your mind?"
+                    placeholderTextColor={Theme.color.textTertiary}
+                    selectionColor={Theme.color.accent}
+                    cursorColor={Theme.color.accent}
+                    style={styles.input}
+                    multiline
+                    textAlignVertical="top"
+                    autoFocus={allowAutoFocus && !lockInput}
+                    editable={!lockInput}
+                    showSoftInputOnFocus={!lockInput}
                   />
                 </View>
-              </TouchableWithoutFeedback>
-            </KeyboardAvoidingView>
-          )}
+
+                <View style={styles.voice}>
+                  <VoiceWave
+                    recording={recording}
+                    transcribing={transcribing}
+                    active={focused}
+                    meteringDb={meteringDb}
+                    meteringTick={meteringTick}
+                    onPress={() => void onMicPress()}
+                  />
+                </View>
+                <Text style={[styles.hint, recording && styles.hintActive]}>{hint}</Text>
+
+                {error || speechError ? (
+                  <Text style={[styles.error, error === EMPTY_PARSE_MESSAGE && styles.gentle]}>
+                    {error || speechError}
+                  </Text>
+                ) : null}
+
+                {canClear ? <TextButton label="Clear" onPress={onClear} tone="secondary" /> : null}
+
+                <PrimaryButton
+                  label="Break down"
+                  onPress={() => void onBreakDown()}
+                  loading={submitting}
+                  disabled={!canSubmit}
+                  style={styles.submit}
+                />
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
         </>
       )}
     </Screen>
@@ -302,11 +288,6 @@ export default function CaptureScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-  },
-  consentLoading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   body: {
     flex: 1,
