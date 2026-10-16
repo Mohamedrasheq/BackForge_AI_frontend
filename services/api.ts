@@ -8,6 +8,7 @@ import { getApiToken } from '@/lib/api-auth';
 import { audioPartFromUri, readTranscriptPayload } from '@/lib/transcribe-audio';
 import {
   askRateLimitScope,
+  deviceTimeZone,
   normalizeAskResponse,
   ASK_FAILURE,
   ASK_HISTORY_TURNS,
@@ -343,9 +344,11 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export async function captureItem(text: string): Promise<Item | null> {
+  const timezone = deviceTimeZone();
   const payload = await apiFetch<unknown>('/items', {
     method: 'POST',
-    body: JSON.stringify({ text }),
+    headers: { 'X-Timezone': timezone },
+    body: JSON.stringify({ text, timezone }),
   });
 
   if (isRecord(payload)) {
@@ -355,9 +358,11 @@ export async function captureItem(text: string): Promise<Item | null> {
 }
 
 export async function parseItems(text: string): Promise<ProposedItem[]> {
+  const timezone = deviceTimeZone();
   const payload = await apiFetch<unknown>('/items/parse', {
     method: 'POST',
-    body: JSON.stringify({ text }),
+    headers: { 'X-Timezone': timezone },
+    body: JSON.stringify({ text, timezone }),
   });
   return normalizeProposedItems(payload);
 }
