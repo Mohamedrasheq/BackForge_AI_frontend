@@ -248,25 +248,33 @@ export default function AccountScreen() {
           ))}
         </Card>
 
-        <View style={styles.signOutRow}>
-          <TextButton
-            label={signingOut ? 'Signing out…' : 'Sign out'}
+        <Card style={styles.links}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={signingOut ? 'Signing out' : 'Sign out'}
+            disabled={signingOut}
             onPress={() => void onSignOut()}
-            tone="danger"
-            style={styles.signOut}
-          />
-          <TextButton
-            label={DELETE_ACCOUNT_LABEL}
+            style={({ pressed }) => [styles.linkRow, pressed && !signingOut && styles.linkPressed]}
+          >
+            <Text style={styles.linkLabel}>{signingOut ? 'Signing out…' : 'Sign out'}</Text>
+          </Pressable>
+        </Card>
+
+        <Card style={styles.links}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={DELETE_ACCOUNT_LABEL}
+            disabled={deleting}
             onPress={() => {
               haptics.warning();
               setDeleteError(null);
               setConfirmDelete(true);
             }}
-            disabled={deleting}
-            tone="danger"
-            style={styles.signOut}
-          />
-        </View>
+            style={({ pressed }) => [styles.linkRow, pressed && !deleting && styles.linkPressed]}
+          >
+            <Text style={[styles.linkLabel, styles.deleteLabel]}>{DELETE_ACCOUNT_LABEL}</Text>
+          </Pressable>
+        </Card>
 
         {__DEV__ ? (
           <View style={styles.dev}>
@@ -449,14 +457,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Theme.color.text,
   },
-  signOutRow: {
-    marginTop: Theme.space.xl,
-    width: '100%',
-    alignItems: 'center',
-    gap: Theme.space.xs,
-  },
-  signOut: {
-    alignSelf: 'center',
+  deleteLabel: {
+    color: Theme.color.danger,
   },
   dev: {
     marginTop: Theme.space.md,
