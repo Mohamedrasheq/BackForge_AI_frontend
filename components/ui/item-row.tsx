@@ -6,6 +6,7 @@ import {
   isBeforeLocalToday,
   localDayFromDateInput,
   moveDueToLocalDay,
+  pickerDateForDue,
   toLocalDateInputValue,
 } from '@/lib/due';
 import { formatDue } from '@/lib/format';
@@ -55,8 +56,7 @@ export function ItemRow({
       setDraft(null);
       return;
     }
-    const parsed = item.dueAt ? new Date(item.dueAt) : new Date();
-    setDraft(Number.isNaN(parsed.getTime()) ? new Date() : parsed);
+    setDraft(pickerDateForDue(item.dueAt));
   }, [datePickerOpen, item.dueAt]);
 
   const commitDay = (day: Date) => {
@@ -161,8 +161,7 @@ export function ItemRow({
                 accessibilityRole="button"
                 accessibilityLabel="Done choosing date"
                 onPress={() => {
-                  const selected = draft ?? (item.dueAt ? new Date(item.dueAt) : new Date());
-                  commitDay(Number.isNaN(selected.getTime()) ? new Date() : selected);
+                  commitDay(draft ?? pickerDateForDue(item.dueAt));
                 }}
                 style={({ pressed }) => [styles.done, pressed && styles.pressed]}
               >

@@ -1,4 +1,5 @@
 import { calendarDayFromDate, dateChipLabel, fullDateLabel } from '@/lib/date-filter';
+import { defaultDueOnLocalDay, localDayFromDateInput } from '@/lib/due';
 
 export function formatTodaySubtitle(date = new Date()): string {
   return fullDateLabel(date);
@@ -49,6 +50,8 @@ export function toDateTimeLocalValue(value: string | null): string {
 export function fromDateTimeLocalValue(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
+  const dayOnly = localDayFromDateInput(trimmed);
+  if (dayOnly) return defaultDueOnLocalDay(dayOnly);
   const date = new Date(trimmed);
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString();

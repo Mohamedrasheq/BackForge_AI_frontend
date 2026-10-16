@@ -1,12 +1,42 @@
 /**
  * Calendar-day math for due instants.
  * Due values are timestamps; shifting a day keeps the local time of day.
+ * A picked day with no clock time lands at 11:59 PM local.
  */
+
+export const DATE_ONLY_DUE_HOURS = 23;
+export const DATE_ONLY_DUE_MINUTES = 59;
 
 function validDate(value: string | null): Date | null {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** 11:59 PM local on `day`'s calendar date. */
+export function endOfLocalDay(day: Date): Date {
+  return new Date(
+    day.getFullYear(),
+    day.getMonth(),
+    day.getDate(),
+    DATE_ONLY_DUE_HOURS,
+    DATE_ONLY_DUE_MINUTES,
+    0,
+    0
+  );
+}
+
+export function defaultDueOnLocalDay(day: Date): string {
+  return endOfLocalDay(day).toISOString();
+}
+
+/**
+ * Value to seed a date/time picker.
+ * An existing due keeps its clock time; otherwise 11:59 PM local so a date-only confirm
+ * does not stamp the current time.
+ */
+export function pickerDateForDue(dueAt: string | null, now = new Date()): Date {
+  return validDate(dueAt) ?? endOfLocalDay(now);
 }
 
 /** Local `YYYY-MM-DD` for `<input type="date">`. */
@@ -33,12 +63,22 @@ export function localDayFromDateInput(value: string): Date | null {
 
 /**
  * Place `dueAt` on `day`'s local calendar date.
- * Keeps the existing local time of day. If there is no due time, uses `now`.
+ * Keeps the existing local time of day. If there is no due time, uses 11:59 PM local.
  */
 export function moveDueToLocalDay(dueAt: string | null, day: Date, now = new Date()): string {
-  const source = validDate(dueAt) ?? now;
+  const source = validDate(dueAt) ?? endOfLocalDay(now);
   const next = new Date(source);
   next.setFullYear(day.getFullYear(), day.getMonth(), day.getDate());
+  return next.toISOString();
+}
+
+/**
+ * Apply an explicit clock time on the existing due day (or today).
+ * Used when the user actually opens the time picker.
+ */
+export function applyPickedLocalTime(dueAt: string | null, time: Date, now = new Date()): string {
+  const next = new Date(validDate(dueAt) ?? endOfLocalDay(now));
+  next.setHours(time.getHours(), time.getMinutes(), 0, 0);
   return next.toISOString();
 }
 

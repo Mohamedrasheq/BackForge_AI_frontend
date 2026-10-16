@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { formatDue, formatTodaySubtitle } from './format';
+import { formatDue, formatTodaySubtitle, fromDateTimeLocalValue } from './format';
 
 describe('date labels', () => {
   it('writes the Today subtitle with an English weekday and month', () => {
@@ -19,3 +19,22 @@ describe('date labels', () => {
     assert.ok(due?.startsWith('Today · '));
   });
 });
+
+describe('datetime-local values', () => {
+  it('treats a date-only pick as 11:59 PM local', () => {
+    const due = new Date(fromDateTimeLocalValue('2026-10-20') ?? '');
+    assert.equal(due.getFullYear(), 2026);
+    assert.equal(due.getMonth(), 9);
+    assert.equal(due.getDate(), 20);
+    assert.equal(due.getHours(), 23);
+    assert.equal(due.getMinutes(), 59);
+  });
+
+  it('keeps an explicit clock time', () => {
+    const due = new Date(fromDateTimeLocalValue('2026-10-20T07:45') ?? '');
+    assert.equal(due.getDate(), 20);
+    assert.equal(due.getHours(), 7);
+    assert.equal(due.getMinutes(), 45);
+  });
+});
+
