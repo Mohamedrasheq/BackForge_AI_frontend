@@ -1,5 +1,11 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Theme } from '@/constants/theme';
+import {
+  applyPickedLocalTime,
+  defaultDueOnLocalDay,
+  moveDueToLocalDay,
+  pickerDateForDue,
+} from '@/lib/due';
 import { formatDue, fromDateTimeLocalValue, toDateTimeLocalValue } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -36,8 +42,7 @@ export function DueField({
     }
   }, [pickerOpen]);
 
-  const parsed = value ? new Date(value) : null;
-  const validDate = parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
+  const pickerValue = pickerDateForDue(value);
   const label = formatDue(value) ?? 'No date';
 
   const commit = (next: Date) => {
@@ -61,15 +66,11 @@ export function DueField({
 
     if (Platform.OS === 'android') {
       if (picking === 'date') {
-        const next = validDate ? new Date(validDate) : new Date();
-        next.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-        commit(next);
+        onChange(moveDueToLocalDay(value, date));
         setPicking('time');
         return;
       }
-      const next = validDate ? new Date(validDate) : new Date();
-      next.setHours(date.getHours(), date.getMinutes(), 0, 0);
-      commit(next);
+      onChange(applyPickedLocalTime(value, date));
       closePicker();
       return;
     }
@@ -81,8 +82,8 @@ export function DueField({
     haptics.light();
     if (Platform.OS === 'web') return;
     if (!value) {
-      // Explicit tap to add a date — do not invent one during parse/save.
-      commit(new Date());
+      // Explicit tap to add a date. 11:59 PM until they pick a time.
+      onChange(defaultDueOnLocalDay(new Date()));
     }
     setPicking('date');
     onOpenPicker?.();
@@ -162,7 +163,7 @@ export function DueField({
       {Platform.OS !== 'web' && pickerOpen ? (
         <View>
           <DateTimePicker
-            value={validDate ?? new Date()}
+            value={pickerValue}
             mode={picking === 'time' ? 'time' : Platform.OS === 'ios' ? 'datetime' : 'date'}
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={onNativeChange}

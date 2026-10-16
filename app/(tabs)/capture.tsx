@@ -81,15 +81,21 @@ export default function CaptureScreen() {
     router.replace('/(tabs)');
   }, [router]);
 
+  const backToCompose = useCallback(() => {
+    haptics.light();
+    setPhase('compose');
+    setError(null);
+  }, []);
+
   const leaveCapture = useCallback(() => {
     haptics.light();
-    if (phase === 'confirm') {
-      setPhase('compose');
-      setError(null);
-      return;
-    }
+    setText('');
+    setRows([]);
+    setPhase('compose');
+    setError(null);
+    clearSpeechError();
     goToToday();
-  }, [goToToday, phase]);
+  }, [clearSpeechError, goToToday]);
 
   const onClear = useCallback(() => {
     setText('');
@@ -205,7 +211,7 @@ export default function CaptureScreen() {
           onCreateCategory={createCategory}
           onChange={setRows}
           onConfirm={() => void onConfirm()}
-          onBack={leaveCapture}
+          onBack={backToCompose}
           confirming={confirming}
           error={error}
         />
