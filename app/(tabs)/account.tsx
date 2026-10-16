@@ -70,7 +70,7 @@ function StatChip({
 export default function AccountScreen() {
   const router = useRouter();
   const { user } = useUser();
-  const { signOut, userId } = useAuth();
+  const { signOut } = useAuth();
   const { resetSeen } = useOnboarding();
   const { permission, registering, message, refreshPermission, enableAlerts } =
     useNotificationEnable();
@@ -122,7 +122,7 @@ export default function AccountScreen() {
       setDeleteError(DELETE_ACCOUNT_FAILED);
       return;
     }
-    await clearLocalAccountData(userId);
+    await clearLocalAccountData();
     try {
       await signOut();
     } catch {
