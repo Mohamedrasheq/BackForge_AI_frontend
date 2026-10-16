@@ -8,6 +8,7 @@ import {
   ASK_OFF_TOPIC,
   askHistory,
   askRateLimitScope,
+  deviceTimeZone,
   classifyAskReply,
   isAskFailureReply,
   isCandidateChoice,
@@ -180,6 +181,12 @@ describe('labels and history', () => {
     assert.equal(reviewChangesLabel(3), 'Review 3 changes');
     assert.equal(savedChangesLabel(1), 'Saved 1 change.');
     assert.equal(savedChangesLabel(3), 'Saved 3 changes.');
+  });
+
+  it('reports the device timezone, falling back to UTC', () => {
+    const zone = deviceTimeZone();
+    assert.equal(typeof zone, 'string');
+    assert.ok(zone.length > 0);
   });
 
   it('sends only the last six turns', () => {
