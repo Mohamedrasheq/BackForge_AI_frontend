@@ -48,7 +48,13 @@ import {
   showingLabel,
   type AskCandidate,
 } from '@/lib/ask-contract';
-import { AskStreamServerError, isAbortError, shouldFallbackAskStream } from '@/lib/ask-stream';
+import {
+  emptyAskStreamProgress,
+  isAbortError,
+  shouldAbortAskStream,
+  shouldFallbackAskStream,
+  type AskStreamProgress,
+} from '@/lib/ask-stream';
 import {
   askInputBlocked,
   canSend,
@@ -80,7 +86,6 @@ import {
   updateItem,
 } from '@/services/api';
 import type { Item } from '@/types/api';
-import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore, type SetStateAction } from 'react';
 import {
@@ -247,7 +252,6 @@ function ChatMessage({
 
 export default function AskScreen() {
   const router = useRouter();
-  const navigation = useNavigation();
   const state = useSyncExternalStore(subscribeAskSession, getAskSession, getAskSession);
   const reduceMotion = useReduceMotionEnabled();
   const { items, loading: itemsLoading, error: itemsError, reload: reloadItems } = useAllItems();
@@ -269,6 +273,7 @@ export default function AskScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const announcedId = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const streamProgressRef = useRef<AskStreamProgress>(emptyAskStreamProgress);
   const [streamStatus, setStreamStatus] = useState<string | null>(null);
   const [streamText, setStreamText] = useState('');
 
@@ -313,11 +318,10 @@ export default function AskScreen() {
   }, [state.messages, state.pending, caption, streamStatus, streamText, reduceMotion]);
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('blur', () => {
-      abortRef.current?.abort();
-    });
-    return unsubscribe;
-  }, [navigation]);
+    return () => {
+      if (shouldAbortAskStream('unmount')) abortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     const latest = [...state.messages].reverse().find((message) => message.role === 'assistant');
@@ -332,6 +336,7 @@ export default function AskScreen() {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    streamProgressRef.current = { receivedStatus: false, receivedDelta: false };
     clearLiveReply();
 
     const input = { message, timezone: deviceTimeZone(), history };
@@ -371,10 +376,12 @@ export default function AskScreen() {
         input,
         {
           onStatus: (status) => {
+            streamProgressRef.current = { ...streamProgressRef.current, receivedStatus: true };
             if (!stillCurrent()) return;
             setStreamStatus(status);
           },
           onDelta: (text) => {
+            streamProgressRef.current = { ...streamProgressRef.current, receivedDelta: true };
             if (!stillCurrent()) return;
             setStreamText((current) => current + text);
           },
@@ -389,7 +396,7 @@ export default function AskScreen() {
         fail(err, false);
         return;
       }
-      if (err instanceof AskRateLimitError || err instanceof AskStreamServerError || !shouldFallbackAskStream(err)) {
+      if (!shouldFallbackAskStream(err, streamProgressRef.current)) {
         fail(err, true);
         return;
       }
@@ -581,7 +588,7 @@ export default function AskScreen() {
                 label={ASK_CLEAR}
                 tone="secondary"
                 onPress={() => {
-                  abortRef.current?.abort();
+                  if (shouldAbortAskStream('clear')) abortRef.current?.abort();
                   clearLiveReply();
                   dispatchAskSession({ type: 'clear' });
                 }}

@@ -34,6 +34,23 @@ export type AskLiveReply = {
 
 export const emptyAskLiveReply: AskLiveReply = { status: null, draft: '' };
 
+export type AskStreamProgress = {
+  receivedStatus: boolean;
+  receivedDelta: boolean;
+};
+
+export const emptyAskStreamProgress: AskStreamProgress = {
+  receivedStatus: false,
+  receivedDelta: false,
+};
+
+export type AskStreamAbortReason = 'blur' | 'clear' | 'unmount';
+
+/** Ask is a tab: a blur (Today / All items) must not abort. Clear and a real unmount do. */
+export function shouldAbortAskStream(reason: AskStreamAbortReason): boolean {
+  return reason === 'clear' || reason === 'unmount';
+}
+
 /** SSE `error` on HTTP 200 — show the existing failure, do not fall back. */
 export class AskStreamServerError extends Error {
   constructor(message: string) {
@@ -69,13 +86,31 @@ export function isAbortError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError';
 }
 
-/** Transport / parse problems fall back. Rate-limit, abort, and SSE `error` do not. */
-export function shouldFallbackAskStream(error: unknown): boolean {
+function errorName(error: unknown): string {
+  return typeof error === 'object' && error !== null && 'name' in error ? String(error.name) : '';
+}
+
+function isHttpStatusError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('status' in error)) return false;
+  const status = error.status;
+  return typeof status === 'number' && status >= 400;
+}
+
+/**
+ * Fall back to the JSON call only when the stream produced nothing usable.
+ * A status or delta, an HTTP error, an SSE `error`, a rate limit, or an abort
+ * all mean do not re-request — that would run the model twice.
+ */
+export function shouldFallbackAskStream(
+  error: unknown,
+  progress: AskStreamProgress = emptyAskStreamProgress
+): boolean {
   if (isAbortError(error)) return false;
   if (error instanceof AskStreamServerError) return false;
-  if (typeof error === 'object' && error !== null && 'name' in error && error.name === 'AskRateLimitError') {
-    return false;
-  }
+  const name = errorName(error);
+  if (name === 'AskRateLimitError' || name === 'ApiError') return false;
+  if (isHttpStatusError(error)) return false;
+  if (progress.receivedStatus || progress.receivedDelta) return false;
   return true;
 }
 

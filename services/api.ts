@@ -653,8 +653,9 @@ export async function askQuestion(
  * POST /ask with `Accept: text/event-stream`.
  * Uses `expo/fetch` so iOS can read the body as it arrives.
  * SSE `error` with a minute/day scope throws `AskRateLimitError`.
- * Any other SSE `error` throws `AskStreamServerError` — do not retry.
- * Transport problems throw a regular error so the caller can fall back.
+ * Any other SSE `error` throws `AskStreamServerError`.
+ * HTTP errors (5xx and the rest) throw `ApiError` / `AskRateLimitError`.
+ * The caller may fall back to JSON only when no status or delta arrived.
  */
 export async function askQuestionStream(
   input: {

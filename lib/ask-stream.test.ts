@@ -7,10 +7,12 @@ import {
   AskStreamServerError,
   createSseParser,
   emptyAskLiveReply,
+  emptyAskStreamProgress,
   isAbortError,
   isEventStreamResponse,
   parseAskStreamEvent,
   readAskSse,
+  shouldAbortAskStream,
   shouldFallbackAskStream,
 } from './ask-stream';
 
@@ -144,13 +146,39 @@ describe('live reply and fallback', () => {
     );
   });
 
-  it('falls back for transport problems, not abort, rate limit, or SSE error', () => {
-    assert.equal(shouldFallbackAskStream(new Error('Failed to fetch')), true);
-    assert.equal(shouldFallbackAskStream(new AskStreamServerError(ASK_FAILURE)), false);
-    assert.equal(shouldFallbackAskStream({ name: 'AskRateLimitError' }), false);
-    assert.equal(shouldFallbackAskStream({ name: 'AbortError' }), false);
+  it('falls back only before the first status or delta', () => {
+    const before = emptyAskStreamProgress;
+    assert.equal(shouldFallbackAskStream(new Error('Failed to fetch'), before), true);
+    assert.equal(shouldFallbackAskStream(new Error('Ask stream is not readable'), before), true);
     assert.equal(isAbortError({ name: 'AbortError' }), true);
     assert.equal(isAbortError(new Error('Failed to fetch')), false);
+  });
+
+  it('mid-stream drop shows an error and does not make a second request', () => {
+    let jsonCalls = 0;
+    const afterStatus = { receivedStatus: true, receivedDelta: false };
+    const afterDelta = { receivedStatus: false, receivedDelta: true };
+    const drop = new Error('Ask stream ended before a reply');
+    if (shouldFallbackAskStream(drop, afterStatus)) jsonCalls += 1;
+    if (shouldFallbackAskStream(drop, afterDelta)) jsonCalls += 1;
+    assert.equal(shouldFallbackAskStream(drop, afterStatus), false);
+    assert.equal(shouldFallbackAskStream(drop, afterDelta), false);
+    assert.equal(jsonCalls, 0);
+  });
+
+  it('does not fall back on a server HTTP error or an SSE error event', () => {
+    const nothing = emptyAskStreamProgress;
+    assert.equal(shouldFallbackAskStream({ name: 'ApiError', status: 503 }, nothing), false);
+    assert.equal(shouldFallbackAskStream({ name: 'ApiError', status: 500 }, nothing), false);
+    assert.equal(shouldFallbackAskStream(new AskStreamServerError(ASK_FAILURE), nothing), false);
+    assert.equal(shouldFallbackAskStream({ name: 'AskRateLimitError' }, nothing), false);
+    assert.equal(shouldFallbackAskStream({ name: 'AbortError' }, nothing), false);
+  });
+
+  it('does not abort when the user switches tabs', () => {
+    assert.equal(shouldAbortAskStream('blur'), false);
+    assert.equal(shouldAbortAskStream('clear'), true);
+    assert.equal(shouldAbortAskStream('unmount'), true);
   });
 
   it('detects an event-stream content type', () => {
