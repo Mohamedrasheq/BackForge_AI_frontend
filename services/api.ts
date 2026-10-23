@@ -15,6 +15,14 @@ import {
   ASK_MESSAGE_MAX,
   type AskResponse,
 } from '@/lib/ask-contract';
+import {
+  AskStreamServerError,
+  decodeStreamChunks,
+  isAbortError,
+  isEventStreamResponse,
+  readAskSse,
+  type AskStreamHandlers,
+} from '@/lib/ask-stream';
 import type {
   AskHistoryTurn,
   BulkCreateItem,
@@ -24,7 +32,11 @@ import type {
   ProposedItem,
   UpdateItemRequest,
 } from '@/types/api';
+import { fetch as expoFetch } from 'expo/fetch';
 import { Platform } from 'react-native';
+
+export type { AskStreamHandlers };
+export { AskStreamServerError };
 
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
 export const API_BASE = (ENV_API_URL || 'https://back-forge-ai.vercel.app/api').replace(/\/$/, '');
@@ -325,6 +337,7 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers,
+    signal: init.signal,
   });
 
   if (!response.ok) {
@@ -579,41 +592,144 @@ export async function transcribeCaptureAudio(uri: string): Promise<string> {
   return transcript;
 }
 
+function askRequestBody(input: {
+  message: string;
+  timezone: string;
+  history?: AskHistoryTurn[];
+}): { message: string; timezone: string; history?: AskHistoryTurn[] } {
+  const message = input.message.trim().slice(0, ASK_MESSAGE_MAX);
+  const history = input.history?.slice(-ASK_HISTORY_TURNS);
+  const body: { message: string; timezone: string; history?: AskHistoryTurn[] } = {
+    message,
+    timezone: input.timezone,
+  };
+  if (history && history.length > 0) body.history = history;
+  return body;
+}
+
+function rethrowAskError(err: unknown): never {
+  if (err instanceof AskRateLimitError) throw err;
+  if (err instanceof ApiError && err.status === 429) {
+    throw new AskRateLimitError(askRateLimitScope(err.payload, err.retryAfter));
+  }
+  throw err;
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  const abort = new Error('Aborted');
+  abort.name = 'AbortError';
+  throw abort;
+}
+
 /**
  * POST /ask. Request is `{ message, timezone, history? }`.
  * History is the last 6 turns and does not include `message`.
  * A 429 throws `AskRateLimitError` with `scope` `minute` or `day`.
  */
-export async function askQuestion(input: {
-  message: string;
-  timezone: string;
-  history?: AskHistoryTurn[];
-}): Promise<AskResponse> {
-  const message = input.message.trim().slice(0, ASK_MESSAGE_MAX);
-  const history = input.history?.slice(-ASK_HISTORY_TURNS);
-  const body: {
+export async function askQuestion(
+  input: {
     message: string;
     timezone: string;
     history?: AskHistoryTurn[];
-  } = {
-    message,
-    timezone: input.timezone,
-  };
-  if (history && history.length > 0) body.history = history;
-
+  },
+  signal?: AbortSignal
+): Promise<AskResponse> {
   try {
     const payload = await apiFetch<unknown>('/ask', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify(askRequestBody(input)),
+      signal,
     });
     const parsed = normalizeAskResponse(payload);
     if (!parsed) throw new ApiError(ASK_FAILURE, 200);
     return parsed;
   } catch (err) {
-    if (err instanceof AskRateLimitError) throw err;
-    if (err instanceof ApiError && err.status === 429) {
-      throw new AskRateLimitError(askRateLimitScope(err.payload, err.retryAfter));
-    }
+    rethrowAskError(err);
+  }
+}
+
+/**
+ * POST /ask with `Accept: text/event-stream`.
+ * Uses `expo/fetch` so iOS can read the body as it arrives.
+ * SSE `error` with a minute/day scope throws `AskRateLimitError`.
+ * Any other SSE `error` throws `AskStreamServerError` — do not retry.
+ * Transport problems throw a regular error so the caller can fall back.
+ */
+export async function askQuestionStream(
+  input: {
+    message: string;
+    timezone: string;
+    history?: AskHistoryTurn[];
+  },
+  handlers: AskStreamHandlers = {},
+  signal?: AbortSignal
+): Promise<AskResponse> {
+  throwIfAborted(signal);
+
+  const token = await getApiToken();
+  const headers: Record<string, string> = {
+    Accept: 'text/event-stream',
+    'Content-Type': 'application/json',
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let response: Awaited<ReturnType<typeof expoFetch>>;
+  try {
+    response = await expoFetch(`${API_BASE}/ask`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(askRequestBody(input)),
+      signal,
+    });
+  } catch (err) {
+    throwIfAborted(signal);
+    if (isAbortError(err)) throw err;
     throw err;
   }
+
+  if (!response.ok) {
+    const failure = await readFailure(response);
+    const error = new ApiError(failure.message, response.status, failure.code, failure.payload);
+    error.retryAfter = response.headers.get('retry-after');
+    rethrowAskError(error);
+  }
+
+  if (!isEventStreamResponse(response.headers.get('content-type'))) {
+    const text = await response.text();
+    if (!text) throw new ApiError(ASK_FAILURE, response.status);
+    let payload: unknown;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      throw new ApiError(ASK_FAILURE, response.status);
+    }
+    const parsed = normalizeAskResponse(payload);
+    if (!parsed) throw new ApiError(ASK_FAILURE, response.status);
+    return parsed;
+  }
+
+  const body = response.body;
+  if (!body || typeof body.getReader !== 'function') {
+    throw new Error('Ask stream is not readable');
+  }
+
+  let result;
+  try {
+    result = await readAskSse(decodeStreamChunks(body.getReader()), handlers);
+  } catch (err) {
+    throwIfAborted(signal);
+    if (isAbortError(err)) throw err;
+    throw err;
+  }
+  if (result.kind === 'done') {
+    const parsed = normalizeAskResponse(result.payload);
+    if (!parsed) throw new ApiError(ASK_FAILURE, 200);
+    return parsed;
+  }
+  if (result.kind === 'error') {
+    if (result.scope) throw new AskRateLimitError(result.scope);
+    throw new AskStreamServerError(result.error);
+  }
+  throw new Error('Ask stream ended before a reply');
 }
