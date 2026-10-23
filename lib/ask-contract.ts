@@ -2,7 +2,8 @@
  * POST /ask contract.
  * Request: `{ message, timezone, history? }` with at most 6 history turns.
  * Response: `{ reply, proposals, candidates }`.
- * 429 body: `{ error, scope: 'minute' | 'day' }` (message is optional).
+ * Opt-in streaming (`Accept: text/event-stream`) is parsed in `lib/ask-stream.ts`.
+ * 429 body, or an SSE `error` event: `{ error, scope: 'minute' | 'day' }` (message is optional).
  * Field names are also accepted in snake_case, matching the rest of the API client.
  */
 

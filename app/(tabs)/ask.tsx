@@ -41,12 +41,20 @@ import {
   ASK_SAVED_BUTTON,
   ASK_SEE_ALL,
   ASK_SEND,
+  ASK_THINKING,
   deviceTimeZone,
   isCandidateChoice,
   reviewChangesLabel,
   showingLabel,
   type AskCandidate,
 } from '@/lib/ask-contract';
+import {
+  emptyAskStreamProgress,
+  isAbortError,
+  shouldAbortAskStream,
+  shouldFallbackAskStream,
+  type AskStreamProgress,
+} from '@/lib/ask-stream';
 import {
   askInputBlocked,
   canSend,
@@ -71,6 +79,7 @@ import { replyPlainText } from '@/lib/reply-markdown';
 import {
   AskRateLimitError,
   askQuestion,
+  askQuestionStream,
   bulkCreateItems,
   listCategories,
   markItemDone,
@@ -263,6 +272,15 @@ export default function AskScreen() {
   const confirmMessageId = useRef<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const announcedId = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const streamProgressRef = useRef<AskStreamProgress>(emptyAskStreamProgress);
+  const [streamStatus, setStreamStatus] = useState<string | null>(null);
+  const [streamText, setStreamText] = useState('');
+
+  const clearLiveReply = useCallback(() => {
+    setStreamStatus(null);
+    setStreamText('');
+  }, []);
 
   const setRows = useCallback((update: SetStateAction<DraftItem[]>) => {
     const next = typeof update === 'function' ? update(rowsRef.current) : update;
@@ -297,7 +315,13 @@ export default function AskScreen() {
       scrollRef.current?.scrollToEnd({ animated: !reduceMotion });
     });
     return () => cancelAnimationFrame(frame);
-  }, [state.messages, state.pending, caption, reduceMotion]);
+  }, [state.messages, state.pending, caption, streamStatus, streamText, reduceMotion]);
+
+  useEffect(() => {
+    return () => {
+      if (shouldAbortAskStream('unmount')) abortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     const latest = [...state.messages].reverse().find((message) => message.role === 'assistant');
@@ -309,9 +333,18 @@ export default function AskScreen() {
   }, [state.messages]);
 
   const runAsk = useCallback(async (requestId: number, message: string, history: ReturnType<typeof historyFromMessages>) => {
-    try {
-      const response = await askQuestion({ message, timezone: deviceTimeZone(), history });
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    streamProgressRef.current = { receivedStatus: false, receivedDelta: false };
+    clearLiveReply();
+
+    const input = { message, timezone: deviceTimeZone(), history };
+    const stillCurrent = () => getAskSession().requestId === requestId && !controller.signal.aborted;
+
+    const finish = (response: Awaited<ReturnType<typeof askQuestion>>) => {
       if (getAskSession().requestId !== requestId) return;
+      clearLiveReply();
       const next = dispatchAskSession({
         type: 'answered',
         requestId,
@@ -319,10 +352,13 @@ export default function AskScreen() {
         response,
       });
       if (next.error) haptics.error();
-    } catch (err) {
+    };
+
+    const fail = (err: unknown, haptic: boolean) => {
       if (getAskSession().requestId !== requestId) return;
+      clearLiveReply();
       if (err instanceof AskRateLimitError) {
-        haptics.warning();
+        if (haptic) haptics.warning();
         dispatchAskSession({
           type: 'rate-limited',
           requestId,
@@ -331,10 +367,51 @@ export default function AskScreen() {
         });
         return;
       }
-      haptics.error();
+      if (haptic) haptics.error();
       dispatchAskSession({ type: 'failed', requestId });
+    };
+
+    try {
+      const response = await askQuestionStream(
+        input,
+        {
+          onStatus: (status) => {
+            streamProgressRef.current = { ...streamProgressRef.current, receivedStatus: true };
+            if (!stillCurrent()) return;
+            setStreamStatus(status);
+          },
+          onDelta: (text) => {
+            streamProgressRef.current = { ...streamProgressRef.current, receivedDelta: true };
+            if (!stillCurrent()) return;
+            setStreamText((current) => current + text);
+          },
+        },
+        controller.signal
+      );
+      finish(response);
+    } catch (err) {
+      if (getAskSession().requestId !== requestId) return;
+      clearLiveReply();
+      if (controller.signal.aborted || isAbortError(err)) {
+        fail(err, false);
+        return;
+      }
+      if (!shouldFallbackAskStream(err, streamProgressRef.current)) {
+        fail(err, true);
+        return;
+      }
+      try {
+        const response = await askQuestion(input, controller.signal);
+        finish(response);
+      } catch (fallbackErr) {
+        if (controller.signal.aborted || isAbortError(fallbackErr)) {
+          fail(fallbackErr, false);
+          return;
+        }
+        fail(fallbackErr, true);
+      }
     }
-  }, []);
+  }, [clearLiveReply]);
 
   const submit = useCallback(
     (raw: string) => {
@@ -510,7 +587,11 @@ export default function AskScreen() {
               <TextButton
                 label={ASK_CLEAR}
                 tone="secondary"
-                onPress={() => dispatchAskSession({ type: 'clear' })}
+                onPress={() => {
+                  if (shouldAbortAskStream('clear')) abortRef.current?.abort();
+                  clearLiveReply();
+                  dispatchAskSession({ type: 'clear' });
+                }}
               />
             ) : null}
           </View>
@@ -545,9 +626,14 @@ export default function AskScreen() {
                   />
                 ))
               )}
-              {state.pending ? (
+              {state.pending && streamText ? (
+                <View style={styles.turn} accessibilityLiveRegion="polite">
+                  <ReplyText text={streamText} />
+                </View>
+              ) : null}
+              {state.pending && !streamText ? (
                 <View style={styles.turn}>
-                  <TypingIndicator reduceMotion={reduceMotion} />
+                  <TypingIndicator reduceMotion={reduceMotion} label={streamStatus ?? ASK_THINKING} />
                 </View>
               ) : null}
               {caption ? <Text style={styles.caption}>{caption}</Text> : null}

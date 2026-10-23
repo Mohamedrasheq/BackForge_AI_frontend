@@ -46,13 +46,19 @@ function Dot({ index, reduceMotion }: { index: number; reduceMotion: boolean }) 
   return <Animated.View style={[styles.dot, style]} />;
 }
 
-export function TypingIndicator({ reduceMotion }: { reduceMotion: boolean }) {
+export function TypingIndicator({
+  reduceMotion,
+  label = ASK_THINKING,
+}: {
+  reduceMotion: boolean;
+  label?: string;
+}) {
   return (
     <View
       style={styles.row}
       accessible
       accessibilityRole="progressbar"
-      accessibilityLabel={ASK_THINKING}
+      accessibilityLabel={label}
       accessibilityLiveRegion="polite"
     >
       <View style={styles.dots}>
@@ -60,7 +66,7 @@ export function TypingIndicator({ reduceMotion }: { reduceMotion: boolean }) {
           <Dot key={index} index={index} reduceMotion={reduceMotion} />
         ))}
       </View>
-      <Text style={styles.label}>{ASK_THINKING}</Text>
+      <Text style={styles.label}>{label}</Text>
     </View>
   );
 }
