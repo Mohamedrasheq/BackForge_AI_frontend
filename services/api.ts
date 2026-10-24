@@ -356,20 +356,6 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   return JSON.parse(text) as T;
 }
 
-export async function captureItem(text: string): Promise<Item | null> {
-  const timezone = deviceTimeZone();
-  const payload = await apiFetch<unknown>('/items', {
-    method: 'POST',
-    headers: { 'X-Timezone': timezone },
-    body: JSON.stringify({ text, timezone }),
-  });
-
-  if (isRecord(payload)) {
-    return normalizeItem(payload.item ?? payload);
-  }
-  return normalizeItem(payload);
-}
-
 export async function parseItems(text: string): Promise<ProposedItem[]> {
   const timezone = deviceTimeZone();
   const payload = await apiFetch<unknown>('/items/parse', {
