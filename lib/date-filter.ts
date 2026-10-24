@@ -267,19 +267,6 @@ export function fullDateLabel(date: Date): string {
   return `${weekday}, ${month} ${date.getDate()}`;
 }
 
-/** `Today, 11 Oct` when the day is the local today, otherwise the chip label. */
-export function activeDatePillLabel(day: CalendarDay, now = new Date()): string {
-  const date = dateFromDay(day);
-  if (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
-  ) {
-    return `Today, ${day.day} ${monthShort(day.month)}`;
-  }
-  return dateChipLabel(day);
-}
-
 export function dateFilterEmptyTitle(status: ItemStatus, day: CalendarDay): string {
   const label = dateChipLabel(day);
   if (status === 'done') return `Nothing done for ${label}`;
@@ -290,11 +277,6 @@ export function dateFilterEmptyTitle(status: ItemStatus, day: CalendarDay): stri
 export function longDateLabel(day: CalendarDay): string {
   const weekday = WEEKDAY_LONG[dateFromDay(day).getDay()] ?? '';
   return `${weekday} ${day.day} ${monthLong(day.month)}`;
-}
-
-export function dateFilterButtonLabel(day: CalendarDay | null): string {
-  if (!day) return 'Filter by date';
-  return `Filter by date, ${longDateLabel(day)} selected`;
 }
 
 /** `Thursday 15 October, 2 open, 1 done, selected` */
