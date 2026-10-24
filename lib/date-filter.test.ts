@@ -5,12 +5,10 @@ import type { Item } from '../types/api';
 import {
   CLEAR_DATE_LABEL,
   DATE_FILTER_EMPTY_DESCRIPTION,
-  activeDatePillLabel,
   buildMonthGrid,
   calendarDayFromDate,
   countItemsByDueDay,
   dateChipLabel,
-  dateFilterButtonLabel,
   dateFilterEmptyTitle,
   fullDateLabel,
   dayAccessibilityLabel,
@@ -177,19 +175,15 @@ describe('labels', () => {
     assert.equal(monthTitle(2025, 12, NOW), 'December 2025');
   });
 
-  it('formats the pill as weekday, day, month, and uses Today for the local today', () => {
+  it('formats the chip as weekday, day, and short month', () => {
     assert.equal(dateChipLabel(THU_15), 'Thu, 15 Oct');
-    assert.equal(activeDatePillLabel(THU_15, NOW), 'Thu, 15 Oct');
-    assert.equal(activeDatePillLabel(TODAY, NOW), 'Today, 11 Oct');
   });
 
-  it('builds empty-state copy and the calendar button label', () => {
+  it('builds empty-state copy for a selected day', () => {
     assert.equal(dateFilterEmptyTitle('open', THU_15), 'Nothing due on Thu, 15 Oct');
     assert.equal(dateFilterEmptyTitle('done', THU_15), 'Nothing done for Thu, 15 Oct');
     assert.equal(DATE_FILTER_EMPTY_DESCRIPTION, 'Pick another day or clear the date');
     assert.equal(CLEAR_DATE_LABEL, 'Clear date');
-    assert.equal(dateFilterButtonLabel(null), 'Filter by date');
-    assert.equal(dateFilterButtonLabel(THU_15), 'Filter by date, Thursday 15 October selected');
     assert.equal(longDateLabel(THU_15), 'Thursday 15 October');
   });
 
