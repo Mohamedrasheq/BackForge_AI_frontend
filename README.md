@@ -1,14 +1,16 @@
 # BackForge
 
-A quiet to-do and reminder app. Capture anything, see what needs you today, search everything, and get alerts.
+A quiet to-do and reminder app. Capture anything, see what needs you today, browse everything, and manage alerts from Account.
 
 ## Screens
 
-1. **Today** — open items that need you now (default home)
-2. **All items** — full list and search
+1. **Today** — open items due today (default home)
+2. **All items** — calendar, upcoming, and categories
 3. **Capture** — type or talk something in (mic records until you stop, then Whisper transcribes)
-4. **Alerts** — notification permission and upcoming reminders
-5. **Account** — sign in/out and essentials
+4. **Ask** — questions about your list; proposed changes wait for Confirm
+5. **Account** — profile, notification permission, legal links, sign out, delete account
+
+Review is a separate screen opened from Today or All items when quiet items are waiting.
 
 ## Setup
 

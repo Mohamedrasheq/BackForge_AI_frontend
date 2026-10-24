@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**BackForge** is an Expo/React Native app: a smart to-do and reminder brain. Capture anything, see what needs you today, search all items, enable alerts, and manage the account.
+**BackForge** is an Expo/React Native app: a smart to-do and reminder brain. Capture anything, see what needs you today, browse all items, ask about your list, enable alerts, and manage the account.
 
 ## Tech Stack
 
@@ -27,15 +27,18 @@ expo lint
 
 ```
 app/
-  _layout.tsx          # Clerk, signed-out → sign-in, token provider
+  _layout.tsx          # Clerk, signed-out → onboarding or sign-in, token provider
   index.tsx            # Boot splash
+  onboarding.tsx       # First-launch intro
   sign-in.tsx          # Google / email
+  review.tsx           # Quiet-item review
+  category/[id].tsx    # One category's items
   (tabs)/
     index.tsx          # Today (default home)
-    items.tsx          # All items + search
+    items.tsx          # Calendar / upcoming / categories
     capture.tsx        # Type / talk in
-    alerts.tsx         # Notification permission + upcoming
-    account.tsx        # Sign out, essentials
+    ask.tsx            # Questions and proposed changes
+    account.tsx        # Sign out, notifications, delete account
 ```
 
 ## Backend (v1)
@@ -44,12 +47,19 @@ Base URL: `EXPO_PUBLIC_API_URL` (default `https://back-forge-ai.vercel.app/api`)
 
 All requests send `Authorization: Bearer <Clerk getToken()>`. Never send `userId` in bodies.
 
-- `POST /items` `{ text }`
+- `POST /items/parse` `{ text, timezone }`
+- `POST /items/bulk` `{ items, source? }`
 - `GET /today`
-- `GET /items?q=`
-- `POST /items/:id/done`
+- `GET /items`
+- `PATCH /items/:id` `{ body?, due_at?, folder_id?, source? }`
+- `POST /items/:id/done` `{ source? }`
+- `DELETE /items/:id`
+- `GET /categories`
+- `POST /categories` `{ name }`
+- `POST /ask` `{ message, timezone, history? }` (JSON or SSE)
 - `POST /devices` `{ push_token }`
 - `POST /capture/transcribe` multipart `file` (m4a/caf/wav/webm) → `{ text }`
+- `DELETE /account`
 
 Client: `services/api.ts`. Types: `types/api.ts`.
 
