@@ -7,13 +7,11 @@ const MAPPING = {
   'list.bullet': 'format-list-bulleted',
   plus: 'add',
   'plus.circle.fill': 'add-circle',
-  'bell.fill': 'notifications',
   'person.fill': 'person',
   checkmark: 'check',
   'checkmark.circle.fill': 'check-circle',
   circle: 'radio-button-unchecked',
   'mic.fill': 'mic',
-  'arrow.up.circle.fill': 'arrow-circle-up',
   'arrow.up': 'arrow-upward',
   'chevron.left': 'chevron-left',
   'chevron.right': 'chevron-right',
@@ -23,9 +21,6 @@ const MAPPING = {
   trash: 'delete',
   'square.and.pencil': 'edit',
   tray: 'inbox',
-  'rectangle.portrait.and.arrow.right': 'logout',
-  'exclamationmark.triangle': 'warning',
-  'arrow.clockwise': 'refresh',
   'bubble.left.and.bubble.right': 'forum',
 } as const;
 
