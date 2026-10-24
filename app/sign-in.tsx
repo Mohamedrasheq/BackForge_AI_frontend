@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 
-export const useWarmUpBrowser = () => {
+function useWarmUpBrowser() {
   React.useEffect(() => {
     if (Platform.OS === 'web') return;
     void WebBrowser.warmUpAsync();
@@ -26,7 +26,7 @@ export const useWarmUpBrowser = () => {
       void WebBrowser.coolDownAsync();
     };
   }, []);
-};
+}
 
 WebBrowser.maybeCompleteAuthSession();
 
