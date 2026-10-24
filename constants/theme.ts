@@ -89,32 +89,3 @@ export const cardSurface = {
   borderColor: Theme.color.border,
   ...Theme.shadow.card,
 } as const;
-
-/** @deprecated Use Theme. Prefer the v1 tokens above. */
-export const Colors = {
-  light: {
-    text: Theme.color.text,
-    textSecondary: Theme.color.textSecondary,
-    background: Theme.color.background,
-    backgroundSecondary: Theme.color.card,
-    tint: Theme.color.accent,
-    icon: Theme.color.textSecondary,
-    tabIconDefault: Theme.color.textTertiary,
-    tabIconSelected: Theme.color.accent,
-    border: Theme.color.border,
-  },
-  dark: {
-    text: Theme.color.text,
-    textSecondary: Theme.color.textSecondary,
-    background: Theme.color.background,
-    backgroundSecondary: Theme.color.card,
-    tint: Theme.color.accent,
-    icon: Theme.color.textSecondary,
-    tabIconDefault: Theme.color.textTertiary,
-    tabIconSelected: Theme.color.accent,
-    border: Theme.color.border,
-  },
-};
-
-export const Spacing = Theme.space;
-export const Radius = Theme.radius;
