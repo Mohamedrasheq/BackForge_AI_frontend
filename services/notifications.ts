@@ -79,12 +79,6 @@ export async function getDevicePushToken(): Promise<string | null> {
   }
 }
 
-export function onNotificationReceived(
-  callback: (notification: Notifications.Notification) => void
-) {
-  return Notifications.addNotificationReceivedListener(callback);
-}
-
 export function onNotificationResponse(
   callback: (response: Notifications.NotificationResponse) => void
 ) {
