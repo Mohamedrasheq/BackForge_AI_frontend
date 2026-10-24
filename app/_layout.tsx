@@ -6,7 +6,6 @@ import { registerDevice } from '@/services/api';
 import {
   getExpoPushToken,
   getNotificationPermissionStatus,
-  onNotificationReceived,
   onNotificationResponse,
   setupNotificationChannel,
 } from '@/services/notifications';
@@ -71,7 +70,6 @@ function InitialLayout() {
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
-    const received = onNotificationReceived(() => undefined);
     const response = onNotificationResponse((event) => {
       // Future review nudges only. This build does not send them.
       const reviewHref = reviewHrefFromNotificationData(event.notification.request.content.data);
@@ -82,7 +80,6 @@ function InitialLayout() {
       router.push('/(tabs)');
     });
     return () => {
-      received.remove();
       response.remove();
     };
   }, [router]);
