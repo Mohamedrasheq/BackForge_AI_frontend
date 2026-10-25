@@ -491,22 +491,6 @@ export async function createCategory(name: string): Promise<Category> {
   }
 }
 
-export async function updateCategory(id: string, name: string): Promise<Category | null> {
-  const payload = await apiFetch<unknown>(`/categories/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ name: name.trim() }),
-  });
-  if (payload == null) return null;
-  if (isRecord(payload)) return normalizeCategory(payload.category ?? payload.folder ?? payload);
-  return normalizeCategory(payload);
-}
-
-export async function deleteCategory(id: string): Promise<void> {
-  await apiFetch<void>(`/categories/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-  });
-}
-
 /**
  * Permanently delete the signed-in account and its tasks and categories.
  * Contract: `DELETE /account` returns `{ ok: true }`. Anything else throws.
