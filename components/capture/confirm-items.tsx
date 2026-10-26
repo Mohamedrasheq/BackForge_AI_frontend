@@ -103,7 +103,7 @@ export function createDraftItem(
 
 export { saveableDraftItems };
 
-export function patchDraftByKey(
+function patchDraftByKey(
   items: DraftItem[],
   key: string,
   patch: Partial<
@@ -114,7 +114,7 @@ export function patchDraftByKey(
 }
 
 /** Fill chips from a matching category, or from an invented name. Never creates one. */
-export function applyCategorySuggestions(items: DraftItem[], categories: Category[]): DraftItem[] {
+function applyCategorySuggestions(items: DraftItem[], categories: Category[]): DraftItem[] {
   let changed = false;
   const next = items.map((item) => {
     if (item.categoryChosen) return item;
