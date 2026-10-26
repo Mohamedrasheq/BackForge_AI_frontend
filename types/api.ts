@@ -39,14 +39,6 @@ export interface ProposedItem {
   suggestedIsNew: boolean;
 }
 
-export interface CaptureResponse {
-  item: Item | null;
-}
-
-export interface TranscribeResponse {
-  text: string;
-}
-
 /** POST /items/bulk item — server requires `body`, not the UI's `text`. */
 export interface BulkCreateItem {
   body: string;
@@ -77,19 +69,4 @@ export type ItemWriteSource = 'capture' | 'ask' | 'review' | 'manual';
 export interface AskHistoryTurn {
   role: 'user' | 'assistant';
   content: string;
-}
-
-export interface AskRequest {
-  message: string;
-  timezone: string;
-  history?: AskHistoryTurn[];
-}
-
-export interface DeviceRegisterResponse {
-  success: boolean;
-}
-
-export interface ErrorResponse {
-  error?: string;
-  message?: string;
 }
