@@ -4,7 +4,7 @@ A quiet to-do and reminder app. Capture anything, see what needs you today, brow
 
 ## Screens
 
-1. **Today** — open items due today (default home)
+1. **Today** — open items due today, plus undated (default home)
 2. **All items** — calendar, upcoming, and categories
 3. **Capture** — type or talk something in (mic records until you stop, then Whisper transcribes)
 4. **Ask** — questions about your list; proposed changes wait for Confirm
