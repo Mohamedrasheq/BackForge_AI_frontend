@@ -62,23 +62,6 @@ export async function getExpoPushToken(): Promise<string | null> {
   }
 }
 
-/** @deprecated Use getExpoPushToken */
-export async function registerForPushNotifications(): Promise<string | null> {
-  const granted = await requestNotificationPermission();
-  if (!granted) return null;
-  return getExpoPushToken();
-}
-
-export async function getDevicePushToken(): Promise<string | null> {
-  if (Platform.OS === 'web' || !Device.isDevice) return null;
-  try {
-    return (await Notifications.getDevicePushTokenAsync()).data;
-  } catch (error) {
-    console.error('[Notifications] Failed to get device token:', error);
-    return null;
-  }
-}
-
 export function onNotificationResponse(
   callback: (response: Notifications.NotificationResponse) => void
 ) {
