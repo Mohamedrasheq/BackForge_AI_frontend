@@ -11,7 +11,7 @@
     "backgroundColor": "#F7F8FA",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.rasheq462003.backforge.ai",
+      "bundleIdentifier": "com.devmr.backforge.ai",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "BackForge uses the microphone so you can speak tasks and have them turned into a list.",
@@ -42,7 +42,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.rasheq462003.backforge.ai"
+      "package": "com.devmr.backforge.ai"
     },
     "web": {
       "output": "static",
