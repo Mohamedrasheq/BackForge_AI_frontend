@@ -35,11 +35,8 @@ import type {
 import { fetch as expoFetch } from 'expo/fetch';
 import { Platform } from 'react-native';
 
-export type { AskStreamHandlers };
-export { AskStreamServerError };
-
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
-export const API_BASE = (ENV_API_URL || 'https://back-forge-ai.vercel.app/api').replace(/\/$/, '');
+const API_BASE = (ENV_API_URL || 'https://back-forge-ai.vercel.app/api').replace(/\/$/, '');
 
 export class ApiError extends Error {
   status: number;
@@ -93,7 +90,7 @@ function isDoneStatus(value: unknown): boolean {
   return status === 'done' || status === 'closed' || status === 'completed' || status === 'complete';
 }
 
-export function normalizeItem(raw: unknown): Item | null {
+function normalizeItem(raw: unknown): Item | null {
   if (!isRecord(raw)) return null;
   const id = readString(raw.id, raw.item_id, raw.itemId, raw._id);
   const text = readString(raw.text, raw.title, raw.body, raw.content, raw.source_text);
@@ -149,7 +146,7 @@ function readSuggestedIsNew(raw: Record<string, unknown>): boolean {
   return false;
 }
 
-export function normalizeCategory(raw: unknown): Category | null {
+function normalizeCategory(raw: unknown): Category | null {
   if (!isRecord(raw)) return null;
   const id =
     readId(raw.id) ??
@@ -162,7 +159,7 @@ export function normalizeCategory(raw: unknown): Category | null {
   return { id, name };
 }
 
-export function normalizeCategories(payload: unknown): Category[] {
+function normalizeCategories(payload: unknown): Category[] {
   let list: unknown[] = [];
   if (Array.isArray(payload)) {
     list = payload;
@@ -208,7 +205,7 @@ function readDueAt(raw: Record<string, unknown>): string | null {
   return date.toISOString();
 }
 
-export function normalizeProposedItem(raw: unknown): ProposedItem | null {
+function normalizeProposedItem(raw: unknown): ProposedItem | null {
   if (!isRecord(raw)) return null;
   const text = readString(raw.text, raw.title, raw.body, raw.content, raw.source_text);
   if (!text) return null;
@@ -223,7 +220,7 @@ export function normalizeProposedItem(raw: unknown): ProposedItem | null {
   };
 }
 
-export function normalizeProposedItems(payload: unknown): ProposedItem[] {
+function normalizeProposedItems(payload: unknown): ProposedItem[] {
   if (Array.isArray(payload)) {
     return payload.map(normalizeProposedItem).filter((item): item is ProposedItem => item !== null);
   }
@@ -245,7 +242,7 @@ export function normalizeProposedItems(payload: unknown): ProposedItem[] {
   return single ? [single] : [];
 }
 
-export function normalizeItems(payload: unknown): Item[] {
+function normalizeItems(payload: unknown): Item[] {
   if (Array.isArray(payload)) {
     return payload.map(normalizeItem).filter((item): item is Item => item !== null);
   }
@@ -367,7 +364,7 @@ export async function parseItems(text: string): Promise<ProposedItem[]> {
 }
 
 /** Map UI drafts (`text` / `dueAt`) onto the /items/bulk contract. */
-export function toBulkCreateItems(items: ProposedItem[]): BulkCreateItem[] {
+function toBulkCreateItems(items: ProposedItem[]): BulkCreateItem[] {
   return items.map((item) => ({
     body: item.text,
     due_at: item.dueAt,
