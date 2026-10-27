@@ -1,14 +1,28 @@
 import { calendarDayFromDate, dateChipLabel, fullDateLabel } from '@/lib/date-filter';
-import { defaultDueOnLocalDay, localDayFromDateInput } from '@/lib/due';
+import { applyPickedLocalTime, defaultDueOnLocalDay, localDayFromDateInput } from '@/lib/due';
 
 export function formatTodaySubtitle(date = new Date()): string {
   return fullDateLabel(date);
 }
 
-export function formatDue(value: string | null): string | null {
+function dueDate(value: string | null): Date | null {
   if (!value) return null;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function formatDueTime(value: string | null): string | null {
+  const date = dueDate(value);
+  if (!date) return null;
+  return date.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+export function formatDueDay(value: string | null): string | null {
+  const date = dueDate(value);
+  if (!date) return null;
 
   const now = new Date();
   const sameDay =
@@ -16,14 +30,15 @@ export function formatDue(value: string | null): string | null {
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate();
 
-  const time = date.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  if (sameDay) return 'Today';
+  return dateChipLabel(calendarDayFromDate(date));
+}
 
-  if (sameDay) return `Today · ${time}`;
-
-  return `${dateChipLabel(calendarDayFromDate(date))} · ${time}`;
+export function formatDue(value: string | null): string | null {
+  const day = formatDueDay(value);
+  const time = formatDueTime(value);
+  if (!day || !time) return null;
+  return `${day} · ${time}`;
 }
 
 /** True from one minute before `now` onward. Undated and invalid instants are not upcoming. */
@@ -44,6 +59,23 @@ export function toDateTimeLocalValue(value: string | null): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+/** Local `HH:MM` for `<input type="time">`. */
+export function toLocalTimeInputValue(value: string | null): string {
+  const full = toDateTimeLocalValue(value);
+  const sep = full.indexOf('T');
+  return sep >= 0 ? full.slice(sep + 1) : '';
+}
+
+/** Apply an `HH:MM` time input onto the existing due day (or today). */
+export function fromLocalTimeInputValue(dueAt: string | null, value: string): string | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return applyPickedLocalTime(dueAt, new Date(2000, 0, 1, hours, minutes));
 }
 
 /** Parse a datetime-local value into an ISO string, or null if empty/invalid. */

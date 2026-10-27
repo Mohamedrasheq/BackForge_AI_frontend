@@ -79,6 +79,39 @@ describe('normalizeAskResponse', () => {
     assert.equal(edit.dueAt, null);
     assert.equal('text' in edit, false);
     assert.equal('folderId' in edit, false);
+    assert.equal('suggested' in edit, false);
+  });
+
+  it('reads suggested on add and edit, and treats a missing field as false', () => {
+    const parsed = normalizeAskResponse({
+      reply: 'Check it.',
+      proposals: [
+        {
+          kind: 'add',
+          text: 'Call the bank',
+          dueAt: '2026-10-15T04:30:00.000Z',
+          folderId: null,
+          categoryName: null,
+          suggested: true,
+        },
+        { kind: 'add', text: 'Milk', dueAt: null, folderId: null, categoryName: null },
+        { kind: 'edit', itemId: 'gym-1', dueAt: '2026-10-16T01:30:00.000Z', suggested: true },
+        { kind: 'edit', itemId: 'rent-1', dueAt: '2026-10-16T01:30:00.000Z' },
+      ],
+      candidates: [],
+    });
+    const addSuggested = parsed?.proposals[0];
+    const addPlain = parsed?.proposals[1];
+    const editSuggested = parsed?.proposals[2];
+    const editPlain = parsed?.proposals[3];
+    assert.ok(addSuggested && addSuggested.kind === 'add');
+    assert.equal(addSuggested.suggested, true);
+    assert.ok(addPlain && addPlain.kind === 'add');
+    assert.equal(addPlain.suggested, false);
+    assert.ok(editSuggested && editSuggested.kind === 'edit');
+    assert.equal(editSuggested.suggested, true);
+    assert.ok(editPlain && editPlain.kind === 'edit');
+    assert.equal('suggested' in editPlain, false);
   });
 
   it('caps candidates at five and reads a showing footer', () => {

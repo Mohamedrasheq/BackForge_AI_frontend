@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { formatDue, formatTodaySubtitle, fromDateTimeLocalValue } from './format';
+import {
+  formatDue,
+  formatDueDay,
+  formatDueTime,
+  formatTodaySubtitle,
+  fromDateTimeLocalValue,
+  fromLocalTimeInputValue,
+} from './format';
 
 describe('date labels', () => {
   it('writes the Today subtitle with an English weekday and month', () => {
@@ -17,6 +24,13 @@ describe('date labels', () => {
   it('keeps Today for a due time on the local today', () => {
     const due = formatDue(new Date().toISOString());
     assert.ok(due?.startsWith('Today · '));
+  });
+
+  it('splits the day and clock so Suggested can sit after the time', () => {
+    const value = new Date(2026, 9, 29, 9, 0).toISOString();
+    assert.equal(formatDueDay(value), 'Thu, 29 Oct');
+    assert.ok(formatDueTime(value)?.includes('9:00'));
+    assert.equal(formatDue(value), `${formatDueDay(value)} · ${formatDueTime(value)}`);
   });
 });
 
@@ -35,6 +49,14 @@ describe('datetime-local values', () => {
     assert.equal(due.getDate(), 20);
     assert.equal(due.getHours(), 7);
     assert.equal(due.getMinutes(), 45);
+  });
+
+  it('applies a time input on the existing due day', () => {
+    const dueAt = new Date(2026, 9, 20, 23, 59).toISOString();
+    const due = new Date(fromLocalTimeInputValue(dueAt, '09:00') ?? '');
+    assert.equal(due.getDate(), 20);
+    assert.equal(due.getHours(), 9);
+    assert.equal(due.getMinutes(), 0);
   });
 });
 

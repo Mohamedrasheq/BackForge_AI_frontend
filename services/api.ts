@@ -4,6 +4,7 @@
  */
 
 import { DELETE_ACCOUNT_FAILED, isAccountDeleted } from '@/lib/account-delete';
+import { readSuggestedTimeFlag } from '@/lib/due';
 import { getApiToken } from '@/lib/api-auth';
 import { audioPartFromUri, readTranscriptPayload } from '@/lib/transcribe-audio';
 import {
@@ -220,6 +221,7 @@ export function normalizeProposedItem(raw: unknown): ProposedItem | null {
     suggestedFolderId: readSuggestedFolderId(raw),
     suggestedCategory: readSuggestedCategory(raw),
     suggestedIsNew: readSuggestedIsNew(raw),
+    suggested: readSuggestedTimeFlag(raw.suggested),
   };
 }
 

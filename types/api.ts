@@ -37,6 +37,8 @@ export interface ProposedItem {
   suggestedCategory: string | null;
   /** True when the model invented a category the user does not have yet. */
   suggestedIsNew: boolean;
+  /** True when the model picked the clock time. Missing is false. */
+  suggested?: boolean;
 }
 
 /** POST /items/bulk item — server requires `body`, not the UI's `text`. */

@@ -17,6 +17,13 @@ export function EditableItemFields({
   autoFocus = false,
   compact = false,
   dueAccessory,
+  timeChips = 'off',
+  chipsOpen = false,
+  onToggleChips,
+  suggested = false,
+  showSuggested = false,
+  onCommitTime,
+  allowClear,
 }: {
   text: string;
   onChangeText: (text: string) => void;
@@ -30,6 +37,13 @@ export function EditableItemFields({
   compact?: boolean;
   /** Sits on the due row (category chip on Confirm). */
   dueAccessory?: React.ReactNode;
+  timeChips?: 'off' | 'toggle' | 'always';
+  chipsOpen?: boolean;
+  onToggleChips?: () => void;
+  suggested?: boolean;
+  showSuggested?: boolean;
+  onCommitTime?: () => void;
+  allowClear?: boolean;
 }) {
   return (
     <>
@@ -58,6 +72,13 @@ export function EditableItemFields({
         onClosePicker={onClosePicker}
         onChange={onChangeDue}
         accessory={dueAccessory}
+        timeChips={timeChips}
+        chipsOpen={chipsOpen}
+        onToggleChips={onToggleChips}
+        suggested={suggested}
+        showSuggested={showSuggested}
+        onCommitTime={onCommitTime}
+        allowClear={allowClear}
       />
     </>
   );

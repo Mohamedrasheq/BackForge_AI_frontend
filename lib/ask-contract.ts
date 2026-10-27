@@ -7,6 +7,7 @@
  * Field names are also accepted in snake_case, matching the rest of the API client.
  */
 
+import { readSuggestedTimeFlag } from '@/lib/due';
 import type { AskHistoryTurn } from '@/types/api';
 
 export type { AskHistoryTurn };
@@ -48,6 +49,8 @@ export type AskProposal =
       dueAt: string | null;
       folderId: string | null;
       categoryName: string | null;
+      /** True when the model picked the clock time. Missing is false. */
+      suggested?: boolean;
     }
   | {
       kind: 'edit';
@@ -55,6 +58,8 @@ export type AskProposal =
       text?: string;
       dueAt?: string | null;
       folderId?: string | null;
+      /** True when the model picked the clock time. Missing is false. */
+      suggested?: boolean;
     }
   | { kind: 'done'; itemId: string };
 
@@ -159,6 +164,7 @@ function normalizeAdd(raw: Record<string, unknown>): AskProposal | null {
     dueAt: readDue(owned(raw, ['dueAt', 'due_at']).value),
     folderId: folder.present ? readId(folder.value) : null,
     categoryName: category.present ? readCategoryName(category.value) : null,
+    suggested: readSuggestedTimeFlag(owned(raw, ['suggested']).value),
   };
 }
 
@@ -175,6 +181,8 @@ function normalizeEdit(raw: Record<string, unknown>): AskProposal | null {
   if (due.present) proposal.dueAt = readDue(due.value);
   const folder = owned(raw, ['folderId', 'folder_id']);
   if (folder.present) proposal.folderId = readId(folder.value);
+  const suggested = owned(raw, ['suggested']);
+  if (suggested.present) proposal.suggested = readSuggestedTimeFlag(suggested.value);
   return proposal;
 }
 

@@ -1,12 +1,25 @@
+import { TimeChips } from '@/components/capture/time-chips';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Theme } from '@/constants/theme';
 import {
   applyPickedLocalTime,
+  applyPresetLocalTime,
   defaultDueOnLocalDay,
+  localDayFromDateInput,
   moveDueToLocalDay,
   pickerDateForDue,
+  toLocalDateInputValue,
+  type TimePresetId,
 } from '@/lib/due';
-import { formatDue, fromDateTimeLocalValue, toDateTimeLocalValue } from '@/lib/format';
+import {
+  formatDue,
+  formatDueDay,
+  formatDueTime,
+  fromDateTimeLocalValue,
+  fromLocalTimeInputValue,
+  toDateTimeLocalValue,
+  toLocalTimeInputValue,
+} from '@/lib/format';
 import { haptics } from '@/lib/haptics';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import React, { useEffect, useState } from 'react';
@@ -20,6 +33,12 @@ export function DueField({
   onClosePicker,
   allowClear = true,
   accessory,
+  timeChips = 'off',
+  chipsOpen = false,
+  onToggleChips,
+  suggested = false,
+  showSuggested = false,
+  onCommitTime,
 }: {
   value: string | null;
   onChange: (next: string | null) => void;
@@ -31,27 +50,51 @@ export function DueField({
   allowClear?: boolean;
   /** Confirm: category chip shares the due row when the card is wide enough. */
   accessory?: React.ReactNode;
+  /** Confirm toggles a chip row; the edit sheet keeps it expanded. */
+  timeChips?: 'off' | 'toggle' | 'always';
+  chipsOpen?: boolean;
+  onToggleChips?: () => void;
+  suggested?: boolean;
+  /** Capture confirm and Ask edit cards. Not Today, All items, or Ask done. */
+  showSuggested?: boolean;
+  onCommitTime?: () => void;
 }) {
   const [picking, setPicking] = useState<'date' | 'time' | null>(null);
+  const [timeDraft, setTimeDraft] = useState<Date | null>(null);
+  const chipsEnabled = timeChips !== 'off';
 
   useEffect(() => {
     if (pickerOpen) {
       setPicking((current) => current ?? 'date');
     } else {
       setPicking(null);
+      setTimeDraft(null);
     }
   }, [pickerOpen]);
 
-  const pickerValue = pickerDateForDue(value);
+  const pickerValue = timeDraft ?? pickerDateForDue(value);
   const label = formatDue(value) ?? 'No date';
+  const dayLabel = formatDueDay(value) ?? 'No date';
+  const timeLabel = formatDueTime(value);
+  const showTime = Boolean(value && chipsEnabled);
+  const showSuggestedLabel = Boolean(showSuggested && suggested && timeLabel);
+  const showChipRow = Boolean(value && chipsEnabled);
 
-  const commit = (next: Date) => {
-    onChange(next.toISOString());
+  const commitTime = (next: string) => {
+    onChange(next);
+    onCommitTime?.();
   };
 
   const closePicker = () => {
     setPicking(null);
+    setTimeDraft(null);
     onClosePicker?.();
+  };
+
+  const openPicker = (mode: 'date' | 'time') => {
+    setPicking(mode);
+    if (mode === 'time') setTimeDraft(pickerDateForDue(value));
+    onOpenPicker?.();
   };
 
   const onNativeChange = (event: DateTimePickerEvent, date?: Date) => {
@@ -64,9 +107,23 @@ export function DueField({
       return;
     }
 
+    if (chipsEnabled && picking === 'time') {
+      if (Platform.OS === 'android') {
+        commitTime(applyPickedLocalTime(value, date));
+        closePicker();
+        return;
+      }
+      setTimeDraft(date);
+      return;
+    }
+
     if (Platform.OS === 'android') {
       if (picking === 'date') {
         onChange(moveDueToLocalDay(value, date));
+        if (chipsEnabled) {
+          closePicker();
+          return;
+        }
         setPicking('time');
         return;
       }
@@ -75,7 +132,12 @@ export function DueField({
       return;
     }
 
-    commit(date);
+    if (chipsEnabled && picking === 'date') {
+      onChange(moveDueToLocalDay(value, date));
+      return;
+    }
+
+    onChange(date.toISOString());
   };
 
   const onAddOrEdit = () => {
@@ -89,11 +151,43 @@ export function DueField({
     onOpenPicker?.();
   };
 
+  const onToggleTime = () => {
+    if (timeChips !== 'toggle' || !value) return;
+    haptics.light();
+    if (pickerOpen) closePicker();
+    onToggleChips?.();
+  };
+
+  const onSelectPreset = (preset: { id: TimePresetId; hours: number; minutes: number }) => {
+    commitTime(applyPresetLocalTime(value, preset.hours, preset.minutes));
+    if (timeChips === 'toggle') onToggleChips?.();
+  };
+
+  const onPickTime = () => {
+    if (Platform.OS === 'web') {
+      setPicking('time');
+      onOpenPicker?.();
+      return;
+    }
+    openPicker('time');
+  };
+
   const onClear = () => {
     haptics.light();
     closePicker();
+    if (timeChips === 'toggle' && chipsOpen) onToggleChips?.();
     onChange(null);
   };
+
+  const onSetTime = () => {
+    if (timeDraft) commitTime(applyPickedLocalTime(value, timeDraft));
+    else onCommitTime?.();
+    closePicker();
+  };
+
+  const timeAccessibilityLabel = showSuggestedLabel
+    ? `${timeLabel}, suggested time. Double-tap to change.`
+    : `${timeLabel}. Double-tap to change.`;
 
   const clearControl =
     value && allowClear ? (
@@ -104,7 +198,15 @@ export function DueField({
 
   const accessoryNode = accessory ? <View style={styles.accessory}>{accessory}</View> : null;
 
-  if (Platform.OS === 'web' && !accessory) {
+  const suggestedMarks =
+    showSuggestedLabel && timeLabel ? (
+      <>
+        <Text style={styles.metaSep}> · </Text>
+        <Text style={styles.suggested}>Suggested</Text>
+      </>
+    ) : null;
+
+  if (Platform.OS === 'web' && !accessory && !chipsEnabled) {
     return (
       <View style={styles.row}>
         <IconSymbol name="calendar" size={16} color={Theme.color.textSecondary} />
@@ -121,7 +223,64 @@ export function DueField({
     );
   }
 
-  const dueChip = (
+  const dueChip = chipsEnabled ? (
+    <View style={[styles.chip, accessory ? styles.chipCompact : null, styles.chipSplit]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={value ? `Due ${dayLabel}. Edit date` : 'Add due date'}
+        onPress={onAddOrEdit}
+        style={({ pressed }) => [styles.hit, pressed && styles.pressed]}
+      >
+        <IconSymbol name="calendar" size={16} color={Theme.color.accent} />
+        {Platform.OS === 'web' ? (
+          <input
+            aria-label="Due date"
+            type="date"
+            value={toLocalDateInputValue(value)}
+            onChange={(event) => {
+              const day = localDayFromDateInput(event.target.value);
+              if (day) onChange(moveDueToLocalDay(value, day));
+            }}
+            style={webOverlayStyle}
+          />
+        ) : null}
+      </Pressable>
+      {showTime && timeLabel ? (
+        timeChips === 'toggle' ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={timeAccessibilityLabel}
+            onPress={onToggleTime}
+            style={({ pressed }) => [styles.hit, pressed && styles.pressed]}
+          >
+            <Text style={styles.chipLabel} numberOfLines={1}>
+              {dayLabel}
+              <Text style={styles.chipLabel}> · </Text>
+              {timeLabel}
+            </Text>
+            {suggestedMarks}
+          </Pressable>
+        ) : (
+          <View style={[styles.hit, styles.hitStatic]}>
+            <Text style={styles.chipLabel} numberOfLines={1}>
+              {dayLabel}
+              <Text style={styles.chipLabel}> · </Text>
+              {timeLabel}
+            </Text>
+          </View>
+        )
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add due date"
+          onPress={onAddOrEdit}
+          style={({ pressed }) => [styles.hit, pressed && styles.pressed]}
+        >
+          <Text style={[styles.chipLabel, styles.undated]}>No date</Text>
+        </Pressable>
+      )}
+    </View>
+  ) : (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={value ? `Due ${label}. Edit date` : 'Add due date'}
@@ -144,6 +303,60 @@ export function DueField({
     </Pressable>
   );
 
+  const nativePicker =
+    Platform.OS !== 'web' && pickerOpen ? (
+      <View>
+        <DateTimePicker
+          value={pickerValue}
+          mode={
+            picking === 'time'
+              ? 'time'
+              : chipsEnabled || Platform.OS !== 'ios'
+                ? 'date'
+                : 'datetime'
+          }
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={onNativeChange}
+        />
+        {Platform.OS === 'ios' ? (
+          <View style={styles.pickerActions}>
+            {chipsEnabled && picking === 'time' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
+                onPress={closePicker}
+                style={({ pressed }) => [styles.set, pressed && styles.pressed]}
+              >
+                <Text style={styles.clear}>Cancel</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={picking === 'time' ? 'Set time' : 'Set due date'}
+              onPress={picking === 'time' && chipsEnabled ? onSetTime : closePicker}
+              style={({ pressed }) => [styles.set, pressed && styles.pressed]}
+            >
+              <Text style={styles.setLabel}>Set</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+    ) : null;
+
+  const webTimePicker =
+    Platform.OS === 'web' && pickerOpen && picking === 'time' ? (
+      <input
+        aria-label="Due time"
+        type="time"
+        value={toLocalTimeInputValue(value)}
+        onChange={(event) => {
+          const next = fromLocalTimeInputValue(value, event.target.value);
+          if (next) commitTime(next);
+        }}
+        style={webTimeInputStyle}
+      />
+    ) : null;
+
   return (
     <View>
       <View style={[styles.row, accessory ? styles.rowShare : null]}>
@@ -160,26 +373,17 @@ export function DueField({
         )}
         {accessoryNode}
       </View>
-      {Platform.OS !== 'web' && pickerOpen ? (
-        <View>
-          <DateTimePicker
-            value={pickerValue}
-            mode={picking === 'time' ? 'time' : Platform.OS === 'ios' ? 'datetime' : 'date'}
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={onNativeChange}
-          />
-          {Platform.OS === 'ios' ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Set due date"
-              onPress={closePicker}
-              style={({ pressed }) => [styles.set, pressed && styles.pressed]}
-            >
-              <Text style={styles.setLabel}>Set</Text>
-            </Pressable>
-          ) : null}
-        </View>
+      {showChipRow ? (
+        <TimeChips
+          dueAt={value}
+          open={chipsOpen}
+          always={timeChips === 'always'}
+          onSelectPreset={onSelectPreset}
+          onPickTime={onPickTime}
+        />
       ) : null}
+      {nativePicker}
+      {webTimePicker}
     </View>
   );
 }
@@ -198,6 +402,16 @@ const webOverlayStyle: React.CSSProperties = {
 const webInputStyle: React.CSSProperties = {
   flex: 1,
   minWidth: 0,
+  border: 'none',
+  outline: 'none',
+  background: 'transparent',
+  color: Theme.color.text,
+  fontSize: 14,
+  fontFamily: 'inherit',
+};
+
+const webTimeInputStyle: React.CSSProperties = {
+  marginTop: 8,
   border: 'none',
   outline: 'none',
   background: 'transparent',
@@ -247,6 +461,25 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minWidth: 0,
   },
+  chipSplit: {
+    gap: 0,
+    paddingVertical: 0,
+    paddingHorizontal: 4,
+  },
+  hit: {
+    position: 'relative',
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  hitStatic: {
+    paddingHorizontal: 4,
+  },
   pressed: {
     opacity: 0.7,
   },
@@ -259,6 +492,17 @@ const styles = StyleSheet.create({
     color: Theme.color.textSecondary,
     fontWeight: '500',
   },
+  metaSep: {
+    fontSize: Theme.type.caption,
+    fontWeight: '400',
+    color: Theme.color.textSecondary,
+  },
+  suggested: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Theme.color.accent,
+    opacity: 0.75,
+  },
   clear: {
     fontSize: Theme.type.caption,
     fontWeight: '600',
@@ -267,6 +511,11 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: Theme.type.caption,
     color: Theme.color.textTertiary,
+  },
+  pickerActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   set: {
     alignSelf: 'flex-end',

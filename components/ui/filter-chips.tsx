@@ -3,6 +3,46 @@ import { haptics } from '@/lib/haptics';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+export function FilterChip({
+  label,
+  active,
+  disabled = false,
+  allowReselect = false,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  disabled?: boolean;
+  /** Time chips still fire when the preset already matches. */
+  allowReselect?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active, disabled }}
+      accessibilityLabel={label}
+      disabled={disabled}
+      onPress={() => {
+        if (disabled) return;
+        if (active && !allowReselect) return;
+        haptics.selection();
+        onPress();
+      }}
+      style={({ pressed }) => [
+        chipStyles.chip,
+        active ? chipStyles.chipActive : chipStyles.chipIdle,
+        disabled && chipStyles.chipDisabled,
+        pressed && !disabled && chipStyles.pressed,
+      ]}
+    >
+      <Text style={[chipStyles.label, active ? chipStyles.labelActive : chipStyles.labelIdle]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 export function FilterChips<T extends string>({
   value,
   options,
@@ -17,26 +57,12 @@ export function FilterChips<T extends string>({
       {options.map((option) => {
         const active = option.value === value;
         return (
-          <Pressable
+          <FilterChip
             key={option.value}
-            accessibilityRole="button"
-            accessibilityState={{ selected: active }}
-            accessibilityLabel={option.label}
-            onPress={() => {
-              if (active) return;
-              haptics.selection();
-              onChange(option.value);
-            }}
-            style={({ pressed }) => [
-              chipStyles.chip,
-              active ? chipStyles.chipActive : chipStyles.chipIdle,
-              pressed && chipStyles.pressed,
-            ]}
-          >
-            <Text style={[chipStyles.label, active ? chipStyles.labelActive : chipStyles.labelIdle]}>
-              {option.label}
-            </Text>
-          </Pressable>
+            label={option.label}
+            active={active}
+            onPress={() => onChange(option.value)}
+          />
         );
       })}
     </View>
@@ -56,6 +82,7 @@ export const chipStyles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   chipActive: {
     backgroundColor: Theme.color.accentSoft,
@@ -64,6 +91,9 @@ export const chipStyles = StyleSheet.create({
   chipIdle: {
     backgroundColor: Theme.color.card,
     borderColor: Theme.color.border,
+  },
+  chipDisabled: {
+    opacity: 0.4,
   },
   pressed: {
     opacity: 0.75,
