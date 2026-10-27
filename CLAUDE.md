@@ -6,7 +6,7 @@
 
 ## Tech Stack
 
-- **Framework**: React Native 0.81.5 + Expo 54 (managed workflow)
+- **Framework**: React Native 0.81.5 + Expo 54 with committed `ios/` and `android/` (prebuild). Native-ID changes must be made in the native projects as well as `app.json`.
 - **Routing**: Expo Router 6 (file-based)
 - **Language**: TypeScript 5.9
 - **Auth**: Clerk (`@clerk/clerk-expo`) — Bearer token on every API call
