@@ -95,7 +95,7 @@ export default function CaptureScreen() {
     setError(null);
     clearSpeechError();
     goToToday();
-  }, [clearSpeechError, goToToday]);
+  }, [clearSpeechError, goToToday, setRows]);
 
   const onClear = useCallback(() => {
     setText('');
