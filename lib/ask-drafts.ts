@@ -19,6 +19,8 @@ export type DraftSeed = {
   suggestedFolderId?: string | null;
   suggestedCategory?: string | null;
   suggestedIsNew?: boolean;
+  /** True when the model picked the clock time. Missing is false. */
+  suggested?: boolean;
   categoryChosen?: boolean;
   kind?: DraftKind;
   itemId?: string;
@@ -125,6 +127,7 @@ export function proposalToDraftSeed(
       categoryName: categoryNameFor(folderId, categories as Category[]),
       pendingNew: false,
       categoryChosen: true,
+      suggested: proposal.suggested === true,
       kind: 'edit',
       itemId: proposal.itemId,
       was: item
@@ -145,6 +148,7 @@ export function proposalToDraftSeed(
       categoryName: categoryNameFor(proposal.folderId, categories as Category[]) ?? proposal.categoryName,
       pendingNew: false,
       categoryChosen: true,
+      suggested: proposal.suggested === true,
       kind: 'add',
     };
   }
@@ -160,6 +164,7 @@ export function proposalToDraftSeed(
         categoryName: match.name,
         pendingNew: false,
         categoryChosen: true,
+        suggested: proposal.suggested === true,
         kind: 'add',
       };
     }
@@ -169,6 +174,7 @@ export function proposalToDraftSeed(
       suggestedCategory: named,
       suggestedIsNew: true,
       categoryChosen: false,
+      suggested: proposal.suggested === true,
       kind: 'add',
     };
   }
@@ -180,6 +186,7 @@ export function proposalToDraftSeed(
     categoryName: null,
     pendingNew: false,
     categoryChosen: true,
+    suggested: proposal.suggested === true,
     kind: 'add',
   };
 }

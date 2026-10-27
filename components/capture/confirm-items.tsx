@@ -42,6 +42,8 @@ export type DraftItem = {
   suggestedFolderId: string | null;
   suggestedCategory: string | null;
   suggestedIsNew: boolean;
+  /** True when the model picked the clock time. Cleared as soon as the user sets a time. */
+  suggested: boolean;
   /** True after the user picks a category or Unfiled, so a late suggestion cannot overwrite it. */
   categoryChosen: boolean;
   /** Absent on Capture drafts, which stay adds. */
@@ -64,6 +66,7 @@ export function createDraftItem(
     suggestedFolderId?: string | null;
     suggestedCategory?: string | null;
     suggestedIsNew?: boolean;
+    suggested?: boolean;
     categoryChosen?: boolean;
     kind?: DraftKind;
     itemId?: string;
@@ -94,6 +97,7 @@ export function createDraftItem(
     suggestedFolderId,
     suggestedCategory,
     suggestedIsNew,
+    suggested: item?.suggested === true,
     categoryChosen,
     kind: item?.kind,
     itemId: item?.itemId,
@@ -107,7 +111,10 @@ function patchDraftByKey(
   items: DraftItem[],
   key: string,
   patch: Partial<
-    Pick<DraftItem, 'text' | 'dueAt' | 'folderId' | 'categoryName' | 'pendingNew' | 'categoryChosen'>
+    Pick<
+      DraftItem,
+      'text' | 'dueAt' | 'folderId' | 'categoryName' | 'pendingNew' | 'categoryChosen' | 'suggested'
+    >
   >
 ): DraftItem[] {
   return items.map((item) => (item.key === key ? { ...item, ...patch } : item));
@@ -161,6 +168,7 @@ export function ConfirmItems({
   const canConfirm = saveable.length > 0 && !confirming;
   // One native DateTimePicker at a time — multiple instances share events on iOS/Android.
   const [activeDueKey, setActiveDueKey] = useState<string | null>(null);
+  const [activeTimeKey, setActiveTimeKey] = useState<string | null>(null);
   const [activeCategoryKey, setActiveCategoryKey] = useState<string | null>(null);
   const activeCategory = items.find((item) => item.key === activeCategoryKey) ?? null;
 
@@ -171,7 +179,10 @@ export function ConfirmItems({
   const updateAt = (
     key: string,
     patch: Partial<
-      Pick<DraftItem, 'text' | 'dueAt' | 'folderId' | 'categoryName' | 'pendingNew' | 'categoryChosen'>
+      Pick<
+        DraftItem,
+        'text' | 'dueAt' | 'folderId' | 'categoryName' | 'pendingNew' | 'categoryChosen' | 'suggested'
+      >
     >
   ) => {
     onChange((prev) => patchDraftByKey(prev, key, patch));
@@ -180,6 +191,7 @@ export function ConfirmItems({
   const removeAt = (key: string) => {
     haptics.light();
     setActiveDueKey((current) => (current === key ? null : current));
+    setActiveTimeKey((current) => (current === key ? null : current));
     setActiveCategoryKey((current) => (current === key ? null : current));
     onChange((prev) => prev.filter((item) => item.key !== key));
   };
@@ -242,15 +254,28 @@ export function ConfirmItems({
                     text={item.text}
                     onChangeText={(text) => updateAt(item.key, { text })}
                     dueAt={item.dueAt}
-                    onChangeDue={(dueAt) => updateAt(item.key, { dueAt })}
+                    onChangeDue={(dueAt) =>
+                      updateAt(item.key, { dueAt, ...(dueAt == null ? { suggested: false } : {}) })
+                    }
                     pickerOpen={activeDueKey === item.key}
                     onOpenPicker={() => {
                       setActiveCategoryKey(null);
+                      setActiveTimeKey(null);
                       setActiveDueKey(item.key);
                     }}
                     onClosePicker={() =>
                       setActiveDueKey((current) => (current === item.key ? null : current))
                     }
+                    timeChips="toggle"
+                    chipsOpen={activeTimeKey === item.key}
+                    onToggleChips={() => {
+                      setActiveCategoryKey(null);
+                      setActiveDueKey((current) => (current === item.key ? null : current));
+                      setActiveTimeKey((current) => (current === item.key ? null : item.key));
+                    }}
+                    suggested={item.suggested}
+                    showSuggested
+                    onCommitTime={() => updateAt(item.key, { suggested: false })}
                     dueAccessory={
                       <CategoryChip
                         label={item.categoryName ?? UNFILED_LABEL}
@@ -258,6 +283,7 @@ export function ConfirmItems({
                         hint={item.pendingNew ? 'New' : undefined}
                         onPress={() => {
                           setActiveDueKey((current) => (current === item.key ? null : current));
+                          setActiveTimeKey(null);
                           setActiveCategoryKey(item.key);
                           onReloadCategories();
                         }}

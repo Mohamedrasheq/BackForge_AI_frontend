@@ -53,6 +53,7 @@ export function ItemEditor({
         onOpenPicker={() => setPickerOpen(true)}
         onClosePicker={() => setPickerOpen(false)}
         autoFocus
+        timeChips="always"
       />
       <PrimaryButton
         label="Save"

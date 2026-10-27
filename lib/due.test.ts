@@ -3,11 +3,15 @@ import { describe, it } from 'node:test';
 
 import {
   applyPickedLocalTime,
+  applyPresetLocalTime,
   DATE_ONLY_DUE_HOURS,
   DATE_ONLY_DUE_MINUTES,
   defaultDueOnLocalDay,
+  isPresetTimePast,
+  matchingTimePresetId,
   moveDueToLocalDay,
   pickerDateForDue,
+  readSuggestedTimeFlag,
 } from './due';
 
 const NOW = new Date(2026, 9, 16, 14, 30, 12);
@@ -59,5 +63,38 @@ describe('date-only due default', () => {
     assert.equal(picker.getDate(), 18);
     assert.equal(picker.getHours(), 9);
     assert.equal(picker.getMinutes(), 15);
+  });
+});
+
+describe('suggested time flag', () => {
+  it('treats missing and unknown values as false', () => {
+    assert.equal(readSuggestedTimeFlag(undefined), false);
+    assert.equal(readSuggestedTimeFlag(null), false);
+    assert.equal(readSuggestedTimeFlag(''), false);
+    assert.equal(readSuggestedTimeFlag('false'), false);
+    assert.equal(readSuggestedTimeFlag(0), false);
+    assert.equal(readSuggestedTimeFlag(true), true);
+    assert.equal(readSuggestedTimeFlag(1), true);
+    assert.equal(readSuggestedTimeFlag('true'), true);
+  });
+});
+
+describe('time presets', () => {
+  it('matches a preset on the clock time and applies it on the due day', () => {
+    const dueAt = new Date(2026, 9, 20, 9, 0, 0).toISOString();
+    assert.equal(matchingTimePresetId(dueAt), 'morning');
+    const evening = new Date(applyPresetLocalTime(dueAt, 19, 0, NOW));
+    assert.equal(evening.getDate(), 20);
+    assert.equal(evening.getHours(), 19);
+    assert.equal(evening.getMinutes(), 0);
+    assert.equal(matchingTimePresetId(evening.toISOString()), 'evening');
+  });
+
+  it('disables past presets only when the due day is today', () => {
+    assert.equal(isPresetTimePast(new Date(2026, 9, 16, 15, 0).toISOString(), 9, 0, NOW), true);
+    assert.equal(isPresetTimePast(new Date(2026, 9, 16, 15, 0).toISOString(), 12, 0, NOW), true);
+    assert.equal(isPresetTimePast(new Date(2026, 9, 16, 15, 0).toISOString(), 19, 0, NOW), false);
+    assert.equal(isPresetTimePast(new Date(2026, 9, 16, 14, 30).toISOString(), 14, 30, NOW), false);
+    assert.equal(isPresetTimePast(new Date(2026, 9, 17, 8, 0).toISOString(), 9, 0, NOW), false);
   });
 });

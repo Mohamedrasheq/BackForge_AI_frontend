@@ -45,6 +45,36 @@ describe('proposal drafts', () => {
     assert.equal(seed.itemId, 'gym-1');
     assert.equal(seed.text, 'Gym');
     assert.equal(seed.was, undefined);
+    assert.equal(seed.suggested, undefined);
+  });
+
+  it('copies suggested time from add and edit proposals', () => {
+    const friday = new Date(2026, 9, 16, 9, 0).toISOString();
+    const add = proposalToDraftSeed(
+      {
+        kind: 'add',
+        text: 'Call the bank',
+        dueAt: friday,
+        folderId: null,
+        categoryName: null,
+        suggested: true,
+      },
+      [],
+      []
+    );
+    assert.equal(add.suggested, true);
+    const edit = proposalToDraftSeed(
+      { kind: 'edit', itemId: 'gym-1', dueAt: friday, suggested: true },
+      [gym],
+      []
+    );
+    assert.equal(edit.suggested, true);
+    const unsigned = proposalToDraftSeed(
+      { kind: 'add', text: 'Milk', dueAt: friday, folderId: null, categoryName: null },
+      [],
+      []
+    );
+    assert.equal(unsigned.suggested, false);
   });
 
   it('writes only the due when that is what changed', () => {
