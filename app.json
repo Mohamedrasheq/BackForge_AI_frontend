@@ -12,6 +12,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.devmr.backforge.ai",
+      "entitlements": {
+        "aps-environment": "production"
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "BackForge uses the microphone so you can speak tasks and have them turned into a list.",

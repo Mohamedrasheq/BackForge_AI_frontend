@@ -48,7 +48,14 @@ function InitialLayout() {
   }, [getToken]);
 
   useEffect(() => {
-    if (Platform.OS === 'web' || !isSignedIn || hasRegisteredPush.current) return;
+    if (Platform.OS === 'web') return;
+
+    if (!isSignedIn) {
+      hasRegisteredPush.current = false;
+      return;
+    }
+
+    if (hasRegisteredPush.current) return;
 
     const setupPush = async () => {
       try {
