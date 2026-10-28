@@ -35,7 +35,7 @@ export function EditableItemFields({
   autoFocus?: boolean;
   /** Confirm cards: title hugs one line so metadata can sit 12pt below. */
   compact?: boolean;
-  /** Sits on the due row (category chip on Confirm). */
+  /** Sits under the due row (category chip on Confirm and Ask edit cards). */
   dueAccessory?: React.ReactNode;
   timeChips?: 'off' | 'toggle' | 'always';
   chipsOpen?: boolean;
