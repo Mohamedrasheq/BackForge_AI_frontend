@@ -8,6 +8,7 @@ import { PrimaryButton } from '@/components/ui/primary-button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Theme } from '@/constants/theme';
 import { wasLine } from '@/lib/ask-drafts';
+import { CONFIRM_STILL_SAVING_MESSAGE, CONFIRM_STILL_SAVING_MS, confirmSavingLabel } from '@/lib/capture-status';
 import { resolveCategorySuggestion, UNFILED_LABEL } from '@/lib/categories';
 import {
   doneMetaLine,
@@ -170,11 +171,24 @@ export function ConfirmItems({
   const [activeDueKey, setActiveDueKey] = useState<string | null>(null);
   const [activeTimeKey, setActiveTimeKey] = useState<string | null>(null);
   const [activeCategoryKey, setActiveCategoryKey] = useState<string | null>(null);
+  const [stillSaving, setStillSaving] = useState(false);
   const activeCategory = items.find((item) => item.key === activeCategoryKey) ?? null;
 
   useEffect(() => {
     onChange((prev) => applyCategorySuggestions(prev, categories));
   }, [categories, onChange]);
+
+  useEffect(() => {
+    if (!confirming) {
+      setStillSaving(false);
+      return;
+    }
+    setActiveDueKey(null);
+    setActiveTimeKey(null);
+    setActiveCategoryKey(null);
+    const timer = setTimeout(() => setStillSaving(true), CONFIRM_STILL_SAVING_MS);
+    return () => clearTimeout(timer);
+  }, [confirming]);
 
   const updateAt = (
     key: string,
@@ -207,7 +221,12 @@ export function ConfirmItems({
         title="Confirm"
         subtitle="Edit anything before saving."
         right={
-          <IconButton name="xmark" accessibilityLabel="Back to dump" onPress={onBack} />
+          <IconButton
+            name="xmark"
+            accessibilityLabel="Back to dump"
+            disabled={confirming}
+            onPress={onBack}
+          />
         }
       />
 
@@ -221,7 +240,8 @@ export function ConfirmItems({
           const kindLabel = draftKindLabel(item.kind);
           const previous = wasLine(item);
           return (
-            <Card key={item.key} style={styles.card}>
+            <Card key={item.key} style={[styles.card, confirming && styles.cardSaving]}>
+              <View pointerEvents={confirming ? 'none' : 'auto'} style={styles.cardBody}>
               <View style={styles.cardTop}>
                 <View style={styles.cardTopLeft}>
                   <View style={styles.indexWrap}>
@@ -234,6 +254,7 @@ export function ConfirmItems({
                   tone={remove.tone}
                   size={32}
                   accessibilityLabel={remove.accessibilityLabel}
+                  disabled={confirming}
                   onPress={() => removeAt(item.key)}
                 />
               </View>
@@ -293,6 +314,7 @@ export function ConfirmItems({
                   {previous ? <Text style={styles.was}>{previous}</Text> : null}
                 </>
               )}
+              </View>
             </Card>
           );
         })}
@@ -300,8 +322,9 @@ export function ConfirmItems({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Add item"
+          disabled={confirming}
           onPress={addRow}
-          style={({ pressed }) => [styles.add, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.add, confirming && styles.cardSaving, pressed && !confirming && styles.pressed]}
         >
           <IconSymbol name="plus" size={18} color={Theme.color.accent} />
           <Text style={styles.addLabel}>Add item</Text>
@@ -311,15 +334,17 @@ export function ConfirmItems({
       <View style={styles.footer}>
         {error ? (
           <Text style={[styles.error, error === EMPTY_PARSE_MESSAGE && styles.gentle]}>{error}</Text>
+        ) : stillSaving && confirming ? (
+          <Text style={styles.gentle}>{CONFIRM_STILL_SAVING_MESSAGE}</Text>
         ) : null}
         <PrimaryButton
-          label="Confirm"
+          label={confirming ? confirmSavingLabel(saveable.length) : 'Confirm'}
           onPress={onConfirm}
           loading={confirming}
           disabled={!canConfirm}
         />
       </View>
-      {activeCategory ? (
+      {activeCategory && !confirming ? (
         <CategoryPickerSheet
           categories={categories}
           selectedId={activeCategory.folderId}
@@ -359,6 +384,12 @@ const styles = StyleSheet.create({
   card: {
     gap: 12,
     padding: 14,
+  },
+  cardBody: {
+    gap: 12,
+  },
+  cardSaving: {
+    opacity: 0.6,
   },
   cardTop: {
     flexDirection: 'row',

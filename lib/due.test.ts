@@ -10,6 +10,8 @@ import {
   isPresetTimePast,
   matchingTimePresetId,
   moveDueToLocalDay,
+  TIME_PRESETS,
+  visibleTimePresets,
   pickerDateForDue,
   readSuggestedTimeFlag,
 } from './due';
@@ -80,6 +82,26 @@ describe('suggested time flag', () => {
 });
 
 describe('time presets', () => {
+  it('labels Morning through Tonight with the clock hour', () => {
+    assert.deepEqual(
+      TIME_PRESETS.map((preset) => preset.label),
+      ['Morning 9 AM', 'Afternoon 12 PM', 'Evening 7 PM', 'Tonight 9 PM']
+    );
+  });
+
+  it('hides Tonight unless the selected date is today', () => {
+    const todayEvening = new Date(2026, 9, 16, 19, 0).toISOString();
+    const tomorrowMorning = new Date(2026, 9, 17, 9, 0).toISOString();
+    assert.deepEqual(
+      visibleTimePresets(todayEvening, NOW).map((preset) => preset.id),
+      ['morning', 'afternoon', 'evening', 'tonight']
+    );
+    assert.deepEqual(
+      visibleTimePresets(tomorrowMorning, NOW).map((preset) => preset.id),
+      ['morning', 'afternoon', 'evening']
+    );
+  });
+
   it('matches a preset on the clock time and applies it on the due day', () => {
     const dueAt = new Date(2026, 9, 20, 9, 0, 0).toISOString();
     assert.equal(matchingTimePresetId(dueAt), 'morning');

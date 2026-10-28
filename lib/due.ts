@@ -8,10 +8,10 @@ export const DATE_ONLY_DUE_HOURS = 23;
 export const DATE_ONLY_DUE_MINUTES = 59;
 
 export const TIME_PRESETS = [
-  { id: 'morning', label: 'Morning 9', hours: 9, minutes: 0 },
-  { id: 'afternoon', label: 'Afternoon 12', hours: 12, minutes: 0 },
-  { id: 'evening', label: 'Evening 7', hours: 19, minutes: 0 },
-  { id: 'tonight', label: 'Tonight 9', hours: 21, minutes: 0 },
+  { id: 'morning', label: 'Morning 9 AM', hours: 9, minutes: 0 },
+  { id: 'afternoon', label: 'Afternoon 12 PM', hours: 12, minutes: 0 },
+  { id: 'evening', label: 'Evening 7 PM', hours: 19, minutes: 0 },
+  { id: 'tonight', label: 'Tonight 9 PM', hours: 21, minutes: 0 },
 ] as const;
 
 export type TimePresetId = (typeof TIME_PRESETS)[number]['id'];
@@ -132,6 +132,19 @@ function isSameLocalDay(date: Date, now: Date): boolean {
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate()
   );
+}
+
+/** True when `dueAt` falls on the local calendar day of `now`. */
+export function isDueOnLocalToday(dueAt: string | null, now = new Date()): boolean {
+  const date = validDate(dueAt);
+  if (!date) return false;
+  return isSameLocalDay(date, now);
+}
+
+/** Tonight is only offered when the selected day is today. */
+export function visibleTimePresets(dueAt: string | null, now = new Date()) {
+  const showTonight = isDueOnLocalToday(dueAt, now);
+  return TIME_PRESETS.filter((preset) => preset.id !== 'tonight' || showTonight);
 }
 
 /**

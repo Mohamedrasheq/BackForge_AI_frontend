@@ -8,6 +8,7 @@ import { ReplyText } from '@/components/ask/reply-text';
 import { SuggestionChips } from '@/components/ask/suggestion-chips';
 import { TypingIndicator } from '@/components/ask/typing-indicator';
 import { ErrorBanner } from '@/components/ui/error-banner';
+import { SavedBanner } from '@/components/ui/saved-banner';
 import { IconButton } from '@/components/ui/icon-button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ItemRow } from '@/components/ui/item-row';
@@ -23,8 +24,12 @@ import {
   candidateAccessibilityLabel,
   candidateFollowUp,
   planAskWrites,
+  previewCandidate,
+  previewWasLine,
   proposalToDraftSeed,
 } from '@/lib/ask-drafts';
+import { CONFIRM_SAVE_FAILED_MESSAGE } from '@/lib/capture-status';
+import { showSavedFlash } from '@/lib/saved-flash';
 import {
   ASK_CLEAR,
   ASK_COUNTER_FROM,
@@ -161,20 +166,31 @@ function AnswerTurn({
       {message.text ? <ReplyText text={message.text} /> : null}
       {message.candidates.length > 0 ? (
         <View style={styles.group}>
-          {message.candidates.map((candidate, index) => (
-            <View key={candidate.id} style={index > 0 && styles.divider}>
-              {choice ? (
-                <CandidateRow
-                  candidate={candidate}
-                  dimmed={picked != null && picked !== candidate.id}
-                  disabled={picked != null}
-                  onPress={() => onPick(message, candidate)}
-                />
-              ) : (
-                <ItemRow item={candidateItem(candidate)} categoryLabel={candidate.categoryName} grouped />
-              )}
-            </View>
-          ))}
+          {message.candidates.map((candidate, index) => {
+            const preview = choice ? candidate : previewCandidate(candidate, message.proposals);
+            const previous = choice ? null : previewWasLine(candidate, message.proposals);
+            return (
+              <View key={candidate.id} style={index > 0 && styles.divider}>
+                {choice ? (
+                  <CandidateRow
+                    candidate={candidate}
+                    dimmed={picked != null && picked !== candidate.id}
+                    disabled={picked != null}
+                    onPress={() => onPick(message, candidate)}
+                  />
+                ) : (
+                  <>
+                    <ItemRow
+                      item={candidateItem(preview)}
+                      categoryLabel={preview.categoryName}
+                      grouped
+                    />
+                    {previous ? <Text style={styles.was}>{previous}</Text> : null}
+                  </>
+                )}
+              </View>
+            );
+          })}
         </View>
       ) : null}
       {message.showing ? <Text style={styles.muted}>{showingLabel(message.showing)}</Text> : null}
@@ -542,10 +558,11 @@ export default function AskScreen() {
       }
       if (result.error) {
         haptics.error();
-        setConfirmError(result.error);
+        setConfirmError(CONFIRM_SAVE_FAILED_MESSAGE);
         return;
       }
       haptics.success();
+      if (result.savedKeys.length > 0) showSavedFlash(result.savedKeys.length);
       dispatchAskSession({
         type: 'saved',
         messageId,
@@ -559,7 +576,7 @@ export default function AskScreen() {
       void reloadCategories();
     } catch (err) {
       haptics.error();
-      setConfirmError(err instanceof Error ? err.message : 'Could not save those changes');
+      setConfirmError(CONFIRM_SAVE_FAILED_MESSAGE);
     } finally {
       setConfirming(false);
     }
@@ -584,6 +601,7 @@ export default function AskScreen() {
         />
       ) : (
         <>
+          <SavedBanner />
           <View style={styles.topBar}>
             {state.messages.length > 0 ? (
               <TextButton
@@ -757,6 +775,13 @@ const styles = StyleSheet.create({
     color: Theme.color.text,
   },
   muted: {
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
+    color: Theme.color.textSecondary,
+  },
+  was: {
+    paddingHorizontal: Theme.space.md,
+    paddingBottom: 12,
     fontSize: Theme.type.caption,
     lineHeight: 18,
     color: Theme.color.textSecondary,

@@ -3,11 +3,13 @@ import {
   loadAccountCounts,
   saveAccountCounts,
 } from '@/lib/account-counts';
+import { DATA_CHANGE_DEBOUNCE_MS, isLatestRequest, subscribeDataChanges } from '@/lib/data-changes';
 import { getItems, listCategories } from '@/services/api';
 import type { Item } from '@/types/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 export type AccountCounts = {
   /** Length of GET /categories. Null until that request succeeds. Unfiled is not a row. */
@@ -79,7 +81,7 @@ export function useAccountCounts(userId: string | null | undefined): AccountCoun
         listCategories(),
         getItems(),
       ]);
-      if (id !== requestId.current) return;
+      if (!isLatestRequest(id, requestId.current)) return;
 
       const current = countsRef.current;
       let nextCategory = current.categoryCount;
@@ -113,7 +115,7 @@ export function useAccountCounts(userId: string | null | undefined): AccountCoun
         void saveAccountCounts(signedInId, stored, AsyncStorage).catch(() => undefined);
       }
     } finally {
-      if (id === requestId.current) setLoading(false);
+      if (isLatestRequest(id, requestId.current)) setLoading(false);
     }
   }, []);
 
@@ -122,6 +124,27 @@ export function useAccountCounts(userId: string | null | undefined): AccountCoun
       void load();
     }, [load])
   );
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const stop = subscribeDataChanges(() => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void load();
+      }, DATA_CHANGE_DEBOUNCE_MS);
+    });
+    return () => {
+      stop();
+      if (timer) clearTimeout(timer);
+    };
+  }, [load]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void load();
+    });
+    return () => sub.remove();
+  }, [load]);
 
   return { categoryCount, openCount, doneCount, itemCount, loading };
 }

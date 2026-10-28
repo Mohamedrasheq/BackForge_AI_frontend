@@ -3,11 +3,12 @@ import { Theme } from '@/constants/theme';
 import {
   isPresetTimePast,
   matchingTimePresetId,
-  TIME_PRESETS,
+  visibleTimePresets,
   type TimePresetId,
 } from '@/lib/due';
+import { formatDueTime } from '@/lib/format';
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, ScrollView, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Animated, StyleSheet, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 const CHIP_ROW_HEIGHT = Theme.space.sm + 36 + Theme.space.xs;
@@ -41,6 +42,7 @@ export function TimeChips({
   always = false,
   onSelectPreset,
   onPickTime,
+  now,
 }: {
   dueAt: string | null;
   /** Toggle mode: expand/collapse. Ignored when `always`. */
@@ -49,23 +51,28 @@ export function TimeChips({
   always?: boolean;
   onSelectPreset: (preset: { id: TimePresetId; hours: number; minutes: number }) => void;
   onPickTime: () => void;
+  now?: Date;
 }) {
   const reduceMotion = useReduceMotionEnabled();
   const visible = always || open;
+  const [contentHeight, setContentHeight] = useState(CHIP_ROW_HEIGHT);
   const height = useRef(new Animated.Value(visible ? CHIP_ROW_HEIGHT : 0)).current;
   const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
   const selected = matchingTimePresetId(dueAt);
+  const customLabel = selected ? null : formatDueTime(dueAt);
+  const presets = visibleTimePresets(dueAt, now);
+  const targetHeight = visible ? contentHeight : 0;
 
   useEffect(() => {
     if (always) {
-      height.setValue(CHIP_ROW_HEIGHT);
+      height.setValue(contentHeight);
       opacity.setValue(1);
       return;
     }
     const duration = reduceMotion ? 0 : EXPAND_MS;
     Animated.parallel([
       Animated.timing(height, {
-        toValue: open ? CHIP_ROW_HEIGHT : 0,
+        toValue: targetHeight,
         duration,
         useNativeDriver: false,
       }),
@@ -75,28 +82,29 @@ export function TimeChips({
         useNativeDriver: false,
       }),
     ]).start();
-  }, [always, height, opacity, open, reduceMotion]);
+  }, [always, contentHeight, height, opacity, open, reduceMotion, targetHeight]);
 
   const row = (
-    <ScrollView
-      horizontal
-      nestedScrollEnabled
-      showsHorizontalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={styles.content}
+    <View
+      onLayout={(event) => {
+        const next = event.nativeEvent.layout.height;
+        if (next > 0 && next !== contentHeight) setContentHeight(next);
+      }}
+      style={styles.content}
     >
-      {TIME_PRESETS.map((preset) => (
+      {customLabel ? <FilterChip label={customLabel} active allowReselect onPress={() => {}} /> : null}
+      {presets.map((preset) => (
         <FilterChip
           key={preset.id}
           label={preset.label}
           active={selected === preset.id}
-          disabled={isPresetTimePast(dueAt, preset.hours, preset.minutes)}
+          disabled={isPresetTimePast(dueAt, preset.hours, preset.minutes, now)}
           allowReselect
           onPress={() => onSelectPreset(preset)}
         />
       ))}
-      <FilterChip label="Pick time" active={false} onPress={onPickTime} />
-    </ScrollView>
+      <FilterChip label="Pick time…" icon="clock" active={false} onPress={onPickTime} />
+    </View>
   );
 
   if (always) {
@@ -119,6 +127,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: Theme.space.sm,
     paddingTop: Theme.space.sm,

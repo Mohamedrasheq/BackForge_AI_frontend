@@ -4,6 +4,7 @@
  */
 
 import { DELETE_ACCOUNT_FAILED, isAccountDeleted } from '@/lib/account-delete';
+import { notifyAfterWrite } from '@/lib/data-changes';
 import { readSuggestedTimeFlag } from '@/lib/due';
 import { getApiToken } from '@/lib/api-auth';
 import { audioPartFromUri, readTranscriptPayload } from '@/lib/transcribe-audio';
@@ -358,12 +359,13 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   return JSON.parse(text) as T;
 }
 
-export async function parseItems(text: string): Promise<ProposedItem[]> {
+export async function parseItems(text: string, signal?: AbortSignal): Promise<ProposedItem[]> {
   const timezone = deviceTimeZone();
   const payload = await apiFetch<unknown>('/items/parse', {
     method: 'POST',
     headers: { 'X-Timezone': timezone },
     body: JSON.stringify({ text, timezone }),
+    signal,
   });
   return normalizeProposedItems(payload);
 }
@@ -385,11 +387,12 @@ export async function bulkCreateItems(
     items: toBulkCreateItems(items),
   };
   if (source) body.source = source;
-  const payload = await apiFetch<unknown>('/items/bulk', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-  return normalizeItems(payload);
+  return notifyAfterWrite(
+    apiFetch<unknown>('/items/bulk', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }).then((payload) => normalizeItems(payload))
+  );
 }
 
 export async function getTodayItems(): Promise<Item[]> {
@@ -417,14 +420,16 @@ export async function updateItem(
   if (patch.folderId !== undefined) body.folder_id = patch.folderId;
   if (source) body.source = source;
 
-  const payload = await apiFetch<unknown>(`/items/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
-  });
-
-  if (payload == null) return null;
-  if (isRecord(payload)) return normalizeItem(payload.item ?? payload);
-  return normalizeItem(payload);
+  return notifyAfterWrite(
+    apiFetch<unknown>(`/items/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }).then((payload) => {
+      if (payload == null) return null;
+      if (isRecord(payload)) return normalizeItem(payload.item ?? payload);
+      return normalizeItem(payload);
+    })
+  );
 }
 
 /** Move an item to a new due instant. Same PATCH as `updateItem`, due only. */
@@ -434,33 +439,37 @@ export async function updateItemDue(id: string, dueAt: string): Promise<Item | n
 
 /** Remove a saved item. Contract: `DELETE /items/:id`. */
 export async function deleteItem(id: string): Promise<void> {
-  await apiFetch<void>(`/items/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-  });
+  await notifyAfterWrite(
+    apiFetch<void>(`/items/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    })
+  );
 }
 
 export async function markItemDone(id: string, source?: ItemWriteSource): Promise<Item | null> {
-  const payload = await apiFetch<unknown>(`/items/${encodeURIComponent(id)}/done`, {
-    method: 'POST',
-    body: source ? JSON.stringify({ source }) : undefined,
-  });
+  return notifyAfterWrite(
+    apiFetch<unknown>(`/items/${encodeURIComponent(id)}/done`, {
+      method: 'POST',
+      body: source ? JSON.stringify({ source }) : undefined,
+    }).then((payload) => {
+      if (payload == null) {
+        return {
+          id,
+          text: '',
+          status: 'done',
+          dueAt: null,
+          createdAt: null,
+          updatedAt: null,
+          folderId: null,
+        };
+      }
 
-  if (payload == null) {
-    return {
-      id,
-      text: '',
-      status: 'done',
-      dueAt: null,
-      createdAt: null,
-      updatedAt: null,
-      folderId: null,
-    };
-  }
-
-  if (isRecord(payload)) {
-    return normalizeItem(payload.item ?? payload);
-  }
-  return normalizeItem(payload);
+      if (isRecord(payload)) {
+        return normalizeItem(payload.item ?? payload);
+      }
+      return normalizeItem(payload);
+    })
+  );
 }
 
 export async function listCategories(): Promise<Category[]> {
@@ -473,17 +482,21 @@ export async function listCategories(): Promise<Category[]> {
  */
 export async function createCategory(name: string): Promise<Category> {
   try {
-    const payload = await apiFetch<unknown>('/categories', {
-      method: 'POST',
-      body: JSON.stringify({ name: name.trim() }),
-    });
-    const category = isRecord(payload)
-      ? normalizeCategory(payload.category ?? payload.folder ?? payload)
-      : normalizeCategory(payload);
-    if (!category) {
-      throw new Error('Could not add that category');
-    }
-    return category;
+    return await notifyAfterWrite(
+      (async () => {
+        const payload = await apiFetch<unknown>('/categories', {
+          method: 'POST',
+          body: JSON.stringify({ name: name.trim() }),
+        });
+        const category = isRecord(payload)
+          ? normalizeCategory(payload.category ?? payload.folder ?? payload)
+          : normalizeCategory(payload);
+        if (!category) {
+          throw new Error('Could not add that category');
+        }
+        return category;
+      })()
+    );
   } catch (err) {
     if (err instanceof DuplicateCategoryError) throw err;
     if (err instanceof ApiError && isDuplicateCategoryFailure(err.status, err.message, err.code)) {

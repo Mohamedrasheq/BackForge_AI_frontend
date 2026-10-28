@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { matchingTimePresetId } from './due';
 import {
   formatDue,
   formatDueDay,
@@ -24,6 +25,12 @@ describe('date labels', () => {
   it('keeps Today for a due time on the local today', () => {
     const due = formatDue(new Date().toISOString());
     assert.ok(due?.startsWith('Today · '));
+  });
+
+  it('formats a 10 AM clock that is not a preset', () => {
+    const due = new Date(2026, 9, 16, 10, 0).toISOString();
+    assert.equal(matchingTimePresetId(due), null);
+    assert.equal(formatDueTime(due)?.replace(/\s/g, ' ').toUpperCase().includes('10:00'), true);
   });
 
   it('splits the day and clock so Suggested can sit after the time', () => {

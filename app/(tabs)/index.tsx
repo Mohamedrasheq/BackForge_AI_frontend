@@ -6,6 +6,7 @@ import { CountPill } from '@/components/ui/count-pill';
 import { ItemRow } from '@/components/ui/item-row';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { SavedBanner } from '@/components/ui/saved-banner';
 import { Theme } from '@/constants/theme';
 import { useCategories } from '@/hooks/use-categories';
 import { formatTodaySubtitle } from '@/lib/format';
@@ -32,6 +33,8 @@ export default function TodayScreen() {
         subtitle={formatTodaySubtitle()}
         right={openCount > 0 ? <CountPill label={`${openCount} open`} /> : null}
       />
+
+      <SavedBanner />
 
       {error ? <ErrorBanner message={error} onRetry={() => void reload()} /> : null}
 
