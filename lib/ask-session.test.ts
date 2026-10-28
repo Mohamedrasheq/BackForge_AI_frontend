@@ -15,6 +15,7 @@ import {
   historyFromMessages,
   initialAskSession,
   rateLimitCaption,
+  showAskSuggestionChips,
   type AskSessionState,
 } from './ask-session';
 
@@ -245,5 +246,33 @@ describe('askReducer choices and confirm', () => {
       { role: 'user', content: 'one' },
       { role: 'assistant', content: 'first' },
     ]);
+  });
+});
+
+describe('showAskSuggestionChips', () => {
+  it('shows chips on an empty chat while the item list is still unknown', () => {
+    const emptyChat = true;
+    const accountEmpty = null;
+    assert.equal(showAskSuggestionChips(emptyChat, accountEmpty), true);
+  });
+
+  it('shows chips when the account is known to have items', () => {
+    assert.equal(showAskSuggestionChips(true, false), true);
+  });
+
+  it('hides chips once the account is known to have no items', () => {
+    assert.equal(showAskSuggestionChips(true, true), false);
+  });
+
+  it('keeps chips visible when the items fetch failed', () => {
+    const accountEmptyAfterFetchError = false;
+    assert.equal(showAskSuggestionChips(true, accountEmptyAfterFetchError), true);
+  });
+
+  it('hides chips once the chat has messages or a reply is pending', () => {
+    const emptyChat = false;
+    assert.equal(showAskSuggestionChips(emptyChat, false), false);
+    assert.equal(showAskSuggestionChips(emptyChat, null), false);
+    assert.equal(showAskSuggestionChips(emptyChat, true), false);
   });
 });
