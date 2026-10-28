@@ -103,6 +103,18 @@ export function rateLimitCaption(state: AskSessionState, now: number): string | 
   return null;
 }
 
+/**
+ * Suggestion chips on an empty Ask chat. Hidden only once we know the account
+ * has no items (`accountEmpty === true`). Unknown (`null`, still loading) and
+ * a failed items fetch (`false`) keep the chips visible.
+ */
+export function showAskSuggestionChips(
+  emptyChat: boolean,
+  accountEmpty: boolean | null
+): boolean {
+  return emptyChat && accountEmpty !== true;
+}
+
 export function lastUserMessage(messages: readonly AskMessage[]): AskUserMessage | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];

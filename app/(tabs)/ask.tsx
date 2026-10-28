@@ -64,6 +64,7 @@ import {
   historyFromMessages,
   lastUserMessage,
   rateLimitCaption,
+  showAskSuggestionChips,
   subscribeAskSession,
   type AskAssistantMessage,
   type AskMessage,
@@ -295,6 +296,7 @@ export default function AskScreen() {
   const placeholder = composerPlaceholder(state, now);
   const caption = rateLimitCaption(state, now);
   const showEmpty = state.messages.length === 0 && !state.pending;
+  const showSuggestions = showAskSuggestionChips(showEmpty, accountEmpty);
 
   useEffect(() => {
     if (itemsLoading) return;
@@ -641,7 +643,7 @@ export default function AskScreen() {
             {state.error ? (
               <ErrorBanner message={ASK_FAILURE} retryLabel={ASK_RETRY} onRetry={() => void retry()} />
             ) : null}
-            {showEmpty && accountEmpty === false ? (
+            {showSuggestions ? (
               <View style={styles.suggestions}>
                 <SuggestionChips suggestions={ASK_SAMPLES} disabled={blocked} onPick={submit} />
               </View>
