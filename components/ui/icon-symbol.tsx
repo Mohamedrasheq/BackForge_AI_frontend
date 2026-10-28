@@ -24,6 +24,7 @@ const MAPPING = {
   'square.and.pencil': 'edit',
   tray: 'inbox',
   'bubble.left.and.bubble.right': 'forum',
+  bell: 'notifications',
 } as const;
 
 export type IconSymbolName = keyof typeof MAPPING;

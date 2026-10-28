@@ -1,17 +1,20 @@
 import { registerDevice } from '@/services/api';
 import {
   getExpoPushToken,
+  getNotificationPermissionStatus,
   requestNotificationPermission,
   setupNotificationChannel,
 } from '@/services/notifications';
 import { Platform } from 'react-native';
 
-export type NotificationPermission = 'granted' | 'denied' | 'undetermined';
+import type { NotificationPermission } from '@/lib/reminder-nudge';
+
+export type { NotificationPermission };
 
 export type EnableAlertsResult = {
-  permission: 'granted' | 'denied';
+  permission: NotificationPermission;
   message: string;
-  /** True only after this device's push token was saved. Delivery is still not live. */
+  /** True only after this device's push token was saved. */
   registered: boolean;
 };
 
@@ -21,23 +24,16 @@ export function notificationStatusLabel(permission: NotificationPermission): str
   return 'Not enabled yet';
 }
 
-export function notificationStatusDetail(permission: NotificationPermission): string {
-  if (permission === 'granted') {
-    return 'Permission is on for this device. Push delivery is not live yet.';
-  }
-  return 'You can allow notifications on this device. Push delivery is not live yet.';
-}
-
 /**
- * Request permission and register this device. Does not send pushes —
- * the API only stores the token until delivery exists.
+ * Request permission and register this device the same way Account Turn on does.
  */
 export async function enableAlertsOnDevice(): Promise<EnableAlertsResult> {
   await setupNotificationChannel();
   const granted = await requestNotificationPermission();
   if (!granted) {
+    const status = await getNotificationPermissionStatus();
     return {
-      permission: 'denied',
+      permission: status,
       message: 'Notifications are off. You can enable them in system settings.',
       registered: false,
     };
@@ -46,7 +42,7 @@ export async function enableAlertsOnDevice(): Promise<EnableAlertsResult> {
   if (Platform.OS === 'web') {
     return {
       permission: 'granted',
-      message: 'Permission is on in this browser. Push delivery is not live yet.',
+      message: 'Permission is on in this browser.',
       registered: false,
     };
   }
@@ -55,7 +51,7 @@ export async function enableAlertsOnDevice(): Promise<EnableAlertsResult> {
   if (!token) {
     return {
       permission: 'granted',
-      message: 'A physical device is required to register. Push delivery is not live yet.',
+      message: 'A physical device is required to register.',
       registered: false,
     };
   }
@@ -63,7 +59,7 @@ export async function enableAlertsOnDevice(): Promise<EnableAlertsResult> {
   await registerDevice(token);
   return {
     permission: 'granted',
-    message: 'This device is registered. Push delivery is not live yet.',
+    message: 'This device is registered.',
     registered: true,
   };
 }

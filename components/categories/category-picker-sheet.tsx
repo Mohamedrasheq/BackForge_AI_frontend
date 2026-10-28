@@ -1,3 +1,4 @@
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { TextButton } from '@/components/ui/text-button';
 import { Theme } from '@/constants/theme';
@@ -7,9 +8,6 @@ import type { Category } from '@/types/api';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,7 +15,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export function CategoryPickerSheet({
   categories,
@@ -39,7 +36,6 @@ export function CategoryPickerSheet({
   onCreate: (name: string) => Promise<Category>;
   onClose: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -89,22 +85,7 @@ export function CategoryPickerSheet({
   };
 
   return (
-    <Modal transparent animationType="slide" visible onRequestClose={close}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Dismiss category picker"
-          style={styles.backdrop}
-          onPress={close}
-        >
-          <Pressable
-            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, Theme.space.md) }]}
-            onPress={() => undefined}
-          >
-            <View style={styles.handle} />
+    <BottomSheet onClose={close} dismissLabel="Dismiss category picker" closeDisabled={creating}>
             <Text style={styles.title}>Category</Text>
 
             {listError ? (
@@ -179,10 +160,7 @@ export function CategoryPickerSheet({
               </Pressable>
             </View>
             {createError ? <Text style={styles.createError}>{createError}</Text> : null}
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+    </BottomSheet>
   );
 }
 
@@ -217,33 +195,6 @@ function CategoryOption({
 }
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: Theme.color.overlay,
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    width: '100%',
-    maxWidth: 430,
-    alignSelf: 'center',
-    backgroundColor: Theme.color.card,
-    borderTopLeftRadius: Theme.radius.xl,
-    borderTopRightRadius: Theme.radius.xl,
-    paddingTop: Theme.space.sm,
-    paddingHorizontal: Theme.space.screenX,
-    gap: Theme.space.sm,
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: Theme.radius.full,
-    backgroundColor: Theme.color.border,
-    marginBottom: Theme.space.xs,
-  },
   title: {
     fontSize: Theme.type.screenTitle,
     lineHeight: 34,

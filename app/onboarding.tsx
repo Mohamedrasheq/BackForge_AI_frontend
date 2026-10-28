@@ -1,8 +1,17 @@
-import { ConfirmArt, DumpArt, TodayArt } from '@/components/onboarding/page-art';
+import { ConfirmArt, DumpArt, NudgeArt, TodayArt } from '@/components/onboarding/page-art';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { TextButton } from '@/components/ui/text-button';
 import { Theme } from '@/constants/theme';
+import { enableAlertsOnDevice } from '@/lib/notifications-enable';
 import { useOnboarding } from '@/lib/onboarding';
+import {
+  markReminderDeclined,
+  REMINDER_BODY,
+  REMINDER_NOT_NOW,
+  REMINDER_ONBOARDING_TITLE,
+  REMINDER_TURN_ON,
+} from '@/lib/reminder-nudge';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Platform,
@@ -44,6 +53,11 @@ const PAGES = [
     key: 'today',
     title: 'See what needs you today',
     body: 'Dated items show up when they matter. Undated ones stay in All items.',
+  },
+  {
+    key: 'nudge',
+    title: REMINDER_ONBOARDING_TITLE,
+    body: REMINDER_BODY,
   },
 ] as const;
 
@@ -118,6 +132,7 @@ function OnboardingPage({
           {pageKey === 'dump' ? <DumpArt pulseMic={micPulse} /> : null}
           {pageKey === 'confirm' ? <ConfirmArt active={active} /> : null}
           {pageKey === 'today' ? <TodayArt active={active} /> : null}
+          {pageKey === 'nudge' ? <NudgeArt /> : null}
         </View>
       </Animated.View>
       <Animated.View style={[styles.copy, copyStyle]}>
@@ -132,6 +147,7 @@ function OnboardingPage({
 
 export default function OnboardingScreen() {
   const { markSeen } = useOnboarding();
+  const [enabling, setEnabling] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const pageRef = useRef(0);
   const [page, setPage] = useState(0);
@@ -164,6 +180,11 @@ export default function OnboardingScreen() {
     setPage((current) => (current === clamped ? current : clamped));
   };
 
+  const skipPermission = () => {
+    void markReminderDeclined(AsyncStorage);
+    markSeen();
+  };
+
   const onContinue = () => {
     if (page < PAGES.length - 1) {
       setMicPulse(false);
@@ -171,7 +192,20 @@ export default function OnboardingScreen() {
       scrollRef.current?.scrollTo({ x: next * viewport.width, animated: true });
       return;
     }
-    markSeen();
+    skipPermission();
+  };
+
+  const onTurnOnReminders = async () => {
+    if (enabling) return;
+    setEnabling(true);
+    try {
+      await enableAlertsOnDevice();
+    } catch {
+      // Continue to sign-in either way. Signed-in register still runs if granted.
+    } finally {
+      setEnabling(false);
+      markSeen();
+    }
   };
 
   const stageHeight =
@@ -195,7 +229,9 @@ export default function OnboardingScreen() {
       }}
     >
       <View style={styles.topBar}>
-        <TextButton label="Skip" tone="secondary" onPress={markSeen} style={styles.skip} />
+        {isLastPage ? null : (
+          <TextButton label="Skip" tone="secondary" onPress={skipPermission} style={styles.skip} />
+        )}
       </View>
 
       <View
@@ -254,7 +290,24 @@ export default function OnboardingScreen() {
           ))}
         </View>
         <Animated.View style={ctaStyle}>
-          <PrimaryButton label={isLastPage ? 'Get started' : 'Continue'} onPress={onContinue} />
+          {isLastPage ? (
+            <View style={styles.lastCta}>
+              <PrimaryButton
+                label={REMINDER_TURN_ON}
+                onPress={() => void onTurnOnReminders()}
+                loading={enabling}
+                disabled={enabling}
+              />
+              <TextButton
+                label={REMINDER_NOT_NOW}
+                tone="secondary"
+                onPress={skipPermission}
+                disabled={enabling}
+              />
+            </View>
+          ) : (
+            <PrimaryButton label="Continue" onPress={onContinue} />
+          )}
         </Animated.View>
       </View>
     </SafeAreaView>
@@ -325,6 +378,9 @@ const styles = StyleSheet.create({
     paddingTop: Theme.space.xs,
     paddingBottom: Theme.space.sm,
     gap: Theme.space.md,
+  },
+  lastCta: {
+    gap: Theme.space.sm,
   },
   dots: {
     flexDirection: 'row',

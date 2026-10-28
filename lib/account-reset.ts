@@ -4,6 +4,9 @@ import { resetReviewEntryDismissals } from '@/lib/review-entry-session';
 import { clearReviewedAt } from '@/lib/review-memory';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export const RESET_ONBOARDING_LABEL = 'Reset onboarding';
+export const RESET_ONBOARDING_TITLE = 'Reset onboarding?';
+
 /**
  * Drop everything this device holds for the signed-in account.
  * Used on sign-out and account delete.

@@ -4,7 +4,8 @@ import {
   type NotificationPermission,
 } from '@/lib/notifications-enable';
 import { getNotificationPermissionStatus } from '@/services/notifications';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 
 export function useNotificationEnable() {
   const [permission, setPermission] = useState<NotificationPermission | null>(null);
@@ -16,6 +17,13 @@ export function useNotificationEnable() {
     setPermission(status);
     return status;
   }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshPermission();
+    });
+    return () => sub.remove();
+  }, [refreshPermission]);
 
   const enableAlerts = useCallback(async () => {
     setRegistering(true);
