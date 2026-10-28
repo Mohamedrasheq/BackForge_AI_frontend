@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import type { AskCandidate } from './ask-contract';
 import type { Item } from '../types/api';
 import {
   applyPlannedWrites,
@@ -9,6 +10,8 @@ import {
   candidateFollowUp,
   formatWasDue,
   planAskWrites,
+  previewCandidate,
+  previewWasLine,
   proposalToDraftSeed,
   wasLine,
 } from './ask-drafts';
@@ -117,6 +120,46 @@ describe('proposal drafts', () => {
       }),
       null
     );
+  });
+});
+
+describe('previewCandidate', () => {
+  const tuesday = new Date(2026, 9, 13, 9, 0).toISOString();
+  const thursday = new Date(2026, 9, 15, 9, 0).toISOString();
+  const rent: AskCandidate = {
+    id: 'rent-1',
+    text: 'Pay rent',
+    status: 'open',
+    dueAt: tuesday,
+    folderId: null,
+    categoryName: null,
+  };
+
+  it('shows Thursday with a Was Tuesday caption when the edit proposal moves the date', () => {
+    const preview = previewCandidate(rent, [{ kind: 'edit', itemId: 'rent-1', dueAt: thursday }]);
+    assert.equal(preview.dueAt, thursday);
+    assert.equal(preview.text, 'Pay rent');
+    assert.equal(previewWasLine(rent, [{ kind: 'edit', itemId: 'rent-1', dueAt: thursday }]), `Was: ${formatWasDue(tuesday)}`);
+    assert.equal(formatWasDue(tuesday), 'Tue, 13 Oct 9:00 AM');
+  });
+
+  it('leaves the candidate unchanged when there is no proposal', () => {
+    const preview = previewCandidate(rent, []);
+    assert.equal(preview, rent);
+    assert.equal(previewWasLine(rent, []), null);
+  });
+
+  it('leaves the candidate unchanged when the edit is for a different id', () => {
+    const preview = previewCandidate(rent, [{ kind: 'edit', itemId: 'gym-1', dueAt: thursday }]);
+    assert.equal(preview, rent);
+    assert.equal(previewWasLine(rent, [{ kind: 'edit', itemId: 'gym-1', dueAt: thursday }]), null);
+  });
+
+  it('shows No date when the proposal clears the due', () => {
+    const preview = previewCandidate(rent, [{ kind: 'edit', itemId: 'rent-1', dueAt: null }]);
+    assert.equal(preview.dueAt, null);
+    assert.equal(formatWasDue(preview.dueAt), 'No date');
+    assert.equal(previewWasLine(rent, [{ kind: 'edit', itemId: 'rent-1', dueAt: null }]), `Was: ${formatWasDue(tuesday)}`);
   });
 });
 

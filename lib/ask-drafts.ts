@@ -304,3 +304,52 @@ export function candidateAccessibilityLabel(candidate: Pick<AskCandidate, 'text'
   if (Number.isNaN(date.getTime())) return `${candidate.text}, choose this task`;
   return `${candidate.text}, due ${longDateLabel(calendarDayFromDate(date))}, choose this task`;
 }
+
+/**
+ * Overlay a matching edit proposal onto a read-only Ask card so the new date
+ * (and text/category) show before Review changes is opened.
+ * Choice rows ("Which one?") should keep the raw candidate.
+ */
+export function previewCandidate(
+  candidate: AskCandidate,
+  proposals: readonly AskProposal[]
+): AskCandidate {
+  const proposal = proposals.find(
+    (entry): entry is Extract<AskProposal, { kind: 'edit' }> =>
+      entry.kind === 'edit' && entry.itemId === candidate.id
+  );
+  if (!proposal) return candidate;
+
+  const folderId = proposal.folderId !== undefined ? proposal.folderId : candidate.folderId;
+  let categoryName = candidate.categoryName;
+  if (proposal.folderId !== undefined && proposal.folderId !== candidate.folderId) {
+    categoryName = proposal.folderId == null ? null : candidate.categoryName;
+  }
+
+  return {
+    ...candidate,
+    text: proposal.text !== undefined ? proposal.text : candidate.text,
+    dueAt: proposal.dueAt !== undefined ? proposal.dueAt : candidate.dueAt,
+    folderId,
+    categoryName,
+  };
+}
+
+/** Was caption for a previewed edit card. Null when nothing changed. */
+export function previewWasLine(
+  candidate: AskCandidate,
+  proposals: readonly AskProposal[]
+): string | null {
+  const preview = previewCandidate(candidate, proposals);
+  return wasLine({
+    kind: 'edit',
+    text: preview.text,
+    dueAt: preview.dueAt,
+    categoryName: preview.categoryName,
+    was: {
+      text: candidate.text,
+      dueAt: candidate.dueAt,
+      categoryName: candidate.categoryName,
+    },
+  });
+}

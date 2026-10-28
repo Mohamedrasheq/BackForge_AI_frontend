@@ -4,6 +4,7 @@ import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
 
 const MAPPING = {
   calendar: 'calendar-today',
+  clock: 'schedule',
   'list.bullet': 'format-list-bulleted',
   plus: 'add',
   'plus.circle.fill': 'add-circle',

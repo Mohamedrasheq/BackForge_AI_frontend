@@ -5,7 +5,9 @@ import {
   saveableDraftItems,
   type DraftItem,
 } from '@/components/capture/confirm-items';
+import { ParseSkeleton } from '@/components/capture/parse-skeleton';
 import { VoiceWave } from '@/components/capture/voice-wave';
+import { ErrorBanner } from '@/components/ui/error-banner';
 import { IconButton } from '@/components/ui/icon-button';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { Screen } from '@/components/ui/screen';
@@ -20,12 +22,20 @@ import {
   collectPendingCategoryNames,
   createPendingCategoryNames,
 } from '@/lib/categories';
+import {
+  CONFIRM_SAVE_FAILED_MESSAGE,
+  PARSE_TIMEOUT_MS,
+  captureParseFailureMessage,
+  captureParseStatus,
+} from '@/lib/capture-status';
 import { haptics } from '@/lib/haptics';
+import { showSavedFlash } from '@/lib/saved-flash';
+import { isAbortError } from '@/lib/ask-stream';
 import { ROW_BLEED } from '@/lib/voice-wave';
 import { bulkCreateItems, listCategories, parseItems } from '@/services/api';
 import { useIsFocused } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -55,7 +65,11 @@ export default function CaptureScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bannerError, setBannerError] = useState<string | null>(null);
+  const [parseStatus, setParseStatus] = useState<string | null>(null);
   const [allowAutoFocus, setAllowAutoFocus] = useState(true);
+  const parseAbortRef = useRef<AbortController | null>(null);
+  const parseStartedAtRef = useRef(0);
 
   const {
     recording,
@@ -67,9 +81,9 @@ export default function CaptureScreen() {
     meteringDb,
     meteringTick,
   } = useCaptureRecording();
-  const lockInput = recording || transcribing;
-  const canSubmit = text.trim().length > 0 && !submitting && !lockInput;
-  const canClear = text.length > 0 && !submitting && !lockInput;
+  const lockInput = recording || transcribing || submitting;
+  const canSubmit = text.trim().length > 0 && !lockInput;
+  const canClear = text.length > 0 && !lockInput;
 
   const goToToday = useCallback(() => {
     Keyboard.dismiss();
@@ -89,10 +103,12 @@ export default function CaptureScreen() {
 
   const leaveCapture = useCallback(() => {
     haptics.light();
+    parseAbortRef.current?.abort();
     setText('');
     setRows([]);
     setPhase('compose');
     setError(null);
+    setBannerError(null);
     clearSpeechError();
     goToToday();
   }, [clearSpeechError, goToToday]);
@@ -100,6 +116,7 @@ export default function CaptureScreen() {
   const onClear = useCallback(() => {
     setText('');
     setError(null);
+    setBannerError(null);
     clearSpeechError();
   }, [clearSpeechError]);
 
@@ -122,15 +139,41 @@ export default function CaptureScreen() {
     await start();
   };
 
+  const cancelParse = useCallback(() => {
+    parseAbortRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    if (!submitting) {
+      setParseStatus(null);
+      return;
+    }
+    parseStartedAtRef.current = Date.now();
+    setParseStatus(captureParseStatus(0));
+    const tick = setInterval(() => {
+      setParseStatus(captureParseStatus(Date.now() - parseStartedAtRef.current));
+    }, 250);
+    return () => clearInterval(tick);
+  }, [submitting]);
+
   const onBreakDown = async () => {
     if (!canSubmit) return;
     if (recording) {
       await stop();
     }
+    parseAbortRef.current?.abort();
+    const controller = new AbortController();
+    parseAbortRef.current = controller;
     setSubmitting(true);
     setError(null);
+    setBannerError(null);
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, PARSE_TIMEOUT_MS);
     try {
-      const proposed = await parseItems(text.trim());
+      const proposed = await parseItems(text.trim(), controller.signal);
       if (proposed.length === 0) {
         haptics.warning();
         setError(EMPTY_PARSE_MESSAGE);
@@ -140,9 +183,13 @@ export default function CaptureScreen() {
       setRows(proposed.map((item) => createDraftItem(item, categories)));
       setPhase('confirm');
     } catch (err) {
+      if (controller.signal.aborted && !timedOut) return;
+      if (isAbortError(err) && !timedOut) return;
       haptics.error();
-      setError(err instanceof Error ? err.message : 'Could not break that down');
+      setBannerError(captureParseFailureMessage(err, timedOut));
     } finally {
+      clearTimeout(timeout);
+      if (parseAbortRef.current === controller) parseAbortRef.current = null;
       setSubmitting(false);
     }
   };
@@ -182,13 +229,14 @@ export default function CaptureScreen() {
       }
       await bulkCreateItems(ready, 'capture');
       haptics.success();
+      showSavedFlash(ready.length);
       setText('');
       setRows([]);
       setPhase('compose');
       jumpToToday();
-    } catch (err) {
+    } catch {
       haptics.error();
-      setError(err instanceof Error ? err.message : 'Could not save those items');
+      setError(CONFIRM_SAVE_FAILED_MESSAGE);
     } finally {
       setConfirming(false);
     }
@@ -240,6 +288,7 @@ export default function CaptureScreen() {
                     onChangeText={(next) => {
                       setText(next);
                       setError(null);
+                      setBannerError(null);
                       clearSpeechError();
                     }}
                     placeholder="What's on your mind?"
@@ -255,17 +304,33 @@ export default function CaptureScreen() {
                   />
                 </View>
 
-                <View style={styles.voice}>
-                  <VoiceWave
-                    recording={recording}
-                    transcribing={transcribing}
-                    active={focused}
-                    meteringDb={meteringDb}
-                    meteringTick={meteringTick}
-                    onPress={() => void onMicPress()}
-                  />
-                </View>
-                <Text style={[styles.hint, recording && styles.hintActive]}>{hint}</Text>
+                {submitting ? (
+                  <View style={styles.parse}>
+                    <ParseSkeleton />
+                    {parseStatus ? <Text style={styles.parseStatus}>{parseStatus}</Text> : null}
+                    <TextButton label="Cancel" onPress={cancelParse} tone="secondary" />
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.voice}>
+                      <VoiceWave
+                        recording={recording}
+                        transcribing={transcribing}
+                        active={focused}
+                        meteringDb={meteringDb}
+                        meteringTick={meteringTick}
+                        onPress={() => void onMicPress()}
+                      />
+                    </View>
+                    <Text style={[styles.hint, recording && styles.hintActive]}>{hint}</Text>
+                  </>
+                )}
+
+                {bannerError ? (
+                  <View style={styles.banner}>
+                    <ErrorBanner message={bannerError} />
+                  </View>
+                ) : null}
 
                 {error || speechError ? (
                   <Text style={[styles.error, error === EMPTY_PARSE_MESSAGE && styles.gentle]}>
@@ -341,6 +406,20 @@ const styles = StyleSheet.create({
     color: Theme.color.textSecondary,
   },
   submit: {
+    marginTop: Theme.space.sm,
+  },
+  parse: {
+    marginTop: Theme.space.md,
+    gap: Theme.space.sm,
+  },
+  parseStatus: {
+    textAlign: 'center',
+    color: Theme.color.textSecondary,
+    fontSize: Theme.type.caption,
+    lineHeight: 18,
+  },
+  banner: {
+    marginHorizontal: -Theme.space.screenX,
     marginTop: Theme.space.sm,
   },
 });

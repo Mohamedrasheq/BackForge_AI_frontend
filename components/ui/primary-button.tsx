@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -41,7 +42,10 @@ export function PrimaryButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={Theme.color.white} />
+        <View style={styles.loading}>
+          <ActivityIndicator color={Theme.color.white} />
+          <Text style={styles.label}>{label}</Text>
+        </View>
       ) : (
         <Text style={styles.label}>{label}</Text>
       )}
@@ -62,6 +66,11 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.45,
+  },
+  loading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   label: {
     color: Theme.color.white,

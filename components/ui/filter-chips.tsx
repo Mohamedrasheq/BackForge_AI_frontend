@@ -1,3 +1,4 @@
+import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Theme } from '@/constants/theme';
 import { haptics } from '@/lib/haptics';
 import React from 'react';
@@ -8,6 +9,7 @@ export function FilterChip({
   active,
   disabled = false,
   allowReselect = false,
+  icon,
   onPress,
 }: {
   label: string;
@@ -15,8 +17,10 @@ export function FilterChip({
   disabled?: boolean;
   /** Time chips still fire when the preset already matches. */
   allowReselect?: boolean;
+  icon?: IconSymbolName;
   onPress: () => void;
 }) {
+  const labelColor = active ? Theme.color.accent : Theme.color.textSecondary;
   return (
     <Pressable
       accessibilityRole="button"
@@ -36,6 +40,7 @@ export function FilterChip({
         pressed && !disabled && chipStyles.pressed,
       ]}
     >
+      {icon ? <IconSymbol name={icon} size={14} color={labelColor} /> : null}
       <Text style={[chipStyles.label, active ? chipStyles.labelActive : chipStyles.labelIdle]}>
         {label}
       </Text>
@@ -82,6 +87,8 @@ export const chipStyles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
     flexShrink: 0,
   },
   chipActive: {
