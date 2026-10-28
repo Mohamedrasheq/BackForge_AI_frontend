@@ -1,3 +1,4 @@
+import { EditNameSheet } from '@/components/account/edit-name-sheet';
 import { ConfirmDeleteDialog } from '@/components/items/delete-item-dialog';
 import { Card } from '@/components/ui/card';
 import { ErrorBanner } from '@/components/ui/error-banner';
@@ -23,6 +24,7 @@ import {
   notificationStatusLabel,
 } from '@/lib/notifications-enable';
 import { useOnboarding } from '@/lib/onboarding';
+import { displayProfileName, profileNameA11yLabel } from '@/lib/profile-name';
 import { deleteAccount } from '@/services/api';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import Constants from 'expo-constants';
@@ -82,11 +84,9 @@ export default function AccountScreen() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [editNameOpen, setEditNameOpen] = useState(false);
 
-  const name =
-    user?.fullName ||
-    [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
-    'Signed in';
+  const name = displayProfileName(user?.firstName, user?.lastName);
   const email = user?.primaryEmailAddress?.emailAddress ?? '';
   const version = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -154,10 +154,21 @@ export default function AccountScreen() {
               <Text style={styles.initial}>{name.charAt(0).toUpperCase()}</Text>
             </View>
           )}
-          <View style={styles.profileText}>
-            <Text style={styles.name}>{name}</Text>
-            {email ? <Text style={styles.email}>{email}</Text> : null}
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={profileNameA11yLabel(name)}
+            onPress={() => {
+              haptics.light();
+              setEditNameOpen(true);
+            }}
+            style={({ pressed }) => [styles.nameRow, pressed && styles.namePressed]}
+          >
+            <View style={styles.profileText}>
+              <Text style={styles.name}>{name}</Text>
+              {email ? <Text style={styles.email}>{email}</Text> : null}
+            </View>
+            <IconSymbol name="pencil" size={16} color={Theme.color.textTertiary} />
+          </Pressable>
         </Card>
 
         <View style={styles.stats}>
@@ -305,6 +316,7 @@ export default function AccountScreen() {
           onCancel={() => setConfirmDelete(false)}
         />
       ) : null}
+      {editNameOpen ? <EditNameSheet onClose={() => setEditNameOpen(false)} /> : null}
     </Screen>
   );
 }
@@ -373,6 +385,16 @@ const styles = StyleSheet.create({
     color: Theme.color.accent,
     fontSize: 24,
     fontWeight: '700',
+  },
+  nameRow: {
+    flex: 1,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.space.sm,
+  },
+  namePressed: {
+    opacity: 0.7,
   },
   profileText: {
     flex: 1,
