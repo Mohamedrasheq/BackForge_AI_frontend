@@ -169,6 +169,16 @@ function DatedCard({
   );
 }
 
+export function NudgeArt() {
+  return (
+    <ArtFrame>
+      <View style={styles.bellHalo}>
+        <IconSymbol name="bell" size={40} color={Theme.color.accent} />
+      </View>
+    </ArtFrame>
+  );
+}
+
 export function TodayArt({ active }: { active: boolean }) {
   return (
     <ArtFrame>
@@ -367,5 +377,13 @@ const styles = StyleSheet.create({
   },
   dateLine: {
     height: 6,
+  },
+  bellHalo: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: Theme.color.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -1,11 +1,9 @@
 import { EditNameSheet } from '@/components/account/edit-name-sheet';
-import { ConfirmDeleteDialog } from '@/components/items/delete-item-dialog';
 import { Card } from '@/components/ui/card';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
-import { SecondaryButton } from '@/components/ui/secondary-button';
 import { TextButton } from '@/components/ui/text-button';
 import { Theme } from '@/constants/theme';
 import { useAccountCounts } from '@/hooks/use-account-counts';
@@ -16,13 +14,14 @@ import {
   DELETE_ACCOUNT_NOTE,
   DELETE_ACCOUNT_TITLE,
 } from '@/lib/account-delete';
-import { clearLocalAccountData } from '@/lib/account-reset';
+import {
+  clearLocalAccountData,
+  RESET_ONBOARDING_LABEL,
+  RESET_ONBOARDING_TITLE,
+} from '@/lib/account-reset';
 import { haptics } from '@/lib/haptics';
 import { LEGAL_LINKS } from '@/lib/links';
-import {
-  notificationStatusDetail,
-  notificationStatusLabel,
-} from '@/lib/notifications-enable';
+import { remindersRowModel } from '@/lib/reminder-nudge';
 import { useOnboarding } from '@/lib/onboarding';
 import { displayProfileName, profileNameA11yLabel } from '@/lib/profile-name';
 import { deleteAccount } from '@/services/api';
@@ -31,7 +30,7 @@ import Constants from 'expo-constants';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 function spokenCount(value: number, singular: string, plural: string): string {
   return `${value} ${value === 1 ? singular : plural}`;
@@ -74,14 +73,11 @@ export default function AccountScreen() {
   const { user } = useUser();
   const { signOut } = useAuth();
   const { resetSeen } = useOnboarding();
-  const { permission, registering, message, refreshPermission, enableAlerts } =
+  const { permission, registering, refreshPermission, enableAlerts } =
     useNotificationEnable();
   const { categoryCount, openCount, doneCount, itemCount, loading: countsLoading } =
     useAccountCounts(user?.id);
   const [signingOut, setSigningOut] = useState(false);
-  const [onboardingReset, setOnboardingReset] = useState(false);
-  const [permissionCheckFailed, setPermissionCheckFailed] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editNameOpen, setEditNameOpen] = useState(false);
@@ -92,9 +88,7 @@ export default function AccountScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void refreshPermission()
-        .then(() => setPermissionCheckFailed(false))
-        .catch(() => setPermissionCheckFailed(true));
+      void refreshPermission().catch(() => undefined);
     }, [refreshPermission])
   );
 
@@ -119,7 +113,6 @@ export default function AccountScreen() {
     } catch {
       haptics.error();
       setDeleting(false);
-      setConfirmDelete(false);
       setDeleteError(DELETE_ACCOUNT_FAILED);
       return;
     }
@@ -130,15 +123,28 @@ export default function AccountScreen() {
       // The server already removed the account, so its session is gone either way.
     }
     setDeleting(false);
-    setConfirmDelete(false);
     router.replace('/sign-in');
   };
 
-  const statusLabel = permission ? notificationStatusLabel(permission) : null;
-  const statusDetail = permission
-    ? notificationStatusDetail(permission)
-    : 'Push delivery is not live yet.';
-  const showEnable = permission !== 'granted' && (permission !== null || permissionCheckFailed);
+  const onPressResetOnboarding = () => {
+    haptics.warning();
+    Alert.alert(RESET_ONBOARDING_TITLE, undefined, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Reset', onPress: () => resetSeen() },
+    ]);
+  };
+
+  const onPressDeleteAccount = () => {
+    if (deleting) return;
+    haptics.warning();
+    setDeleteError(null);
+    Alert.alert(DELETE_ACCOUNT_TITLE, DELETE_ACCOUNT_NOTE, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => void onDeleteAccount() },
+    ]);
+  };
+
+  const reminders = remindersRowModel(permission);
 
   return (
     <Screen>
@@ -206,36 +212,46 @@ export default function AccountScreen() {
           </View>
         </View>
 
-        <Card style={styles.notifications}>
-          <View style={styles.statusRow}>
-            <Text style={styles.cardTitle}>Notifications</Text>
-            {statusLabel ? (
+        <Card style={styles.links}>
+          <View style={styles.linkRow}>
+            <Text style={styles.linkLabel}>Reminders</Text>
+            {reminders.kind === 'on' ? (
               <Text
-                style={styles.statusValue}
-                accessibilityLabel={`Notifications ${statusLabel}`}
+                style={styles.statusMuted}
+                accessibilityLabel="Reminders On"
               >
-                {statusLabel}
+                {reminders.statusLabel}
+              </Text>
+            ) : null}
+            {reminders.kind === 'turn_on' ? (
+              <TextButton
+                label={registering ? 'Turning on…' : reminders.actionLabel}
+                onPress={() => void enableAlerts()}
+                disabled={registering}
+                style={styles.rowAction}
+              />
+            ) : null}
+            {reminders.kind === 'off' ? (
+              <Text
+                style={styles.statusMuted}
+                accessibilityLabel="Reminders Off"
+              >
+                {reminders.statusLabel}
               </Text>
             ) : null}
           </View>
-          <Text style={styles.cardBody}>{statusDetail}</Text>
-          {permission === 'granted' ? (
-            <TextButton
-              label={registering ? 'Refreshing…' : 'Refresh this device'}
-              onPress={() => void enableAlerts()}
-              disabled={registering}
-              tone="secondary"
-              style={styles.refresh}
-            />
-          ) : showEnable ? (
-            <SecondaryButton
-              label="Enable alerts"
-              onPress={() => void enableAlerts()}
-              loading={registering}
-              style={styles.enable}
-            />
+          {reminders.kind === 'off' ? (
+            <View style={[styles.linkRow, styles.linkDivider]}>
+              <Text style={styles.settingsHint}>{reminders.hint}</Text>
+              <TextButton
+                label={reminders.actionLabel}
+                onPress={() => {
+                  void Linking.openSettings();
+                }}
+                style={styles.rowAction}
+              />
+            </View>
           ) : null}
-          {message ? <Text style={styles.message}>{message}</Text> : null}
         </Card>
 
         <Card style={styles.links}>
@@ -272,50 +288,32 @@ export default function AccountScreen() {
           </Pressable>
         </Card>
 
-        <Card style={styles.links}>
+        <Card style={styles.dangerCard}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={RESET_ONBOARDING_LABEL}
+            onPress={onPressResetOnboarding}
+            style={({ pressed }) => [styles.linkRow, pressed && styles.linkPressed]}
+          >
+            <Text style={[styles.linkLabel, styles.resetLabel]}>{RESET_ONBOARDING_LABEL}</Text>
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={DELETE_ACCOUNT_LABEL}
             disabled={deleting}
-            onPress={() => {
-              haptics.warning();
-              setDeleteError(null);
-              setConfirmDelete(true);
-            }}
-            style={({ pressed }) => [styles.linkRow, pressed && !deleting && styles.linkPressed]}
+            onPress={onPressDeleteAccount}
+            style={({ pressed }) => [
+              styles.linkRow,
+              styles.linkDivider,
+              pressed && !deleting && styles.linkPressed,
+            ]}
           >
             <Text style={[styles.linkLabel, styles.deleteLabel]}>{DELETE_ACCOUNT_LABEL}</Text>
           </Pressable>
         </Card>
 
-        {__DEV__ ? (
-          <View style={styles.dev}>
-            <TextButton
-              label="Reset onboarding"
-              tone="secondary"
-              onPress={() => {
-                resetSeen();
-                setOnboardingReset(true);
-              }}
-              style={styles.reset}
-            />
-            {onboardingReset ? (
-              <Text style={styles.devHint}>Cleared. Sign out to see onboarding again.</Text>
-            ) : null}
-          </View>
-        ) : null}
-
         <Text style={styles.version}>{version}</Text>
       </ScrollView>
-      {confirmDelete ? (
-        <ConfirmDeleteDialog
-          title={DELETE_ACCOUNT_TITLE}
-          note={DELETE_ACCOUNT_NOTE}
-          deleting={deleting}
-          onConfirm={() => void onDeleteAccount()}
-          onCancel={() => setConfirmDelete(false)}
-        />
-      ) : null}
       {editNameOpen ? <EditNameSheet onClose={() => setEditNameOpen(false)} /> : null}
     </Screen>
   );
@@ -412,48 +410,23 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: Theme.color.textSecondary,
   },
-  notifications: {
-    marginTop: Theme.space.lg,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Theme.space.md,
-  },
-  cardTitle: {
-    fontSize: Theme.type.label,
-    fontWeight: '600',
-    color: Theme.color.text,
-  },
-  statusValue: {
+  statusMuted: {
     flexShrink: 1,
     textAlign: 'right',
     fontSize: Theme.type.label,
     fontWeight: '600',
-    color: Theme.color.textSecondary,
+    color: Theme.color.textTertiary,
   },
-  cardBody: {
-    marginTop: 4,
+  settingsHint: {
+    flex: 1,
     fontSize: Theme.type.caption,
     lineHeight: 18,
     color: Theme.color.textSecondary,
   },
-  enable: {
-    marginTop: Theme.space.sm,
-  },
-  refresh: {
-    alignSelf: 'flex-start',
-    marginTop: Theme.space.xs,
+  rowAction: {
+    alignSelf: 'center',
     paddingHorizontal: 0,
-  },
-  message: {
-    marginTop: Theme.space.sm,
-    color: Theme.color.textSecondary,
-    fontSize: Theme.type.caption,
-    lineHeight: 20,
+    paddingVertical: 0,
   },
   links: {
     marginTop: Theme.space.lg,
@@ -483,20 +456,13 @@ const styles = StyleSheet.create({
   deleteLabel: {
     color: Theme.color.danger,
   },
-  dev: {
-    marginTop: Theme.space.md,
-    width: '100%',
-    alignItems: 'center',
+  resetLabel: {
+    color: Theme.color.textSecondary,
   },
-  reset: {
-    alignSelf: 'center',
-  },
-  devHint: {
-    marginTop: Theme.space.xs,
-    textAlign: 'center',
-    color: Theme.color.textTertiary,
-    fontSize: Theme.type.caption,
-    lineHeight: 18,
+  dangerCard: {
+    marginTop: Theme.space.xl,
+    padding: 0,
+    overflow: 'hidden',
   },
   version: {
     marginTop: Theme.space.xxl,

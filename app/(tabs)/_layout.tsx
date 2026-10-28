@@ -1,4 +1,5 @@
 import { HapticTab } from '@/components/haptic-tab';
+import { ReminderNudgeHost } from '@/components/reminders/reminder-nudge-host';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Theme } from '@/constants/theme';
 import { useAuth } from '@clerk/clerk-expo';
@@ -15,31 +16,32 @@ export default function TabLayout() {
   if (isSignedIn === false) return <Redirect href="/sign-in" />;
 
   return (
-    <Tabs
-      initialRouteName="index"
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: Theme.color.accent,
-        tabBarInactiveTintColor: Theme.color.textSecondary,
-        tabBarButton: HapticTab,
-        tabBarHideOnKeyboard: false,
-        tabBarLabel: ({ focused, color, children }) => (
-          <Text style={{ color, fontSize: 11, lineHeight: 14, fontWeight: focused ? '700' : '500' }}>
-            {children}
-          </Text>
-        ),
-        tabBarStyle: {
-          height: 58 + insets.bottom,
-          paddingTop: 6,
-          paddingBottom: Math.max(insets.bottom, 8),
-          backgroundColor: Theme.color.card,
-          borderTopColor: Theme.color.border,
-        },
-        tabBarItemStyle: {
-          paddingVertical: 2,
-        },
-      }}
-    >
+    <>
+      <Tabs
+        initialRouteName="index"
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: Theme.color.accent,
+          tabBarInactiveTintColor: Theme.color.textSecondary,
+          tabBarButton: HapticTab,
+          tabBarHideOnKeyboard: false,
+          tabBarLabel: ({ focused, color, children }) => (
+            <Text style={{ color, fontSize: 11, lineHeight: 14, fontWeight: focused ? '700' : '500' }}>
+              {children}
+            </Text>
+          ),
+          tabBarStyle: {
+            height: 58 + insets.bottom,
+            paddingTop: 6,
+            paddingBottom: Math.max(insets.bottom, 8),
+            backgroundColor: Theme.color.card,
+            borderTopColor: Theme.color.border,
+          },
+          tabBarItemStyle: {
+            paddingVertical: 2,
+          },
+        }}
+      >
       <Tabs.Screen
         name="index"
         options={{
@@ -78,5 +80,7 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    <ReminderNudgeHost />
+    </>
   );
 }

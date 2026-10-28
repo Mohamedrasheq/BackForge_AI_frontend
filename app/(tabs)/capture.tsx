@@ -29,6 +29,7 @@ import {
   captureParseStatus,
 } from '@/lib/capture-status';
 import { haptics } from '@/lib/haptics';
+import { notifySavedDues } from '@/lib/reminder-nudge';
 import { showSavedFlash } from '@/lib/saved-flash';
 import { isAbortError } from '@/lib/ask-stream';
 import { ROW_BLEED } from '@/lib/voice-wave';
@@ -230,6 +231,7 @@ export default function CaptureScreen() {
       await bulkCreateItems(ready, 'capture');
       haptics.success();
       showSavedFlash(ready.length);
+      notifySavedDues(ready.map((item) => item.dueAt));
       setText('');
       setRows([]);
       setPhase('compose');

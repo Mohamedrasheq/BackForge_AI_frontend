@@ -7,6 +7,7 @@ import {
   DATE_ONLY_DUE_HOURS,
   DATE_ONLY_DUE_MINUTES,
   defaultDueOnLocalDay,
+  dueHasClockTime,
   isPresetTimePast,
   matchingTimePresetId,
   moveDueToLocalDay,
@@ -38,6 +39,14 @@ describe('date-only due default', () => {
     assert.equal(due.getDate(), 21);
     assert.equal(due.getHours(), 9);
     assert.equal(due.getMinutes(), 15);
+  });
+
+  it('treats 11:59 PM as date-only and a picked clock as a time', () => {
+    const dateOnly = new Date(2026, 9, 20, DATE_ONLY_DUE_HOURS, DATE_ONLY_DUE_MINUTES, 0).toISOString();
+    const timed = new Date(2026, 9, 20, 9, 0, 0).toISOString();
+    assert.equal(dueHasClockTime(null), false);
+    assert.equal(dueHasClockTime(dateOnly), false);
+    assert.equal(dueHasClockTime(timed), true);
   });
 
   it('keeps an explicitly picked clock time', () => {

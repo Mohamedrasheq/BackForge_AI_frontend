@@ -33,6 +33,13 @@ function validDate(value: string | null): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/** True when `dueAt` has a real clock time, not the date-only 11:59 PM sentinel. */
+export function dueHasClockTime(dueAt: string | null): boolean {
+  const date = validDate(dueAt);
+  if (!date) return false;
+  return date.getHours() !== DATE_ONLY_DUE_HOURS || date.getMinutes() !== DATE_ONLY_DUE_MINUTES;
+}
+
 /** 11:59 PM local on `day`'s calendar date. */
 export function endOfLocalDay(day: Date): Date {
   return new Date(

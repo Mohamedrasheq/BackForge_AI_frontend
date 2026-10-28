@@ -29,6 +29,7 @@ import {
   proposalToDraftSeed,
 } from '@/lib/ask-drafts';
 import { CONFIRM_SAVE_FAILED_MESSAGE } from '@/lib/capture-status';
+import { notifySavedDues } from '@/lib/reminder-nudge';
 import { showSavedFlash } from '@/lib/saved-flash';
 import {
   ASK_CLEAR,
@@ -552,8 +553,11 @@ export default function AskScreen() {
           done: (id, source) => markItemDone(id, source),
         })
       );
+      const saved = new Set(result.savedKeys);
+      const savedDues = rowsRef.current
+        .filter((row) => saved.has(row.key))
+        .map((row) => row.dueAt);
       if (result.savedKeys.length > 0) {
-        const saved = new Set(result.savedKeys);
         setRows((current) => current.filter((row) => !saved.has(row.key)));
       }
       if (result.error) {
@@ -562,7 +566,10 @@ export default function AskScreen() {
         return;
       }
       haptics.success();
-      if (result.savedKeys.length > 0) showSavedFlash(result.savedKeys.length);
+      if (result.savedKeys.length > 0) {
+        notifySavedDues(savedDues);
+        showSavedFlash(result.savedKeys.length);
+      }
       dispatchAskSession({
         type: 'saved',
         messageId,
