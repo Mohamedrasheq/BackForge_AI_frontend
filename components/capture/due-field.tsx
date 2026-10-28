@@ -11,6 +11,7 @@ import {
   toLocalDateInputValue,
   type TimePresetId,
 } from '@/lib/due';
+import { categoryChipSharesDueRow } from '@/lib/due-layout';
 import {
   formatDue,
   formatDueDay,
@@ -48,7 +49,7 @@ export function DueField({
   onClosePicker?: () => void;
   /** Review Move always keeps a day, so the clear control stays hidden. */
   allowClear?: boolean;
-  /** Confirm: category chip shares the due row when the card is wide enough. */
+  /** Confirm / Ask: category chip sits on its own line under the date row. */
   accessory?: React.ReactNode;
   /** Confirm toggles a chip row; the edit sheet keeps it expanded. */
   timeChips?: 'off' | 'toggle' | 'always';
@@ -197,6 +198,7 @@ export function DueField({
     ) : null;
 
   const accessoryNode = accessory ? <View style={styles.accessory}>{accessory}</View> : null;
+  const stackAccessory = Boolean(accessory) && !categoryChipSharesDueRow();
 
   const suggestedMarks =
     showSuggestedLabel && timeLabel ? (
@@ -359,8 +361,8 @@ export function DueField({
 
   return (
     <View>
-      <View style={[styles.row, accessory ? styles.rowShare : null]}>
-        {accessory ? (
+      <View style={[styles.row, stackAccessory ? styles.rowShare : null]}>
+        {stackAccessory ? (
           <View style={styles.cluster}>
             {dueChip}
             {clearControl}
@@ -428,9 +430,8 @@ const styles = StyleSheet.create({
     minHeight: 32,
   },
   rowShare: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     gap: 6,
   },
   cluster: {

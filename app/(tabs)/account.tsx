@@ -75,7 +75,7 @@ export default function AccountScreen() {
   const { permission, registering, message, refreshPermission, enableAlerts } =
     useNotificationEnable();
   const { categoryCount, openCount, doneCount, itemCount, loading: countsLoading } =
-    useAccountCounts();
+    useAccountCounts(user?.id);
   const [signingOut, setSigningOut] = useState(false);
   const [onboardingReset, setOnboardingReset] = useState(false);
   const [permissionCheckFailed, setPermissionCheckFailed] = useState(false);
@@ -103,6 +103,7 @@ export default function AccountScreen() {
     haptics.medium();
     setSigningOut(true);
     try {
+      await clearLocalAccountData();
       await signOut();
     } finally {
       setSigningOut(false);
