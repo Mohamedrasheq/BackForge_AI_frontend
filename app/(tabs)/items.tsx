@@ -331,7 +331,7 @@ export default function AllItemsScreen() {
             error ? (
               <View style={styles.flex} />
             ) : (
-              <View style={styles.list}>
+              <View style={[styles.list, styles.listFill]}>
                 <ItemListSkeleton />
               </View>
             )
@@ -431,7 +431,9 @@ export default function AllItemsScreen() {
             }
             ListEmptyComponent={
               listBlocked ? (
-                <ItemListSkeleton />
+                <View style={styles.listFill}>
+                  <ItemListSkeleton />
+                </View>
               ) : status === 'upcoming' ? (
                 <EmptyState
                   description={UPCOMING_EMPTY}
@@ -520,6 +522,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Theme.space.screenX,
     paddingBottom: Theme.space.listBottom,
     flexGrow: 1,
+  },
+  listFill: {
+    flex: 1,
   },
   emptyList: {
     justifyContent: 'center',
