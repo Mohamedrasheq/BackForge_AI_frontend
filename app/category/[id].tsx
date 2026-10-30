@@ -200,7 +200,7 @@ export default function CategoryDetailScreen() {
         ) : null}
 
         {blockList ? (
-          <View style={styles.list}>
+          <View style={[styles.list, styles.listFill]}>
             <ItemListSkeleton />
           </View>
         ) : (
@@ -279,6 +279,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Theme.space.screenX,
     paddingBottom: Theme.space.listBottom,
     flexGrow: 1,
+  },
+  listFill: {
+    flex: 1,
   },
   emptyList: {
     justifyContent: 'center',
