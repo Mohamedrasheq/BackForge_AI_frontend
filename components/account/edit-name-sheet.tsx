@@ -1,7 +1,13 @@
+import { Card } from '@/components/ui/card';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { TextButton } from '@/components/ui/text-button';
 import { Theme } from '@/constants/theme';
+import {
+  EDIT_NAME_BACKDROP_PADDING,
+  EDIT_NAME_CARD_MAX_WIDTH,
+  EDIT_NAME_MODAL_ANIMATION,
+} from '@/lib/edit-name-layout';
 import { haptics } from '@/lib/haptics';
 import {
   PROFILE_NAME_MAX_LENGTH,
@@ -23,11 +29,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export function EditNameSheet({ onClose }: { onClose: () => void }) {
-  const insets = useSafeAreaInsets();
   const { user } = useUser();
+  const firstNameRef = useRef<TextInput>(null);
   const lastNameRef = useRef<TextInput>(null);
   const [originalFirstName] = useState(user?.firstName ?? '');
   const [originalLastName] = useState(user?.lastName ?? '');
@@ -68,7 +73,13 @@ export function EditNameSheet({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal transparent animationType="slide" visible onRequestClose={saving ? undefined : close}>
+    <Modal
+      transparent
+      animationType={EDIT_NAME_MODAL_ANIMATION}
+      visible
+      onRequestClose={saving ? undefined : close}
+      onShow={() => firstNameRef.current?.focus()}
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -79,72 +90,66 @@ export function EditNameSheet({ onClose }: { onClose: () => void }) {
           style={styles.backdrop}
           onPress={close}
         >
-          <Pressable
-            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, Theme.space.md) }]}
-            onPress={() => undefined}
-          >
-            <View style={styles.handle} />
-            <Text style={styles.title}>Edit name</Text>
+          <Pressable style={styles.sheetWrap} onPress={() => undefined}>
+            <Card style={styles.card}>
+              <Text style={styles.title}>Edit name</Text>
 
-            {error ? (
-              <View style={styles.bannerWrap}>
-                <ErrorBanner message={error} />
-              </View>
-            ) : null}
+              {error ? <ErrorBanner message={error} /> : null}
 
-            <View style={styles.fields}>
-              <View>
-                <Text style={styles.label}>First name</Text>
-                <TextInput
-                  value={firstName}
-                  onChangeText={onChangeFirst}
-                  accessibilityLabel="First name"
-                  autoFocus
-                  textContentType="givenName"
-                  autoComplete="given-name"
-                  autoCapitalize="words"
-                  returnKeyType="next"
-                  blurOnSubmit={false}
-                  maxLength={PROFILE_NAME_MAX_LENGTH}
-                  editable={!saving}
-                  selectionColor={Theme.color.accent}
-                  cursorColor={Theme.color.accent}
-                  placeholderTextColor={Theme.color.textTertiary}
-                  style={styles.input}
-                  onSubmitEditing={() => lastNameRef.current?.focus()}
-                />
-                {firstNameMissing ? <Text style={styles.helper}>{PROFILE_NAME_REQUIRED}</Text> : null}
+              <View style={styles.fields}>
+                <View>
+                  <Text style={styles.label}>First name</Text>
+                  <TextInput
+                    ref={firstNameRef}
+                    value={firstName}
+                    onChangeText={onChangeFirst}
+                    accessibilityLabel="First name"
+                    textContentType="givenName"
+                    autoComplete="given-name"
+                    autoCapitalize="words"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    maxLength={PROFILE_NAME_MAX_LENGTH}
+                    editable={!saving}
+                    selectionColor={Theme.color.accent}
+                    cursorColor={Theme.color.accent}
+                    placeholderTextColor={Theme.color.textTertiary}
+                    style={styles.input}
+                    onSubmitEditing={() => lastNameRef.current?.focus()}
+                  />
+                  {firstNameMissing ? <Text style={styles.helper}>{PROFILE_NAME_REQUIRED}</Text> : null}
+                </View>
+                <View>
+                  <Text style={styles.label}>Last name</Text>
+                  <TextInput
+                    ref={lastNameRef}
+                    value={lastName}
+                    onChangeText={onChangeLast}
+                    accessibilityLabel="Last name"
+                    textContentType="familyName"
+                    autoComplete="family-name"
+                    autoCapitalize="words"
+                    returnKeyType="done"
+                    maxLength={PROFILE_NAME_MAX_LENGTH}
+                    editable={!saving}
+                    selectionColor={Theme.color.accent}
+                    cursorColor={Theme.color.accent}
+                    placeholderTextColor={Theme.color.textTertiary}
+                    style={styles.input}
+                    onSubmitEditing={() => {
+                      if (canSave) void onSave();
+                    }}
+                  />
+                </View>
               </View>
-              <View>
-                <Text style={styles.label}>Last name</Text>
-                <TextInput
-                  ref={lastNameRef}
-                  value={lastName}
-                  onChangeText={onChangeLast}
-                  accessibilityLabel="Last name"
-                  textContentType="familyName"
-                  autoComplete="family-name"
-                  autoCapitalize="words"
-                  returnKeyType="done"
-                  maxLength={PROFILE_NAME_MAX_LENGTH}
-                  editable={!saving}
-                  selectionColor={Theme.color.accent}
-                  cursorColor={Theme.color.accent}
-                  placeholderTextColor={Theme.color.textTertiary}
-                  style={styles.input}
-                  onSubmitEditing={() => {
-                    if (canSave) void onSave();
-                  }}
-                />
-              </View>
-            </View>
 
-            <PrimaryButton
-              label={saving ? 'Saving…' : 'Save'}
-              disabled={!canSave || saving}
-              onPress={() => void onSave()}
-            />
-            <TextButton label="Cancel" tone="secondary" onPress={close} disabled={saving} />
+              <PrimaryButton
+                label={saving ? 'Saving…' : 'Save'}
+                disabled={!canSave || saving}
+                onPress={() => void onSave()}
+              />
+              <TextButton label="Cancel" tone="secondary" onPress={close} disabled={saving} />
+            </Card>
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>
@@ -159,26 +164,16 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: Theme.color.overlay,
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: EDIT_NAME_BACKDROP_PADDING,
   },
-  sheet: {
+  sheetWrap: {
     width: '100%',
-    maxWidth: 430,
-    alignSelf: 'center',
-    backgroundColor: Theme.color.card,
-    borderTopLeftRadius: Theme.radius.xl,
-    borderTopRightRadius: Theme.radius.xl,
-    paddingTop: Theme.space.sm,
-    paddingHorizontal: Theme.space.screenX,
-    gap: Theme.space.sm,
+    maxWidth: EDIT_NAME_CARD_MAX_WIDTH,
   },
-  handle: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: Theme.radius.full,
-    backgroundColor: Theme.color.border,
-    marginBottom: Theme.space.xs,
+  card: {
+    gap: Theme.space.sm,
   },
   title: {
     fontSize: Theme.type.screenTitle,
@@ -186,9 +181,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.4,
     color: Theme.color.text,
-  },
-  bannerWrap: {
-    marginHorizontal: -Theme.space.screenX,
   },
   fields: {
     gap: 12,

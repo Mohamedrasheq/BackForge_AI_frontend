@@ -10,7 +10,9 @@ import { IconSymbol, type IconSymbolName } from '@/components/ui/icon-symbol';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SegmentedControl } from '@/components/ui/segmented-control';
+import { ItemListSkeleton } from '@/components/ui/skeleton';
 import { cardSurface, Theme } from '@/constants/theme';
+import { listBodyKind } from '@/lib/list-skeleton';
 import { useCategories } from '@/hooks/use-categories';
 import { useAllItems } from '@/hooks/use-items';
 import { useNotificationEnable } from '@/hooks/use-notification-enable';
@@ -39,7 +41,6 @@ import type { Item, ItemStatus } from '@/types/api';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -169,7 +170,11 @@ export default function AllItemsScreen() {
   const categoriesSettled = !categoriesLoading || Boolean(categoriesError);
   const categoryBlocking =
     view === 'category' &&
-    ((loading && items.length === 0) || (!categoriesSettled && !categoriesError));
+    listBodyKind({
+      loading,
+      itemCount: items.length,
+      pending: !categoriesSettled && !categoriesError,
+    }) === 'skeleton';
   const hideCategoryRows = Boolean(error) && items.length === 0;
   const shownCategoryRows = hideCategoryRows ? [] : categoryRows;
 
@@ -177,7 +182,12 @@ export default function AllItemsScreen() {
   const dateFilterActive = selectedDay !== null;
   const showNotifications =
     status === 'upcoming' && permission !== null && permission !== 'granted';
-  const listBlocked = (loading && items.length === 0) || (!categoriesSettled && listedCount > 0);
+  const listBlocked =
+    listBodyKind({
+      loading,
+      itemCount: items.length,
+      pending: !categoriesSettled && listedCount > 0,
+    }) === 'skeleton';
 
   const clearDate = () => setSelectedDay(null);
 
@@ -318,8 +328,8 @@ export default function AllItemsScreen() {
             error ? (
               <View style={styles.flex} />
             ) : (
-              <View style={styles.centered}>
-                <ActivityIndicator color={Theme.color.accent} />
+              <View style={styles.list}>
+                <ItemListSkeleton />
               </View>
             )
           ) : (
@@ -418,9 +428,7 @@ export default function AllItemsScreen() {
             }
             ListEmptyComponent={
               listBlocked ? (
-                <View style={styles.loadingBlock}>
-                  <ActivityIndicator color={Theme.color.accent} />
-                </View>
+                <ItemListSkeleton />
               ) : status === 'upcoming' ? (
                 <EmptyState
                   description={UPCOMING_EMPTY}
@@ -513,11 +521,6 @@ const styles = StyleSheet.create({
   emptyList: {
     justifyContent: 'center',
   },
-  loadingBlock: {
-    minHeight: 160,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   sep: {
     height: Theme.space.listGap,
   },
@@ -531,11 +534,6 @@ const styles = StyleSheet.create({
   },
   sectionHeaderFirst: {
     marginTop: 0,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   categoryGroup: {
     ...cardSurface,

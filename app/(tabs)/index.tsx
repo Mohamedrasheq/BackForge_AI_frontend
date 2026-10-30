@@ -7,16 +7,18 @@ import { ItemRow } from '@/components/ui/item-row';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { SavedBanner } from '@/components/ui/saved-banner';
+import { ItemListSkeleton } from '@/components/ui/skeleton';
 import { Theme } from '@/constants/theme';
 import { useCategories } from '@/hooks/use-categories';
 import { formatTodaySubtitle } from '@/lib/format';
 import { categoryLabelForItem } from '@/lib/categories';
 import { useTodayItems } from '@/hooks/use-items';
+import { listBodyKind } from '@/lib/list-skeleton';
 import { useReviewEntry } from '@/hooks/use-review-entry';
 import { REVIEW_HREF } from '@/lib/review-push';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 export default function TodayScreen() {
   const router = useRouter();
@@ -46,9 +48,9 @@ export default function TodayScreen() {
         />
       ) : null}
 
-      {loading && items.length === 0 ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={Theme.color.accent} />
+      {listBodyKind({ loading, itemCount: items.length }) === 'skeleton' ? (
+        <View style={styles.list}>
+          <ItemListSkeleton />
         </View>
       ) : (
         <FlatList
@@ -107,10 +109,5 @@ const styles = StyleSheet.create({
   },
   sep: {
     height: Theme.space.listGap,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
