@@ -13,9 +13,8 @@ import {
   UNFILED_ROUTE_ID,
   categoryBrowseTitle,
   categoryCountLabel,
+  categoryDetailSections,
   itemsInCategory,
-  sortDoneByCompleted,
-  sortOpenByDue,
 } from '@/lib/category-browse';
 import { haptics } from '@/lib/haptics';
 import type { Item } from '@/types/api';
@@ -81,23 +80,12 @@ export default function CategoryDetailScreen() {
       }),
     [items, categoryId, categories, categoriesKnown]
   );
-  const openItems = useMemo(
-    () => sortOpenByDue(scoped.filter((item) => item.status === 'open')),
-    [scoped]
-  );
-  const doneItems = useMemo(
-    () => sortDoneByCompleted(scoped.filter((item) => item.status === 'done')),
-    [scoped]
-  );
-  const sections = useMemo(() => {
-    const next: { title: string; data: Item[] }[] = [];
-    if (openItems.length > 0) next.push({ title: 'Open', data: openItems });
-    if (doneItems.length > 0) next.push({ title: 'Done', data: doneItems });
-    return next;
-  }, [openItems, doneItems]);
+  const sections = useMemo(() => categoryDetailSections(scoped), [scoped]);
+  const openCount = sections.find((section) => section.title === 'Open')?.data.length ?? 0;
+  const doneCount = sections.find((section) => section.title === 'Done')?.data.length ?? 0;
 
   const blockList = (loading && items.length === 0) || (isUnfiled && !categoriesSettled);
-  const subtitle = categoryCountLabel(openItems.length, doneItems.length);
+  const subtitle = categoryCountLabel(openCount, doneCount);
 
   const pendingDelete = useMemo(
     () => items.find((item) => item.id === pendingDeleteId) ?? null,

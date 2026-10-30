@@ -72,6 +72,11 @@ export function categoryBrowseAccessibilityLabel(
   return `${name}, ${counts}, opens category`;
 }
 
+/** Visible count on a category list row: every task, open plus done. */
+export function categoryBrowseTotalCount(openCount: number, doneCount: number): number {
+  return openCount + doneCount;
+}
+
 /**
  * One row per category, A to Z. Counts come from the items already loaded.
  * A category with no tasks still appears. Unfiled is last, and only when it has tasks.
@@ -182,4 +187,22 @@ export function sortDoneByCompleted(items: Item[]): Item[] {
     if (bTime == null) return -1;
     return bTime - aTime;
   });
+}
+
+export type CategoryDetailSection = {
+  title: 'Open' | 'Done';
+  data: Item[];
+};
+
+/**
+ * Category detail list: Open first (soonest due), then Done (newest completion).
+ * Empty sides are omitted, so a fully done category is only the Done section.
+ */
+export function categoryDetailSections(items: Item[]): CategoryDetailSection[] {
+  const openItems = sortOpenByDue(items.filter((item) => item.status === 'open'));
+  const doneItems = sortDoneByCompleted(items.filter((item) => item.status === 'done'));
+  const sections: CategoryDetailSection[] = [];
+  if (openItems.length > 0) sections.push({ title: 'Open', data: openItems });
+  if (doneItems.length > 0) sections.push({ title: 'Done', data: doneItems });
+  return sections;
 }
