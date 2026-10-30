@@ -29,8 +29,13 @@ const TIMED = new Date(2026, 9, 28, 15, 30, 0).toISOString();
 const DATE_ONLY = new Date(2026, 9, 28, DATE_ONLY_DUE_HOURS, DATE_ONLY_DUE_MINUTES, 0).toISOString();
 
 describe('remindersRowModel', () => {
-  it('maps granted to muted On', () => {
-    assert.deepEqual(remindersRowModel('granted'), { kind: 'on', statusLabel: 'On' });
+  it('maps granted to On with Open Settings and a turn-off hint', () => {
+    assert.deepEqual(remindersRowModel('granted'), {
+      kind: 'on',
+      statusLabel: 'On',
+      hint: 'Turn off in iPhone Settings',
+      actionLabel: 'Open Settings',
+    });
   });
 
   it('maps undetermined to an accent Turn on action', () => {

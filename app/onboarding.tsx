@@ -4,12 +4,11 @@ import { TextButton } from '@/components/ui/text-button';
 import { Theme } from '@/constants/theme';
 import { enableAlertsOnDevice } from '@/lib/notifications-enable';
 import { useOnboarding } from '@/lib/onboarding';
+import { onboardingCta } from '@/lib/onboarding-layout';
 import {
   markReminderDeclined,
   REMINDER_BODY,
-  REMINDER_NOT_NOW,
   REMINDER_ONBOARDING_TITLE,
-  REMINDER_TURN_ON,
 } from '@/lib/reminder-nudge';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
@@ -132,7 +131,7 @@ function OnboardingPage({
           {pageKey === 'dump' ? <DumpArt pulseMic={micPulse} /> : null}
           {pageKey === 'confirm' ? <ConfirmArt active={active} /> : null}
           {pageKey === 'today' ? <TodayArt active={active} /> : null}
-          {pageKey === 'nudge' ? <NudgeArt /> : null}
+          {pageKey === 'nudge' ? <NudgeArt active={active} /> : null}
         </View>
       </Animated.View>
       <Animated.View style={[styles.copy, copyStyle]}>
@@ -218,6 +217,7 @@ export default function OnboardingScreen() {
   }));
 
   const isLastPage = page === PAGES.length - 1;
+  const cta = onboardingCta(isLastPage);
 
   return (
     <SafeAreaView
@@ -290,24 +290,27 @@ export default function OnboardingScreen() {
           ))}
         </View>
         <Animated.View style={ctaStyle}>
-          {isLastPage ? (
-            <View style={styles.lastCta}>
-              <PrimaryButton
-                label={REMINDER_TURN_ON}
-                onPress={() => void onTurnOnReminders()}
-                loading={enabling}
-                disabled={enabling}
-              />
+          <View style={styles.ctaStack}>
+            <PrimaryButton
+              label={cta.primaryLabel}
+              onPress={isLastPage ? () => void onTurnOnReminders() : onContinue}
+              loading={isLastPage && enabling}
+              disabled={isLastPage && enabling}
+            />
+            <View
+              pointerEvents={cta.secondaryVisible ? 'auto' : 'none'}
+              accessibilityElementsHidden={!cta.secondaryVisible}
+              importantForAccessibility={cta.secondaryVisible ? 'auto' : 'no-hide-descendants'}
+              style={!cta.secondaryVisible ? styles.ctaReserve : undefined}
+            >
               <TextButton
-                label={REMINDER_NOT_NOW}
+                label={cta.secondaryLabel}
                 tone="secondary"
                 onPress={skipPermission}
                 disabled={enabling}
               />
             </View>
-          ) : (
-            <PrimaryButton label="Continue" onPress={onContinue} />
-          )}
+          </View>
         </Animated.View>
       </View>
     </SafeAreaView>
@@ -379,8 +382,11 @@ const styles = StyleSheet.create({
     paddingBottom: Theme.space.sm,
     gap: Theme.space.md,
   },
-  lastCta: {
+  ctaStack: {
     gap: Theme.space.sm,
+  },
+  ctaReserve: {
+    opacity: 0,
   },
   dots: {
     flexDirection: 'row',

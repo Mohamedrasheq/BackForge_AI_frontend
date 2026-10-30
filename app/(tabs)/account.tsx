@@ -240,7 +240,7 @@ export default function AccountScreen() {
               </Text>
             ) : null}
           </View>
-          {reminders.kind === 'off' ? (
+          {reminders.kind === 'off' || reminders.kind === 'on' ? (
             <View style={[styles.linkRow, styles.linkDivider]}>
               <Text style={styles.settingsHint}>{reminders.hint}</Text>
               <TextButton

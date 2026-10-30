@@ -31,7 +31,12 @@ export type ReminderNudgeFlags = {
 
 export type RemindersRowModel =
   | { kind: 'loading' }
-  | { kind: 'on'; statusLabel: 'On' }
+  | {
+      kind: 'on';
+      statusLabel: 'On';
+      hint: 'Turn off in iPhone Settings';
+      actionLabel: 'Open Settings';
+    }
   | { kind: 'turn_on'; actionLabel: 'Turn on' }
   | {
       kind: 'off';
@@ -41,7 +46,14 @@ export type RemindersRowModel =
     };
 
 export function remindersRowModel(permission: NotificationPermission | null): RemindersRowModel {
-  if (permission === 'granted') return { kind: 'on', statusLabel: 'On' };
+  if (permission === 'granted') {
+    return {
+      kind: 'on',
+      statusLabel: 'On',
+      hint: 'Turn off in iPhone Settings',
+      actionLabel: 'Open Settings',
+    };
+  }
   if (permission === 'undetermined') return { kind: 'turn_on', actionLabel: 'Turn on' };
   if (permission === 'denied') {
     return {

@@ -6,6 +6,7 @@ import { ErrorBanner } from '@/components/ui/error-banner';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { ItemListSkeleton } from '@/components/ui/skeleton';
 import { Theme } from '@/constants/theme';
 import { useCategories } from '@/hooks/use-categories';
 import { useAllItems } from '@/hooks/use-items';
@@ -16,12 +17,12 @@ import {
   categoryDetailSections,
   itemsInCategory,
 } from '@/lib/category-browse';
+import { listBodyKind } from '@/lib/list-skeleton';
 import { haptics } from '@/lib/haptics';
 import type { Item } from '@/types/api';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -84,7 +85,12 @@ export default function CategoryDetailScreen() {
   const openCount = sections.find((section) => section.title === 'Open')?.data.length ?? 0;
   const doneCount = sections.find((section) => section.title === 'Done')?.data.length ?? 0;
 
-  const blockList = (loading && items.length === 0) || (isUnfiled && !categoriesSettled);
+  const blockList =
+    listBodyKind({
+      loading,
+      itemCount: items.length,
+      pending: isUnfiled && !categoriesSettled,
+    }) === 'skeleton';
   const subtitle = categoryCountLabel(openCount, doneCount);
 
   const pendingDelete = useMemo(
@@ -194,8 +200,8 @@ export default function CategoryDetailScreen() {
         ) : null}
 
         {blockList ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color={Theme.color.accent} />
+          <View style={styles.list}>
+            <ItemListSkeleton />
           </View>
         ) : (
           <SectionList
@@ -290,10 +296,5 @@ const styles = StyleSheet.create({
   },
   sectionHeaderFirst: {
     marginTop: 0,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

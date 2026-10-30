@@ -1,10 +1,12 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { cardSurface, Theme } from '@/constants/theme';
-import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { NUDGE_ART_BELL, NUDGE_ART_HALO_SIZE, artEntryMotion } from '@/lib/onboarding-layout';
+import React, { useEffect, useState } from 'react';
+import { AccessibilityInfo, StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -14,6 +16,28 @@ import Animated, {
 } from 'react-native-reanimated';
 
 const ENTER_SPRING = { duration: 320, dampingRatio: 1 } as const;
+
+function useReduceMotionEnabled(): boolean {
+  const reducedAtLaunch = useReducedMotion();
+  const [live, setLive] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const apply = (enabled: boolean) => {
+      if (mounted) setLive(enabled);
+    };
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(apply)
+      .catch(() => {});
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', apply);
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return live ?? Boolean(reducedAtLaunch);
+}
 
 function ArtFrame({ children }: { children: React.ReactNode }) {
   return (
@@ -135,20 +159,28 @@ function DatedCard({
   delay,
   titleWidth,
   dateWidth,
+  reduceMotion = false,
 }: {
   active: boolean;
   delay: number;
   titleWidth: `${number}%`;
   dateWidth: `${number}%`;
+  reduceMotion?: boolean;
 }) {
   const progress = useSharedValue(0);
 
   useEffect(() => {
     if (!active) return;
 
+    const motion = artEntryMotion(active, reduceMotion);
+    if (motion.settled) {
+      progress.value = 1;
+      return;
+    }
+
     progress.value = 0;
     progress.value = withDelay(delay, withSpring(1, ENTER_SPRING));
-  }, [active, delay, progress]);
+  }, [active, delay, progress, reduceMotion]);
 
   const style = useAnimatedStyle(() => ({
     opacity: progress.value,
@@ -169,17 +201,50 @@ function DatedCard({
   );
 }
 
-export function NudgeArt() {
+export function NudgeArt({ active }: { active: boolean }) {
+  const reduceMotion = useReduceMotionEnabled();
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    if (!active) return;
+
+    const motion = artEntryMotion(active, reduceMotion);
+    if (motion.settled) {
+      progress.value = 1;
+      return;
+    }
+
+    progress.value = 0;
+    progress.value = withDelay(80, withSpring(1, ENTER_SPRING));
+  }, [active, progress, reduceMotion]);
+
+  const bellStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ translateY: (1 - progress.value) * 14 }],
+  }));
+
   return (
     <ArtFrame>
-      <View style={styles.bellHalo}>
-        <IconSymbol name="bell" size={40} color={Theme.color.accent} />
+      <View style={styles.halo} />
+      <View style={styles.nudgeScene}>
+        <DatedCard
+          active={active}
+          delay={0}
+          titleWidth="86%"
+          dateWidth="46%"
+          reduceMotion={reduceMotion}
+        />
+        <Animated.View style={[styles.bellChip, bellStyle]}>
+          <IconSymbol name={NUDGE_ART_BELL} size={18} color={Theme.color.white} />
+        </Animated.View>
       </View>
     </ArtFrame>
   );
 }
 
 export function TodayArt({ active }: { active: boolean }) {
+  const reduceMotion = useReduceMotionEnabled();
+
   return (
     <ArtFrame>
       <View style={styles.today}>
@@ -191,8 +256,20 @@ export function TodayArt({ active }: { active: boolean }) {
           </View>
           <View style={styles.heroPill} />
         </View>
-        <DatedCard active={active} delay={0} titleWidth="86%" dateWidth="46%" />
-        <DatedCard active={active} delay={60} titleWidth="70%" dateWidth="34%" />
+        <DatedCard
+          active={active}
+          delay={0}
+          titleWidth="86%"
+          dateWidth="46%"
+          reduceMotion={reduceMotion}
+        />
+        <DatedCard
+          active={active}
+          delay={60}
+          titleWidth="70%"
+          dateWidth="34%"
+          reduceMotion={reduceMotion}
+        />
       </View>
     </ArtFrame>
   );
@@ -207,9 +284,9 @@ const styles = StyleSheet.create({
   },
   halo: {
     position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
+    width: NUDGE_ART_HALO_SIZE,
+    height: NUDGE_ART_HALO_SIZE,
+    borderRadius: NUDGE_ART_HALO_SIZE / 2,
     backgroundColor: Theme.color.accentSoft,
   },
   noteStack: {
@@ -378,12 +455,21 @@ const styles = StyleSheet.create({
   dateLine: {
     height: 6,
   },
-  bellHalo: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: Theme.color.accentSoft,
+  nudgeScene: {
+    width: '88%',
+    maxWidth: 320,
+    paddingBottom: 20,
+  },
+  bellChip: {
+    position: 'absolute',
+    right: 4,
+    bottom: 0,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Theme.color.accent,
     alignItems: 'center',
     justifyContent: 'center',
+    ...Theme.shadow.card,
   },
 });
