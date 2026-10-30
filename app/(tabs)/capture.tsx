@@ -16,6 +16,7 @@ import { TextButton } from '@/components/ui/text-button';
 import { cardSurface, Theme } from '@/constants/theme';
 import { useCaptureRecording } from '@/hooks/use-capture-recording';
 import { useCategories } from '@/hooks/use-categories';
+import { useKeyboardDragGuard } from '@/hooks/use-keyboard-drag-guard';
 import {
   applyCreatedCategories,
   categoryNameKey,
@@ -32,6 +33,12 @@ import { haptics } from '@/lib/haptics';
 import { notifySavedDues } from '@/lib/reminder-nudge';
 import { showSavedFlash } from '@/lib/saved-flash';
 import { isAbortError } from '@/lib/ask-stream';
+import {
+  COMPOSER_MIN_HEIGHT,
+  COMPOSER_SCROLL_ENABLED,
+  composerAutoFocus,
+  composerScrollProps,
+} from '@/lib/keyboard-scroll';
 import { ROW_BLEED } from '@/lib/voice-wave';
 import { bulkCreateItems, listCategories, parseItems } from '@/services/api';
 import { useIsFocused } from '@react-navigation/native';
@@ -41,10 +48,10 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 
@@ -54,6 +61,7 @@ export default function CaptureScreen() {
   const { categories, error: categoriesError, reload: reloadCategories, create: createCategory } =
     useCategories();
   const inputRef = useRef<TextInput>(null);
+  const dragGuard = useKeyboardDragGuard();
   const [text, setText] = useState('');
   const [phase, setPhase] = useState<'compose' | 'confirm'>('compose');
   const [rows, setRowsState] = useState<DraftItem[]>([]);
@@ -129,7 +137,10 @@ export default function CaptureScreen() {
     if (recording) {
       const transcript = await stop();
       if (transcript) {
+        setAllowAutoFocus(false);
         setText(transcript);
+        Keyboard.dismiss();
+        inputRef.current?.blur();
       }
       return;
     }
@@ -281,76 +292,83 @@ export default function CaptureScreen() {
             style={styles.flex}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-              <View style={styles.body}>
-                <View style={[styles.composer, recording && styles.composerListening]}>
-                  <TextInput
-                    ref={inputRef}
-                    value={text}
-                    onChangeText={(next) => {
-                      setText(next);
-                      setError(null);
-                      setBannerError(null);
-                      clearSpeechError();
-                    }}
-                    placeholder="What's on your mind?"
-                    placeholderTextColor={Theme.color.textTertiary}
-                    selectionColor={Theme.color.accent}
-                    cursorColor={Theme.color.accent}
-                    style={styles.input}
-                    multiline
-                    textAlignVertical="top"
-                    autoFocus={allowAutoFocus && !lockInput}
-                    editable={!lockInput}
-                    showSoftInputOnFocus={!lockInput}
-                  />
-                </View>
-
-                {submitting ? (
-                  <View style={styles.parse}>
-                    <ParseSkeleton />
-                    {parseStatus ? <Text style={styles.parseStatus}>{parseStatus}</Text> : null}
-                    <TextButton label="Cancel" onPress={cancelParse} tone="secondary" />
-                  </View>
-                ) : (
-                  <>
-                    <View style={styles.voice}>
-                      <VoiceWave
-                        recording={recording}
-                        transcribing={transcribing}
-                        active={focused}
-                        meteringDb={meteringDb}
-                        meteringTick={meteringTick}
-                        onPress={() => void onMicPress()}
-                      />
-                    </View>
-                    <Text style={[styles.hint, recording && styles.hintActive]}>{hint}</Text>
-                  </>
-                )}
-
-                {bannerError ? (
-                  <View style={styles.banner}>
-                    <ErrorBanner message={bannerError} />
-                  </View>
-                ) : null}
-
-                {error || speechError ? (
-                  <Text style={[styles.error, error === EMPTY_PARSE_MESSAGE && styles.gentle]}>
-                    {error || speechError}
-                  </Text>
-                ) : null}
-
-                {canClear ? <TextButton label="Clear" onPress={onClear} tone="secondary" /> : null}
-
-                <PrimaryButton
-                  label="Break down"
-                  onPress={() => void onBreakDown()}
-                  loading={submitting}
-                  disabled={!canSubmit}
-                  style={styles.submit}
+            <ScrollView
+              style={styles.flex}
+              contentContainerStyle={styles.body}
+              {...composerScrollProps(Platform.OS)}
+              onScrollBeginDrag={dragGuard.onScrollBeginDrag}
+              onScrollEndDrag={dragGuard.onScrollEndDrag}
+              onMomentumScrollEnd={dragGuard.onMomentumScrollEnd}
+            >
+              <View style={[styles.composer, recording && styles.composerListening]}>
+                <TextInput
+                  ref={inputRef}
+                  value={text}
+                  onChangeText={(next) => {
+                    setText(next);
+                    setError(null);
+                    setBannerError(null);
+                    clearSpeechError();
+                  }}
+                  placeholder="What's on your mind?"
+                  placeholderTextColor={Theme.color.textTertiary}
+                  selectionColor={Theme.color.accent}
+                  cursorColor={Theme.color.accent}
+                  style={styles.input}
+                  multiline
+                  scrollEnabled={COMPOSER_SCROLL_ENABLED}
+                  textAlignVertical="top"
+                  autoFocus={composerAutoFocus(text, allowAutoFocus, lockInput)}
+                  editable={!lockInput}
+                  showSoftInputOnFocus={!lockInput}
+                  onFocus={dragGuard.onInputFocus}
                 />
               </View>
-            </TouchableWithoutFeedback>
+
+              {submitting ? (
+                <View style={styles.parse}>
+                  <ParseSkeleton />
+                  {parseStatus ? <Text style={styles.parseStatus}>{parseStatus}</Text> : null}
+                  <TextButton label="Cancel" onPress={cancelParse} tone="secondary" />
+                </View>
+              ) : (
+                <>
+                  <View style={styles.voice}>
+                    <VoiceWave
+                      recording={recording}
+                      transcribing={transcribing}
+                      active={focused}
+                      meteringDb={meteringDb}
+                      meteringTick={meteringTick}
+                      onPress={() => void onMicPress()}
+                    />
+                  </View>
+                  <Text style={[styles.hint, recording && styles.hintActive]}>{hint}</Text>
+                </>
+              )}
+
+              {bannerError ? (
+                <View style={styles.banner}>
+                  <ErrorBanner message={bannerError} />
+                </View>
+              ) : null}
+
+              {error || speechError ? (
+                <Text style={[styles.error, error === EMPTY_PARSE_MESSAGE && styles.gentle]}>
+                  {error || speechError}
+                </Text>
+              ) : null}
+
+              {canClear ? <TextButton label="Clear" onPress={onClear} tone="secondary" /> : null}
+
+              <PrimaryButton
+                label="Break down"
+                onPress={() => void onBreakDown()}
+                loading={submitting}
+                disabled={!canSubmit}
+                style={styles.submit}
+              />
+            </ScrollView>
           </KeyboardAvoidingView>
         </>
       )}
@@ -363,14 +381,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   body: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: Theme.space.screenX,
     paddingBottom: Theme.space.lg,
   },
   composer: {
     ...cardSurface,
-    flex: 1,
-    minHeight: 220,
+    flexGrow: 1,
+    flexShrink: 0,
+    minHeight: COMPOSER_MIN_HEIGHT,
     borderRadius: Theme.radius.xl,
     padding: Theme.space.lg,
   },
@@ -378,7 +397,8 @@ const styles = StyleSheet.create({
     borderColor: Theme.color.accent,
   },
   input: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 0,
     fontSize: 24,
     lineHeight: 34,
     color: Theme.color.text,

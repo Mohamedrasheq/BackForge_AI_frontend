@@ -7,6 +7,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Theme } from '@/constants/theme';
+import { useKeyboardDragGuard } from '@/hooks/use-keyboard-drag-guard';
 import { wasLine } from '@/lib/ask-drafts';
 import { CONFIRM_STILL_SAVING_MESSAGE, CONFIRM_STILL_SAVING_MS, confirmSavingLabel } from '@/lib/capture-status';
 import { resolveCategorySuggestion, UNFILED_LABEL } from '@/lib/categories';
@@ -20,6 +21,7 @@ import {
 } from '@/lib/confirm-drafts';
 import { formatDue } from '@/lib/format';
 import { haptics } from '@/lib/haptics';
+import { confirmListScrollProps } from '@/lib/keyboard-scroll';
 import type { Category } from '@/types/api';
 import React, { useEffect, useState } from 'react';
 import {
@@ -167,6 +169,7 @@ export function ConfirmItems({
 }) {
   const saveable = saveableDraftItems(items);
   const canConfirm = saveable.length > 0 && !confirming;
+  const dragGuard = useKeyboardDragGuard();
   // One native DateTimePicker at a time — multiple instances share events on iOS/Android.
   const [activeDueKey, setActiveDueKey] = useState<string | null>(null);
   const [activeTimeKey, setActiveTimeKey] = useState<string | null>(null);
@@ -233,7 +236,10 @@ export function ConfirmItems({
       <ScrollView
         style={styles.flex}
         contentContainerStyle={styles.list}
-        keyboardShouldPersistTaps="handled"
+        {...confirmListScrollProps(Platform.OS)}
+        onScrollBeginDrag={dragGuard.onScrollBeginDrag}
+        onScrollEndDrag={dragGuard.onScrollEndDrag}
+        onMomentumScrollEnd={dragGuard.onMomentumScrollEnd}
       >
         {items.map((item, index) => {
           const remove = draftRemoveControl(item.kind, index);
@@ -274,6 +280,7 @@ export function ConfirmItems({
                     compact
                     text={item.text}
                     onChangeText={(text) => updateAt(item.key, { text })}
+                    onFocus={dragGuard.onInputFocus}
                     dueAt={item.dueAt}
                     onChangeDue={(dueAt) =>
                       updateAt(item.key, { dueAt, ...(dueAt == null ? { suggested: false } : {}) })

@@ -1,5 +1,6 @@
 import { DueField } from '@/components/capture/due-field';
 import { Theme } from '@/constants/theme';
+import { confirmTitleScrollEnabled } from '@/lib/keyboard-scroll';
 import React from 'react';
 import { Platform, StyleSheet, TextInput, type TextStyle } from 'react-native';
 
@@ -24,6 +25,7 @@ export function EditableItemFields({
   showSuggested = false,
   onCommitTime,
   allowClear,
+  onFocus,
 }: {
   text: string;
   onChangeText: (text: string) => void;
@@ -44,6 +46,7 @@ export function EditableItemFields({
   showSuggested?: boolean;
   onCommitTime?: () => void;
   allowClear?: boolean;
+  onFocus?: () => void;
 }) {
   return (
     <>
@@ -61,9 +64,10 @@ export function EditableItemFields({
         ]}
         multiline
         numberOfLines={compact && Platform.OS === 'web' ? 1 : undefined}
-        scrollEnabled={!compact}
+        scrollEnabled={compact ? confirmTitleScrollEnabled() : true}
         textAlignVertical="top"
         autoFocus={autoFocus}
+        onFocus={onFocus}
       />
       <DueField
         value={dueAt}
