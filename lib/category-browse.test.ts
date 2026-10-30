@@ -8,8 +8,10 @@ import {
   buildCategoryBrowseRows,
   categoryBrowseAccessibilityLabel,
   categoryBrowseTitle,
+  categoryBrowseTotalCount,
   categoryCountLabel,
   categoryCountParts,
+  categoryDetailSections,
   itemsInCategory,
   sortDoneByCompleted,
   sortOpenByDue,
@@ -64,6 +66,15 @@ describe('categoryBrowseAccessibilityLabel', () => {
       categoryBrowseAccessibilityLabel('Work', 0, 0),
       'Work, No tasks, opens category'
     );
+  });
+});
+
+describe('categoryBrowseTotalCount', () => {
+  it('is open plus done, including a category with only done items', () => {
+    assert.equal(categoryBrowseTotalCount(4, 12), 16);
+    assert.equal(categoryBrowseTotalCount(4, 0), 4);
+    assert.equal(categoryBrowseTotalCount(0, 12), 12);
+    assert.equal(categoryBrowseTotalCount(0, 0), 0);
   });
 });
 
@@ -142,6 +153,22 @@ describe('buildCategoryBrowseRows', () => {
     assert.equal(buildCategoryBrowseRows(categories, items, '  Ho ').length, 1);
     assert.equal(buildCategoryBrowseRows(categories, items, '  Ho ')[0]?.openCount, 0);
     assert.equal(buildCategoryBrowseRows(categories, items, '  Ho ')[0]?.doneCount, 1);
+  });
+
+  it('shows the total when every task in a category is done', () => {
+    const rows = buildCategoryBrowseRows(
+      [{ id: 'archive', name: 'Archive' }],
+      [
+        item({ id: '1', folderId: 'archive', status: 'done', text: 'File taxes' }),
+        item({ id: '2', folderId: 'archive', status: 'done', text: 'Renew plates' }),
+        item({ id: '3', folderId: 'archive', status: 'done', text: 'Call the dentist' }),
+      ]
+    );
+
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.openCount, 0);
+    assert.equal(rows[0]?.doneCount, 3);
+    assert.equal(categoryBrowseTotalCount(rows[0]?.openCount ?? 0, rows[0]?.doneCount ?? 0), 3);
   });
 
   it('keeps a real category named Unfiled distinct from the synthetic row', () => {
@@ -250,6 +277,65 @@ describe('sortDoneByCompleted', () => {
     assert.deepEqual(
       sortDoneByCompleted([blank, older, createdOnly, newer]).map((entry) => entry.id),
       ['newer', 'created', 'older', 'blank']
+    );
+  });
+});
+
+describe('categoryDetailSections', () => {
+  it('lists Open before Done and includes done items', () => {
+    const laterOpen = item({
+      id: 'later-open',
+      status: 'open',
+      text: 'Ship the newsletter',
+      dueAt: '2026-10-05T12:00:00.000Z',
+    });
+    const soonerOpen = item({
+      id: 'sooner-open',
+      status: 'open',
+      text: 'Book the hall',
+      dueAt: '2026-10-01T12:00:00.000Z',
+    });
+    const olderDone = item({
+      id: 'older-done',
+      status: 'done',
+      text: 'Buy stamps',
+      updatedAt: '2026-09-01T00:00:00.000Z',
+    });
+    const newerDone = item({
+      id: 'newer-done',
+      status: 'done',
+      text: 'Mail invitations',
+      updatedAt: '2026-10-20T00:00:00.000Z',
+    });
+
+    const sections = categoryDetailSections([olderDone, laterOpen, newerDone, soonerOpen]);
+    assert.deepEqual(
+      sections.map((section) => [section.title, section.data.map((entry) => entry.id)]),
+      [
+        ['Open', ['sooner-open', 'later-open']],
+        ['Done', ['newer-done', 'older-done']],
+      ]
+    );
+  });
+
+  it('shows only Done when every item is complete', () => {
+    const sections = categoryDetailSections([
+      item({
+        id: 'a',
+        status: 'done',
+        text: 'Return the library books',
+        updatedAt: '2026-10-02T00:00:00.000Z',
+      }),
+      item({
+        id: 'b',
+        status: 'done',
+        text: 'Water the plants',
+        updatedAt: '2026-10-03T00:00:00.000Z',
+      }),
+    ]);
+    assert.deepEqual(
+      sections.map((section) => [section.title, section.data.map((entry) => entry.id)]),
+      [['Done', ['b', 'a']]]
     );
   });
 });

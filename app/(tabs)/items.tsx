@@ -21,6 +21,7 @@ import { REVIEW_HREF } from '@/lib/review-push';
 import {
   buildCategoryBrowseRows,
   categoryBrowseAccessibilityLabel,
+  categoryBrowseTotalCount,
   type CategoryBrowseRow,
 } from '@/lib/category-browse';
 import { groupItemsByCategory } from '@/lib/categories';
@@ -102,7 +103,9 @@ function CategoryRow({
         <Text style={[styles.categoryName, row.unfiled && styles.categoryNameMuted]} numberOfLines={1}>
           {row.name}
         </Text>
-        <Text style={[styles.count, row.openCount > 0 && styles.countOpen]}>{row.openCount}</Text>
+        <Text style={[styles.count, row.openCount > 0 && styles.countOpen]}>
+          {categoryBrowseTotalCount(row.openCount, row.doneCount)}
+        </Text>
         <IconSymbol name="chevron.right" size={18} color={Theme.color.textTertiary} />
       </View>
     </Pressable>
